@@ -57,7 +57,7 @@ class DeltaLakeCallback(BackendQueue):
             TICKER: ['bid', 'ask'],
             OPEN_INTEREST: ['open_interest'],
             LIQUIDATIONS: ['quantity', 'price'],
-            BOOK: [],  # Book data is typically queried by timestamp and symbol
+            "book": [],  # Book data is typically queried by timestamp and symbol
             CANDLES: ['open', 'close', 'high', 'low'],
             ORDER_INFO: ['status', 'price', 'amount'],
             TRANSACTIONS: ['type', 'amount'],
