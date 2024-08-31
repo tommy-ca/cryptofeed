@@ -5,7 +5,9 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 from typing import Optional, List, Dict, Any
+from collections import defaultdict
 import logging
+
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
@@ -228,6 +230,11 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     - delta: dict (nullable, contains 'bid' and 'ask' updates)
     - book: dict (contains full order book snapshot when available)
     """
+    def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
+        self.snapshots_only = snapshots_only
+        self.snapshot_interval = snapshot_interval
+        self.snapshot_count = defaultdict(int)
+        super().__init__(*args, **kwargs)
 
 class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = CANDLES
