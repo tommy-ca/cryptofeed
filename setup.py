@@ -95,6 +95,7 @@ setup(
         "rabbit": ["aio_pika", "pika"],
         "redis": ["hiredis", "redis>=4.5.1"],
         "zmq": ["pyzmq"],
+        "deltalake": ["deltalake>=0.6.1", "pandas"],
         "all": [
             "arctic",
             "google_cloud_pubsub>=2.4.1",
@@ -107,6 +108,7 @@ setup(
             "hiredis",
             "redis>=4.5.1",
             "pyzmq",
+            "deltalake>=0.6.1",
         ],
     },
 )
