@@ -12,7 +12,7 @@ import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
 from cryptofeed.backends.backend import BackendQueue, BackendBookCallback, BackendCallback
-from cryptofeed.defines import BALANCES, CANDLES, FILLS, FUNDING, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, LIQUIDATIONS, TRANSACTIONS, BOOK
+from cryptofeed.defines import BALANCES, CANDLES, FILLS, FUNDING, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, LIQUIDATIONS, TRANSACTIONS
 
 LOG = logging.getLogger('feedhandler')
 
@@ -217,7 +217,7 @@ class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     """
 
 class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
-    default_key = BOOK
+    default_key = "book"
     """
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
