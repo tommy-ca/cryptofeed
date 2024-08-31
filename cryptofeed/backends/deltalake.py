@@ -4,9 +4,10 @@ Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from collections import defaultdict
 import logging
+import numpy as np
 
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
@@ -16,16 +17,19 @@ from cryptofeed.defines import BALANCES, CANDLES, FILLS, FUNDING, OPEN_INTEREST,
 
 LOG = logging.getLogger('feedhandler')
 
+
 class DeltaLakeCallback(BackendQueue):
-    def __init__(self, 
-                 base_path: str, 
-                 key: Optional[str] = None, 
+    def __init__(self,
+                 base_path: str,
+                 key: Optional[str] = None,
                  custom_columns: Optional[Dict[str, str]] = None,
                  partition_cols: Optional[List[str]] = None,
                  optimize_interval: int = 100,
                  z_order_cols: Optional[List[str]] = None,
                  time_travel: bool = False,
                  storage_options: Optional[Dict[str, Any]] = None,
+                 numeric_type: Union[type, str] = float,
+                 none_to: Any = None,
                  **kwargs: Any):
         super().__init__()
         self.key = key or self.default_key
@@ -48,6 +52,9 @@ class DeltaLakeCallback(BackendQueue):
 
         if not isinstance(self.z_order_cols, list):
             raise TypeError("z_order_cols must be a list of strings")
+
+        self.numeric_type = numeric_type
+        self.none_to = none_to
 
     def _default_z_order_cols(self) -> List[str]:
         common_cols = ['exchange', 'symbol', 'timestamp']
@@ -89,6 +96,15 @@ class DeltaLakeCallback(BackendQueue):
             return
 
         try:
+            # Convert numeric columns to the specified numeric type
+            numeric_columns = df.select_dtypes(include=[np.number]).columns
+            for col in numeric_columns:
+                df[col] = df[col].astype(self.numeric_type)
+
+            # Replace None values with the specified value
+            if self.none_to is not None:
+                df = df.fillna(self.none_to)
+
             LOG.info(f"Writing batch of {len(df)} records to {self.delta_table_path}")
             write_deltalake(
                 self.delta_table_path,
@@ -134,6 +150,7 @@ class DeltaLakeCallback(BackendQueue):
             LOG.warning("Time travel is not enabled for this table")
             return None
 
+
 class TradeDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TRADES
     """
@@ -152,6 +169,7 @@ class TradeDeltaLake(DeltaLakeCallback, BackendCallback):
     - type: string (nullable)
     """
 
+
 class FundingDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = FUNDING
     """
@@ -169,6 +187,7 @@ class FundingDeltaLake(DeltaLakeCallback, BackendCallback):
     - predicted_rate: float64 (nullable)
     """
 
+
 class TickerDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TICKER
     """
@@ -184,6 +203,7 @@ class TickerDeltaLake(DeltaLakeCallback, BackendCallback):
     - ask: float64
     """
 
+
 class OpenInterestDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = OPEN_INTEREST
     """
@@ -197,6 +217,7 @@ class OpenInterestDeltaLake(DeltaLakeCallback, BackendCallback):
     - symbol: string
     - open_interest: float64
     """
+
 
 class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = LIQUIDATIONS
@@ -215,6 +236,7 @@ class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     - id: string
     - status: string
     """
+
 
 class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     default_key = "book"
@@ -235,6 +257,7 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
         self.snapshot_interval = snapshot_interval
         self.snapshot_count = defaultdict(int)
         super().__init__(*args, **kwargs)
+
 
 class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = CANDLES
@@ -259,6 +282,7 @@ class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     - closed: bool (nullable)
     """
 
+
 class OrderInfoDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = ORDER_INFO
     """
@@ -281,6 +305,7 @@ class OrderInfoDeltaLake(DeltaLakeCallback, BackendCallback):
     - account: string (nullable)
     """
 
+
 class TransactionsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TRANSACTIONS
     """
@@ -297,6 +322,7 @@ class TransactionsDeltaLake(DeltaLakeCallback, BackendCallback):
     - amount: float64
     """
 
+
 class BalancesDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = BALANCES
     """
@@ -311,6 +337,7 @@ class BalancesDeltaLake(DeltaLakeCallback, BackendCallback):
     - balance: float64
     - reserved: float64 (nullable)
     """
+
 
 class FillsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = FILLS
