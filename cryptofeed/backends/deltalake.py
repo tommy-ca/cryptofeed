@@ -13,9 +13,23 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -115,10 +129,10 @@ class DeltaLakeCallback(BackendQueue):
             return
 
         try:
-            # Ensure timestamp columns are in nanosecond precision
+            # Convert timestamp columns from ns to us
             timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
             for col in timestamp_columns:
-                df[col] = df[col].astype("datetime64[ns]")
+                df[col] = df[col].astype("datetime64[us]")
 
             # Convert numeric columns to the specified numeric type
             numeric_columns = df.select_dtypes(include=[np.number]).columns
