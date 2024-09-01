@@ -82,7 +82,7 @@ class DeltaLakeCallback(BackendQueue):
         self.none_to = none_to
 
     def _default_z_order_cols(self) -> List[str]:
-        common_cols = ["exchange", "symbol", "timestamp"]
+        common_cols = ["timestamp"]
         data_specific_cols = {
             TRADES: ["price", "amount"],
             FUNDING: ["rate"],
@@ -96,7 +96,9 @@ class DeltaLakeCallback(BackendQueue):
             BALANCES: ["balance"],
             FILLS: ["price", "amount"],
         }
-        return common_cols + data_specific_cols.get(self.key, [])
+        z_order_cols = common_cols + data_specific_cols.get(self.key, [])
+        # Remove any columns that are already in partition_cols
+        return [col for col in z_order_cols if col not in self.partition_cols]
 
     async def writer(self):
         while self.running:
@@ -139,9 +141,20 @@ class DeltaLakeCallback(BackendQueue):
             for col in numeric_columns:
                 df[col] = df[col].astype(self.numeric_type)
 
-            # Replace None values with the specified value
+            # Handle null values
             if self.none_to is not None:
                 df = df.fillna(self.none_to)
+            else:
+                # Replace None with appropriate default values based on column type
+                for col in df.columns:
+                    if df[col].dtype == 'object':
+                        df[col] = df[col].fillna('')  # Replace None with empty string for object columns
+                    elif df[col].dtype in ['float64', 'int64']:
+                        df[col] = df[col].fillna(0)  # Replace None with 0 for numeric columns
+                    elif df[col].dtype == 'bool':
+                        df[col] = df[col].fillna(False)  # Replace None with False for boolean columns
+                    elif df[col].dtype == 'datetime64[us]':
+                        df[col] = df[col].fillna(pd.Timestamp.min)  # Replace None with minimum timestamp for datetime columns
 
             LOG.info(f"Writing batch of {len(df)} records to {self.delta_table_path}")
             write_deltalake(
