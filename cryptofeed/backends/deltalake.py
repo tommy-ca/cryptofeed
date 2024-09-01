@@ -1,49 +1,60 @@
-'''
+"""
 Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
-'''
-from typing import Optional, List, Dict, Any, Union
-from collections import defaultdict
-import logging
-import numpy as np
+"""
 
+import logging
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendQueue, BackendBookCallback, BackendCallback
-from cryptofeed.defines import BALANCES, CANDLES, FILLS, FUNDING, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, LIQUIDATIONS, TRANSACTIONS
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
-LOG = logging.getLogger('feedhandler')
+
+LOG = logging.getLogger("feedhandler")
 
 
 class DeltaLakeCallback(BackendQueue):
-    def __init__(self,
-                 base_path: str,
-                 key: Optional[str] = None,
-                 custom_columns: Optional[Dict[str, str]] = None,
-                 partition_cols: Optional[List[str]] = None,
-                 optimize_interval: int = 100,
-                 z_order_cols: Optional[List[str]] = None,
-                 time_travel: bool = False,
-                 storage_options: Optional[Dict[str, Any]] = None,
-                 numeric_type: Union[type, str] = float,
-                 none_to: Any = None,
-                 **kwargs: Any):
+    def __init__(
+        self,
+        base_path: str,
+        key: Optional[str] = None,
+        custom_columns: Optional[Dict[str, str]] = None,
+        partition_cols: Optional[List[str]] = None,
+        optimize_interval: int = 100,
+        z_order_cols: Optional[List[str]] = None,
+        time_travel: bool = False,
+        storage_options: Optional[Dict[str, Any]] = None,
+        numeric_type: Union[type, str] = float,
+        none_to: Any = None,
+        **kwargs: Any,
+    ):
         super().__init__()
         self.key = key or self.default_key
         self.base_path = base_path
         self.delta_table_path = f"{self.base_path}/{self.key}"
         self.custom_columns = custom_columns or {}
-        self.partition_cols = partition_cols or ['exchange', 'symbol', 'year', 'month', 'day']
+        self.partition_cols = partition_cols or [
+            "exchange",
+            "symbol",
+            "year",
+            "month",
+            "day",
+        ]
         self.optimize_interval = optimize_interval
         self.z_order_cols = z_order_cols or self._default_z_order_cols()
         self.time_travel = time_travel
         self.storage_options = storage_options or {}
         self.write_count = 0
         self.running = True
-        
+
         if optimize_interval <= 0:
             raise ValueError("optimize_interval must be a positive integer")
 
@@ -57,19 +68,19 @@ class DeltaLakeCallback(BackendQueue):
         self.none_to = none_to
 
     def _default_z_order_cols(self) -> List[str]:
-        common_cols = ['exchange', 'symbol', 'timestamp']
+        common_cols = ["exchange", "symbol", "timestamp"]
         data_specific_cols = {
-            TRADES: ['price', 'amount'],
-            FUNDING: ['rate'],
-            TICKER: ['bid', 'ask'],
-            OPEN_INTEREST: ['open_interest'],
-            LIQUIDATIONS: ['quantity', 'price'],
+            TRADES: ["price", "amount"],
+            FUNDING: ["rate"],
+            TICKER: ["bid", "ask"],
+            OPEN_INTEREST: ["open_interest"],
+            LIQUIDATIONS: ["quantity", "price"],
             "book": [],  # Book data is typically queried by timestamp and symbol
-            CANDLES: ['open', 'close', 'high', 'low'],
-            ORDER_INFO: ['status', 'price', 'amount'],
-            TRANSACTIONS: ['type', 'amount'],
-            BALANCES: ['balance'],
-            FILLS: ['price', 'amount']
+            CANDLES: ["open", "close", "high", "low"],
+            ORDER_INFO: ["status", "price", "amount"],
+            TRANSACTIONS: ["type", "amount"],
+            BALANCES: ["balance"],
+            FILLS: ["price", "amount"],
         }
         return common_cols + data_specific_cols.get(self.key, [])
 
@@ -78,17 +89,25 @@ class DeltaLakeCallback(BackendQueue):
             async with self.read_queue() as updates:
                 if updates:
                     df = pd.DataFrame(updates)
-                    df['date'] = pd.to_datetime(df['timestamp'], unit='s')
-                    df['receipt_timestamp'] = pd.to_datetime(df['receipt_timestamp'], unit='s')
-                    df['year'], df['month'], df['day'] = df['date'].dt.year, df['date'].dt.month, df['date'].dt.day
-                    
+                    df["date"] = pd.to_datetime(df["timestamp"], unit="s")
+                    df["receipt_timestamp"] = pd.to_datetime(
+                        df["receipt_timestamp"], unit="s"
+                    )
+                    df["year"], df["month"], df["day"] = (
+                        df["date"].dt.year,
+                        df["date"].dt.month,
+                        df["date"].dt.day,
+                    )
+
                     # Reorder columns to put exchange and symbol first
-                    cols = ['exchange', 'symbol'] + [col for col in df.columns if col not in ['exchange', 'symbol']]
+                    cols = ["exchange", "symbol"] + [
+                        col for col in df.columns if col not in ["exchange", "symbol"]
+                    ]
                     df = df[cols]
-                    
+
                     if self.custom_columns:
                         df = df.rename(columns=self.custom_columns)
-                    
+
                     await self._write_batch(df)
 
     async def _write_batch(self, df: pd.DataFrame):
@@ -96,6 +115,11 @@ class DeltaLakeCallback(BackendQueue):
             return
 
         try:
+            # Ensure timestamp columns are in nanosecond precision
+            timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
+            for col in timestamp_columns:
+                df[col] = df[col].astype("datetime64[ns]")
+
             # Convert numeric columns to the specified numeric type
             numeric_columns = df.select_dtypes(include=[np.number]).columns
             for col in numeric_columns:
@@ -112,7 +136,7 @@ class DeltaLakeCallback(BackendQueue):
                 mode="append",
                 partition_by=self.partition_cols,
                 schema_mode="merge",
-                storage_options=self.storage_options
+                storage_options=self.storage_options,
             )
             self.write_count += 1
 
@@ -252,6 +276,7 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     - delta: dict (nullable, contains 'bid' and 'ask' updates)
     - book: dict (contains full order book snapshot when available)
     """
+
     def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
         self.snapshots_only = snapshots_only
         self.snapshot_interval = snapshot_interval
