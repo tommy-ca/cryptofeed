@@ -14,9 +14,23 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -124,7 +138,7 @@ class DeltaLakeCallback(BackendQueue):
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ms]")
         if "timestamp" in df.columns:
-            df["dt"] = df["timestamp"].dt.strftime("%Y-%m-%d")
+            df["dt"] = df["timestamp"].dt.date.astype("string")
 
     def _convert_category_fields(self, df: pd.DataFrame):
         LOG.debug("Converting category fields.")
@@ -248,9 +262,9 @@ class DeltaLakeCallback(BackendQueue):
                     df[col] = df[col].fillna(
                         False
                     )  # Replace None with False for boolean columns
-                elif df[col].dtype == "datetime64[ns]":
+                elif df[col].dtype == "datetime64[ms]":
                     df[col] = df[col].fillna(
-                        pd.Timestamp.min
+                        pd.Timestamp.min.astype("datetime64[ms]")
                     )  # Replace None with minimum timestamp for datetime columns
             return df
 
