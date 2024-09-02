@@ -14,23 +14,9 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import (
-    BackendBookCallback,
-    BackendCallback,
-    BackendQueue,
-)
-from cryptofeed.defines import (
-    BALANCES,
-    CANDLES,
-    FILLS,
-    FUNDING,
-    LIQUIDATIONS,
-    OPEN_INTEREST,
-    ORDER_INFO,
-    TICKER,
-    TRADES,
-    TRANSACTIONS,
-)
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -128,7 +114,7 @@ class DeltaLakeCallback(BackendQueue):
     def _convert_fields(self, df: pd.DataFrame):
         LOG.debug("Converting fields in DataFrame.")
         self._convert_datetime_fields(df)
-        self._convert_category_fields(df)
+        # self._convert_category_fields(df)
         self._convert_int_fields(df)
 
     def _convert_datetime_fields(self, df: pd.DataFrame):
@@ -155,8 +141,8 @@ class DeltaLakeCallback(BackendQueue):
             if col in df.columns:
                 # Add empty string as a category if it's not already present
                 categories = df[col].unique().tolist()
-                if '' not in categories:
-                    categories.append('')
+                if "" not in categories:
+                    categories.append("")
                 df[col] = pd.Categorical(df[col], categories=categories)
 
     def _convert_int_fields(self, df: pd.DataFrame):
@@ -255,9 +241,9 @@ class DeltaLakeCallback(BackendQueue):
             for col in df.columns:
                 if pd.api.types.is_categorical_dtype(df[col]):
                     # Ensure '' is in the categories before filling
-                    if '' not in df[col].cat.categories:
-                        df[col] = df[col].cat.add_categories([''])
-                    df[col] = df[col].fillna('')
+                    if "" not in df[col].cat.categories:
+                        df[col] = df[col].cat.add_categories([""])
+                    df[col] = df[col].fillna("")
                 elif pd.api.types.is_string_dtype(df[col]):
                     df[col] = df[col].fillna("")
                 elif pd.api.types.is_numeric_dtype(df[col]):
