@@ -248,25 +248,18 @@ class DeltaLakeCallback(BackendQueue):
         if self.none_to is not None:
             return df.fillna(self.none_to)
         else:
-            # Replace None with appropriate default values based on column type
             for col in df.columns:
-                if df[col].dtype == "object":
-                    df[col] = df[col].fillna(
-                        ""
-                    )  # Replace None with empty string for object columns
-                elif df[col].dtype in ["float64", "int64"]:
-                    df[col] = df[col].fillna(
-                        0
-                    )  # Replace None with 0 for numeric columns
-                elif df[col].dtype == "bool":
-                    df[col] = df[col].fillna(
-                        False
-                    )  # Replace None with False for boolean columns
-                elif df[col].dtype == "datetime64[ms]":
-                    df[col] = df[col].fillna(
-                        pd.Timestamp.min.astype("datetime64[ms]")
-                    )  # Replace None with minimum timestamp for datetime columns
-            return df
+                if pd.api.types.is_string_dtype(
+                    df[col]
+                ) or pd.api.types.is_categorical_dtype(df[col]):
+                    df[col] = df[col].fillna("")
+                elif pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].fillna(0)
+                elif pd.api.types.is_bool_dtype(df[col]):
+                    df[col] = df[col].fillna(False)
+                elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].fillna(pd.Timestamp.min).astype("datetime64[ms]")
+        return df
 
     async def _optimize_table(self):
         LOG.info(f"Running OPTIMIZE on table {self.delta_table_path}")
