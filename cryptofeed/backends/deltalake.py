@@ -217,9 +217,13 @@ class DeltaLakeCallback(BackendQueue):
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
+                # When error is related to timestamp, print the schema of the DataFrame
+                if "timestamp" in str(e):
+                    LOG.error(f"DataFrame schema:\n{df.dtypes}")
                 LOG.error(
                     f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
                 )
+
                 if attempt < max_retries - 1:
                     LOG.info(f"Retrying in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
