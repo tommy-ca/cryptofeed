@@ -136,7 +136,7 @@ class DeltaLakeCallback(BackendQueue):
         datetime_columns = ["timestamp", "receipt_timestamp"]
         for col in datetime_columns:
             if col in df.columns:
-                df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ns]")
+                df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ms]")
         if "timestamp" in df.columns:
             df["dt"] = df["timestamp"].dt.strftime("%Y-%m-%d")
 
@@ -178,10 +178,10 @@ class DeltaLakeCallback(BackendQueue):
                 # Debug output the schema of the DataFrame
                 LOG.debug(f"DataFrame schema:\n{df.dtypes}")
 
-                # Convert timestamp columns to datetime64[ns]
+                # Convert timestamp columns to datetime64[ms]
                 timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
                 for col in timestamp_columns:
-                    df[col] = df[col].astype("datetime64[ns]")
+                    df[col] = df[col].astype("datetime64[ms]")
 
                 # Convert numeric columns to the specified numeric type
                 numeric_columns = df.select_dtypes(include=[np.number]).columns
