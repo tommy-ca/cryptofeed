@@ -175,6 +175,9 @@ class DeltaLakeCallback(BackendQueue):
                 LOG.info(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
                 )
+                # Debug output the schema of the DataFrame
+                LOG.debug(f"DataFrame schema:\n{df.dtypes}")
+
                 # Convert timestamp columns to datetime64[ns]
                 timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
                 for col in timestamp_columns:
@@ -191,6 +194,9 @@ class DeltaLakeCallback(BackendQueue):
                 LOG.info(
                     f"Writing batch of {len(df)} records to {self.delta_table_path}"
                 )
+                # Debug output the schema of the DataFrame
+                LOG.debug(f"DataFrame schema before write:\n{df.dtypes}")
+
                 write_deltalake(
                     self.delta_table_path,
                     df,
