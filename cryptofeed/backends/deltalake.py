@@ -14,9 +14,23 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -49,12 +63,10 @@ class DeltaLakeCallback(BackendQueue):
         self.storage_options = storage_options or {}
         self.write_count = 0
         self.running = True
-
-        # Validate configuration parameters
-        self._validate_configuration()
-
         self.numeric_type = numeric_type
         self.none_to = none_to
+        # Validate configuration parameters
+        self._validate_configuration()
 
     def _validate_configuration(self):
         if self.optimize_interval <= 0:
