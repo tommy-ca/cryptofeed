@@ -153,7 +153,11 @@ class DeltaLakeCallback(BackendQueue):
         ]
         for col in category_columns:
             if col in df.columns:
-                df[col] = df[col].astype("category")
+                # Add empty string as a category if it's not already present
+                categories = df[col].unique().tolist()
+                if '' not in categories:
+                    categories.append('')
+                df[col] = pd.Categorical(df[col], categories=categories)
 
     def _convert_int_fields(self, df: pd.DataFrame):
         LOG.debug("Converting integer fields.")
@@ -249,9 +253,12 @@ class DeltaLakeCallback(BackendQueue):
             return df.fillna(self.none_to)
         else:
             for col in df.columns:
-                if pd.api.types.is_string_dtype(
-                    df[col]
-                ) or pd.api.types.is_categorical_dtype(df[col]):
+                if pd.api.types.is_categorical_dtype(df[col]):
+                    # Ensure '' is in the categories before filling
+                    if '' not in df[col].cat.categories:
+                        df[col] = df[col].cat.add_categories([''])
+                    df[col] = df[col].fillna('')
+                elif pd.api.types.is_string_dtype(df[col]):
                     df[col] = df[col].fillna("")
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = df[col].fillna(0)
