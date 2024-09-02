@@ -138,7 +138,7 @@ class DeltaLakeCallback(BackendQueue):
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ms]")
         if "timestamp" in df.columns:
-            df["dt"] = df["timestamp"].dt.date.astype("string")
+            df["dt"] = df["timestamp"].dt.strftime("%Y-%m-%d")
 
     def _convert_category_fields(self, df: pd.DataFrame):
         LOG.debug("Converting category fields.")
