@@ -5,6 +5,7 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 """
 
+import asyncio
 import logging
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
@@ -13,23 +14,9 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import (
-    BackendBookCallback,
-    BackendCallback,
-    BackendQueue,
-)
-from cryptofeed.defines import (
-    BALANCES,
-    CANDLES,
-    FILLS,
-    FUNDING,
-    LIQUIDATIONS,
-    OPEN_INTEREST,
-    ORDER_INFO,
-    TICKER,
-    TRADES,
-    TRANSACTIONS,
-)
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -55,13 +42,7 @@ class DeltaLakeCallback(BackendQueue):
         self.base_path = base_path
         self.delta_table_path = f"{self.base_path}/{self.key}"
         self.custom_columns = custom_columns or {}
-        self.partition_cols = partition_cols or [
-            "exchange",
-            "symbol",
-            "year",
-            "month",
-            "day",
-        ]
+        self.partition_cols = partition_cols or ["exchange", "symbol", "dt"]
         self.optimize_interval = optimize_interval
         self.z_order_cols = z_order_cols or self._default_z_order_cols()
         self.time_travel = time_travel
@@ -69,17 +50,31 @@ class DeltaLakeCallback(BackendQueue):
         self.write_count = 0
         self.running = True
 
-        if optimize_interval <= 0:
-            raise ValueError("optimize_interval must be a positive integer")
-
-        if not isinstance(self.partition_cols, list):
-            raise TypeError("partition_cols must be a list of strings")
-
-        if not isinstance(self.z_order_cols, list):
-            raise TypeError("z_order_cols must be a list of strings")
+        # Validate configuration parameters
+        self._validate_configuration()
 
         self.numeric_type = numeric_type
         self.none_to = none_to
+
+    def _validate_configuration(self):
+        if self.optimize_interval <= 0:
+            raise ValueError("optimize_interval must be a positive integer")
+
+        if not isinstance(self.partition_cols, list) or not all(
+            isinstance(col, str) for col in self.partition_cols
+        ):
+            raise TypeError("partition_cols must be a list of strings")
+
+        if not isinstance(self.z_order_cols, list) or not all(
+            isinstance(col, str) for col in self.z_order_cols
+        ):
+            raise TypeError("z_order_cols must be a list of strings")
+
+        if not isinstance(self.storage_options, dict):
+            raise TypeError("storage_options must be a dictionary")
+
+        if not isinstance(self.numeric_type, (type, str)):
+            raise TypeError("numeric_type must be a type or a string")
 
     def _default_z_order_cols(self) -> List[str]:
         common_cols = ["timestamp"]
@@ -104,17 +99,9 @@ class DeltaLakeCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 if updates:
+                    LOG.info(f"Received {len(updates)} updates for processing.")
                     df = pd.DataFrame(updates)
-                    df["date"] = pd.to_datetime(df["timestamp"], unit="s")
-                    df["receipt_timestamp"] = pd.to_datetime(
-                        df["receipt_timestamp"], unit="s"
-                    )
-                    df["year"], df["month"], df["day"] = (
-                        df["date"].dt.year,
-                        df["date"].dt.month,
-                        df["date"].dt.day,
-                    )
-
+                    self._convert_fields(df)
                     # Reorder columns to put exchange and symbol first
                     cols = ["exchange", "symbol"] + [
                         col for col in df.columns if col not in ["exchange", "symbol"]
@@ -126,55 +113,126 @@ class DeltaLakeCallback(BackendQueue):
 
                     await self._write_batch(df)
 
+    def _convert_fields(self, df: pd.DataFrame):
+        LOG.debug("Converting fields in DataFrame.")
+        self._convert_datetime_fields(df)
+        self._convert_category_fields(df)
+        self._convert_int_fields(df)
+
+    def _convert_datetime_fields(self, df: pd.DataFrame):
+        LOG.debug("Converting datetime fields.")
+        datetime_columns = ["timestamp", "receipt_timestamp"]
+        for col in datetime_columns:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ns]")
+        if "timestamp" in df.columns:
+            df["dt"] = df["timestamp"].dt.strftime("%Y-%m-%d")
+
+    def _convert_category_fields(self, df: pd.DataFrame):
+        LOG.debug("Converting category fields.")
+        category_columns = [
+            "exchange",
+            "symbol",
+            "side",
+            "type",
+            "status",
+            "currency",
+            "liquidity",
+        ]
+        for col in category_columns:
+            if col in df.columns:
+                df[col] = df[col].astype("category")
+
+    def _convert_int_fields(self, df: pd.DataFrame):
+        LOG.debug("Converting integer fields.")
+        int_columns = ["id", "trade_id", "trades"]
+        for col in int_columns:
+            if col in df.columns:
+                df[col] = df[col].astype("int64")
+
     async def _write_batch(self, df: pd.DataFrame):
         if df.empty:
+            LOG.warning("DataFrame is empty. Skipping write operation.")
             return
 
-        try:
-            # Convert timestamp columns from ns to us
-            timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
-            for col in timestamp_columns:
-                df[col] = df[col].astype("datetime64[us]")
+        max_retries = 3
+        retry_delay = 5  # seconds
 
-            # Convert numeric columns to the specified numeric type
-            numeric_columns = df.select_dtypes(include=[np.number]).columns
-            for col in numeric_columns:
-                df[col] = df[col].astype(self.numeric_type)
+        for attempt in range(max_retries):
+            try:
+                LOG.info(
+                    f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
+                )
+                # Convert timestamp columns to datetime64[ns]
+                timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
+                for col in timestamp_columns:
+                    df[col] = df[col].astype("datetime64[ns]")
 
-            # Handle null values
-            if self.none_to is not None:
-                df = df.fillna(self.none_to)
-            else:
-                # Replace None with appropriate default values based on column type
-                for col in df.columns:
-                    if df[col].dtype == 'object':
-                        df[col] = df[col].fillna('')  # Replace None with empty string for object columns
-                    elif df[col].dtype in ['float64', 'int64']:
-                        df[col] = df[col].fillna(0)  # Replace None with 0 for numeric columns
-                    elif df[col].dtype == 'bool':
-                        df[col] = df[col].fillna(False)  # Replace None with False for boolean columns
-                    elif df[col].dtype == 'datetime64[us]':
-                        df[col] = df[col].fillna(pd.Timestamp.min)  # Replace None with minimum timestamp for datetime columns
+                # Convert numeric columns to the specified numeric type
+                numeric_columns = df.select_dtypes(include=[np.number]).columns
+                for col in numeric_columns:
+                    df[col] = df[col].astype(self.numeric_type)
 
-            LOG.info(f"Writing batch of {len(df)} records to {self.delta_table_path}")
-            write_deltalake(
-                self.delta_table_path,
-                df,
-                mode="append",
-                partition_by=self.partition_cols,
-                schema_mode="merge",
-                storage_options=self.storage_options,
-            )
-            self.write_count += 1
+                # Handle null values
+                df = self._handle_null_values(df)
 
-            if self.write_count % self.optimize_interval == 0:
-                await self._optimize_table()
+                LOG.info(
+                    f"Writing batch of {len(df)} records to {self.delta_table_path}"
+                )
+                write_deltalake(
+                    self.delta_table_path,
+                    df,
+                    mode="append",
+                    partition_by=self.partition_cols,
+                    schema_mode="merge",
+                    storage_options=self.storage_options,
+                )
+                self.write_count += 1
 
-            if self.time_travel:
-                self._update_metadata()
+                if self.write_count % self.optimize_interval == 0:
+                    await self._optimize_table()
 
-        except Exception as e:
-            LOG.error(f"Error writing to Delta Lake: {e}")
+                if self.time_travel:
+                    self._update_metadata()
+
+                LOG.info("Batch write successful.")
+                break  # Exit the retry loop if write is successful
+
+            except Exception as e:
+                LOG.error(
+                    f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
+                )
+                if attempt < max_retries - 1:
+                    LOG.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    LOG.error(
+                        "Max retries reached. Failed to write batch to Delta Lake."
+                    )
+
+    def _handle_null_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.none_to is not None:
+            return df.fillna(self.none_to)
+        else:
+            # Replace None with appropriate default values based on column type
+            for col in df.columns:
+                if df[col].dtype == "object":
+                    df[col] = df[col].fillna(
+                        ""
+                    )  # Replace None with empty string for object columns
+                elif df[col].dtype in ["float64", "int64"]:
+                    df[col] = df[col].fillna(
+                        0
+                    )  # Replace None with 0 for numeric columns
+                elif df[col].dtype == "bool":
+                    df[col] = df[col].fillna(
+                        False
+                    )  # Replace None with False for boolean columns
+                elif df[col].dtype == "datetime64[ns]":
+                    df[col] = df[col].fillna(
+                        pd.Timestamp.min
+                    )  # Replace None with minimum timestamp for datetime columns
+            return df
 
     async def _optimize_table(self):
         LOG.info(f"Running OPTIMIZE on table {self.delta_table_path}")
@@ -182,21 +240,27 @@ class DeltaLakeCallback(BackendQueue):
         dt.optimize.compact()
         if self.z_order_cols:
             dt.optimize.z_order(self.z_order_cols)
+        LOG.info("OPTIMIZE operation completed.")
 
     def _update_metadata(self):
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
         LOG.info(f"Updating metadata for time travel. Current version: {dt.version()}")
 
     async def stop(self):
+        LOG.info("Stopping DeltaLakeCallback writer.")
         self.running = False
 
     def get_version(self, timestamp: Optional[int] = None) -> Optional[int]:
         if self.time_travel:
             dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
             if timestamp:
-                return dt.version_at_timestamp(timestamp)
+                version = dt.version_at_timestamp(timestamp)
+                LOG.info(f"Retrieved version {version} for timestamp {timestamp}.")
+                return version
             else:
-                return dt.version()
+                version = dt.version()
+                LOG.info(f"Retrieved current version {version}.")
+                return version
         else:
             LOG.warning("Time travel is not enabled for this table")
             return None
@@ -208,16 +272,15 @@ class TradeDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
-    - id: string (nullable)
-    - side: string
+    - dt: string
+    - exchange: category
+    - symbol: category
+    - id: int64 (nullable)
+    - side: category
     - amount: float64
     - price: float64
-    - type: string (nullable)
+    - type: category (nullable)
+    - trade_id: int64
     """
 
 
@@ -227,11 +290,9 @@ class FundingDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - mark_price: float64 (nullable)
     - rate: float64
     - next_funding_time: datetime64[ns] (nullable)
@@ -245,11 +306,9 @@ class TickerDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - bid: float64
     - ask: float64
     """
@@ -261,11 +320,9 @@ class OpenInterestDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - open_interest: float64
     """
 
@@ -276,16 +333,14 @@ class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
-    - side: string
+    - dt: string
+    - exchange: category
+    - symbol: category
+    - side: category
     - quantity: float64
     - price: float64
-    - id: string
-    - status: string
+    - id: int64
+    - status: category
     """
 
 
@@ -295,11 +350,9 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - delta: dict (nullable, contains 'bid' and 'ask' updates)
     - book: dict (contains full order book snapshot when available)
     """
@@ -317,11 +370,9 @@ class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - start: datetime64[ns]
     - stop: datetime64[ns]
     - interval: string
@@ -341,16 +392,14 @@ class OrderInfoDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
-    - id: string
+    - dt: string
+    - exchange: category
+    - symbol: category
+    - id: int64
     - client_order_id: string (nullable)
-    - side: string
-    - status: string
-    - type: string
+    - side: category
+    - status: category
+    - type: category
     - price: float64
     - amount: float64
     - remaining: float64 (nullable)
@@ -364,13 +413,11 @@ class TransactionsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - currency: string
-    - type: string
-    - status: string
+    - dt: string
+    - exchange: category
+    - currency: category
+    - type: category
+    - status: category
     - amount: float64
     """
 
@@ -381,11 +428,9 @@ class BalancesDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - currency: string
+    - dt: string
+    - exchange: category
+    - currency: category
     - balance: float64
     - reserved: float64 (nullable)
     """
@@ -397,18 +442,16 @@ class FillsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[ns] (from 'date' column)
     - receipt_timestamp: datetime64[ns]
-    - year: int32
-    - month: int32
-    - day: int32
-    - exchange: string
-    - symbol: string
+    - dt: string
+    - exchange: category
+    - symbol: category
     - price: float64
     - amount: float64
-    - side: string
+    - side: category
     - fee: float64 (nullable)
-    - id: string
-    - order_id: string
-    - liquidity: string
-    - type: string
+    - id: int64
+    - order_id: int64
+    - liquidity: category
+    - type: category
     - account: string (nullable)
     """
