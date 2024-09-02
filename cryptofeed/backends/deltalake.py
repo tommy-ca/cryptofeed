@@ -14,23 +14,9 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import (
-    BackendBookCallback,
-    BackendCallback,
-    BackendQueue,
-)
-from cryptofeed.defines import (
-    BALANCES,
-    CANDLES,
-    FILLS,
-    FUNDING,
-    LIQUIDATIONS,
-    OPEN_INTEREST,
-    ORDER_INFO,
-    TICKER,
-    TRADES,
-    TRANSACTIONS,
-)
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -167,6 +153,18 @@ class DeltaLakeCallback(BackendQueue):
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
 
+        # Ensure all partition columns are present in the DataFrame
+        for col in self.partition_cols:
+            if col not in df.columns:
+                if col == "exchange" or col == "symbol":
+                    df[col] = ""  # Default to empty string for categorical columns
+                elif col == "dt":
+                    df[col] = pd.Timestamp.min.strftime(
+                        "%Y-%m-%d"
+                    )  # Default to min date for date columns
+                else:
+                    df[col] = 0  # Default to 0 for numeric columns
+
         max_retries = 3
         retry_delay = 5  # seconds
 
@@ -218,8 +216,8 @@ class DeltaLakeCallback(BackendQueue):
 
             except Exception as e:
                 # When error is related to timestamp, print the schema of the DataFrame
-                if "timestamp" in str(e):
-                    LOG.error(f"DataFrame schema:\n{df.dtypes}")
+                LOG.error(f"DataFrame schema:\n{df.dtypes}")
+
                 LOG.error(
                     f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
                 )
