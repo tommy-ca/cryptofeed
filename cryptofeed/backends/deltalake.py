@@ -10,28 +10,16 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import (
-    BackendBookCallback,
-    BackendCallback,
-    BackendQueue,
-)
-from cryptofeed.defines import (
-    BALANCES,
-    CANDLES,
-    FILLS,
-    FUNDING,
-    LIQUIDATIONS,
-    OPEN_INTEREST,
-    ORDER_INFO,
-    TICKER,
-    TRADES,
-    TRANSACTIONS,
-)
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
+# Add these lines after the imports
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger().setLevel(logging.DEBUG)
 
 LOG = logging.getLogger("feedhandler")
 
