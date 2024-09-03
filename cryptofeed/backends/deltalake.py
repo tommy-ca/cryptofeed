@@ -14,9 +14,23 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -249,7 +263,8 @@ class DeltaLakeCallback(BackendQueue):
                 elif pd.api.types.is_datetime64_any_dtype(df[col]):
                     df[col] = df[col].fillna(pd.Timestamp.min)
                 else:
-                    df[col] = df[col].fillna("")
+                    # For any other data types, use an empty string as a fallback
+                    df[col] = df[col].astype(object).fillna("")
         return df
 
     async def _optimize_table(self):
