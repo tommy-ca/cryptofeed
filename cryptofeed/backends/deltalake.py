@@ -155,14 +155,18 @@ class DeltaLakeCallback(BackendQueue):
             "exchange": "object",
             "symbol": "object",
             "dt": "object",
-            "timestamp": "datetime64[ms]",
-            "receipt_timestamp": "datetime64[ms]",
+            "timestamp": "datetime64[ms]",  # Keep as 'datetime64[ms]'
+            "receipt_timestamp": "datetime64[ms]",  # Keep as 'datetime64[ms]'
         }
         for col, expected_type in expected_types.items():
-            if col in df.columns and not df[col].dtype == expected_type:
-                raise TypeError(
-                    f"Column '{col}' should be of type {expected_type}, but is {df[col].dtype}"
-                )
+            if col in df.columns:
+                if expected_type.startswith("datetime64"):
+                    # Convert to millisecond precision if it's a datetime column
+                    df[col] = df[col].astype('datetime64[ms]')
+                if not df[col].dtype == expected_type:
+                    raise TypeError(
+                        f"Column '{col}' should be of type {expected_type}, but is {df[col].dtype}"
+                    )
 
         LOG.debug("DataFrame columns validation completed successfully.")
 
@@ -187,7 +191,8 @@ class DeltaLakeCallback(BackendQueue):
         datetime_columns = ["timestamp", "receipt_timestamp"]
         for col in datetime_columns:
             if col in df.columns:
-                df[col] = pd.to_datetime(df[col], unit="ms")
+                # Convert to millisecond precision
+                df[col] = pd.to_datetime(df[col], unit='ms').astype('datetime64[ms]')
 
         # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
         if "timestamp" in df.columns:
