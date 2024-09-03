@@ -40,6 +40,7 @@ class DeltaLakeCallback(BackendQueue):
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
+        LOG.debug("Initializing DeltaLakeCallback")
         super().__init__()
         self.key = key or self.default_key
         self.base_path = base_path
@@ -107,8 +108,10 @@ class DeltaLakeCallback(BackendQueue):
         return [col for col in z_order_cols if col not in self.partition_cols]
 
     async def writer(self):
+        LOG.debug("Writer method called")
         while self.running:
             async with self.read_queue() as updates:
+                LOG.debug(f"Read queue returned {len(updates)} updates")
                 if updates:
                     LOG.info(f"Received {len(updates)} updates for processing.")
 
@@ -248,6 +251,7 @@ class DeltaLakeCallback(BackendQueue):
                 )
 
     async def _write_batch(self, df: pd.DataFrame):
+        LOG.debug(f"_write_batch called with DataFrame of shape {df.shape}")
         if df.empty:
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
