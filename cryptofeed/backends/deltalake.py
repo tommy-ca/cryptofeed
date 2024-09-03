@@ -13,23 +13,9 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import (
-    BackendBookCallback,
-    BackendCallback,
-    BackendQueue,
-)
-from cryptofeed.defines import (
-    BALANCES,
-    CANDLES,
-    FILLS,
-    FUNDING,
-    LIQUIDATIONS,
-    OPEN_INTEREST,
-    ORDER_INFO,
-    TICKER,
-    TRADES,
-    TRANSACTIONS,
-)
+from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
+                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
 
 # Add these lines after the imports
@@ -134,7 +120,7 @@ class DeltaLakeCallback(BackendQueue):
                         LOG.warning(f"Created DataFrame with shape: {df.shape}")
 
                         LOG.warning("Starting field transformation")
-                        self._transform_fields(df)
+                        self._transform_columns(df)
                         LOG.warning("Field transformation completed")
 
                         LOG.warning("Validating columns")
