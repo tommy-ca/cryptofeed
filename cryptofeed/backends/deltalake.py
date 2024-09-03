@@ -14,9 +14,23 @@ import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 LOG = logging.getLogger("feedhandler")
@@ -219,8 +233,9 @@ class DeltaLakeCallback(BackendQueue):
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
-                # When error is related to timestamp, print the schema of the DataFrame
+                # When error is related to timestamp, print the schema of the DataFrame and the df
                 LOG.error(f"DataFrame schema:\n{df.dtypes}")
+                LOG.error(f"DataFrame:\n{df}")
 
                 LOG.error(
                     f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
@@ -239,19 +254,16 @@ class DeltaLakeCallback(BackendQueue):
             return df.fillna(self.none_to)
         else:
             for col in df.columns:
-                if pd.api.types.is_categorical_dtype(df[col]):
-                    # Ensure '' is in the categories before filling
-                    if "" not in df[col].cat.categories:
-                        df[col] = df[col].cat.add_categories([""])
-                    df[col] = df[col].fillna("")
-                elif pd.api.types.is_string_dtype(df[col]):
+                if pd.api.types.is_string_dtype(df[col]):
                     df[col] = df[col].fillna("")
                 elif pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = df[col].fillna(0)
                 elif pd.api.types.is_bool_dtype(df[col]):
                     df[col] = df[col].fillna(False)
                 elif pd.api.types.is_datetime64_any_dtype(df[col]):
-                    df[col] = df[col].fillna(pd.Timestamp.min).astype("datetime64[ms]")
+                    df[col] = df[col].fillna(pd.Timestamp.min)
+                else:
+                    df[col] = df[col].fillna(None)
         return df
 
     async def _optimize_table(self):
