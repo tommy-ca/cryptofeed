@@ -49,6 +49,7 @@ class DeltaLakeCallback(BackendQueue):
         storage_options: Optional[Dict[str, Any]] = None,
         numeric_type: Union[type, str] = float,
         none_to: Any = None,
+        custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
         super().__init__()
@@ -65,6 +66,16 @@ class DeltaLakeCallback(BackendQueue):
         self.running = True
         self.numeric_type = numeric_type
         self.none_to = none_to
+        self.transformations = [
+            self._rename_custom_columns,
+            self._convert_datetime_columns,
+            self._convert_int_columns,
+            self._ensure_partition_columns,
+            self._handle_missing_values,
+            self._reorder_columns,
+        ]
+        if custom_transformations:
+            self.transformations.extend(custom_transformations)
         # Validate configuration parameters
         self._validate_configuration()
 
@@ -112,76 +123,146 @@ class DeltaLakeCallback(BackendQueue):
             async with self.read_queue() as updates:
                 if updates:
                     LOG.info(f"Received {len(updates)} updates for processing.")
-                    df = pd.DataFrame(updates)
-                    self._convert_fields(df)
-                    # Reorder columns to put exchange and symbol first
-                    cols = ["exchange", "symbol"] + [
-                        col for col in df.columns if col not in ["exchange", "symbol"]
-                    ]
-                    df = df[cols]
 
-                    if self.custom_columns:
-                        df = df.rename(columns=self.custom_columns)
+                    df = pd.DataFrame(updates)
+
+                    self._transform_columns(df)
+                    self._validate_columns(df)
 
                     await self._write_batch(df)
 
-    def _convert_fields(self, df: pd.DataFrame):
-        LOG.debug("Converting fields in DataFrame.")
-        self._convert_datetime_fields(df)
-        # self._convert_category_fields(df)
-        self._convert_int_fields(df)
+    def _validate_columns(self, df: pd.DataFrame):
+        LOG.debug("Validating DataFrame columns.")
+        # Check for required columns
+        required_columns = ["exchange", "symbol", "dt"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
 
-    def _convert_datetime_fields(self, df: pd.DataFrame):
-        LOG.debug("Converting datetime fields.")
+        # Validate partition columns
+        for col in self.partition_cols:
+            if col not in df.columns:
+                raise ValueError(f"Partition column '{col}' not found in DataFrame")
+            if df[col].isnull().any():
+                raise ValueError(f"Partition column '{col}' contains null values")
+
+        # Validate data types
+        expected_types = {
+            "exchange": "object",
+            "symbol": "object",
+            "dt": "object",
+            "timestamp": "datetime64[ms]",
+            "receipt_timestamp": "datetime64[ms]",
+        }
+        for col, expected_type in expected_types.items():
+            if col in df.columns and not df[col].dtype == expected_type:
+                raise TypeError(
+                    f"Column '{col}' should be of type {expected_type}, but is {df[col].dtype}"
+                )
+
+        LOG.debug("DataFrame columns validation completed successfully.")
+
+    def _transform_columns(self, df: pd.DataFrame):
+        LOG.debug("Transforming columns in DataFrame.")
+        for transformation in self.transformations:
+            transformation(df)
+
+    def _rename_custom_columns(self, df: pd.DataFrame):
+        if self.custom_columns:
+            LOG.debug("Renaming columns based on custom_columns configuration.")
+            df.rename(columns=self.custom_columns, inplace=True)
+
+    def _reorder_columns(self, df: pd.DataFrame):
+        LOG.debug("Reordering columns to prioritize exchange and symbol.")
+        cols = ["exchange", "symbol"] + [
+            col for col in df.columns if col not in ["exchange", "symbol"]
+        ]
+        df.reindex(columns=cols, inplace=True)
+
+    def _convert_datetime_columns(self, df: pd.DataFrame):
+        LOG.debug("Converting datetime columns.")
         datetime_columns = ["timestamp", "receipt_timestamp"]
         for col in datetime_columns:
             if col in df.columns:
-                df[col] = pd.to_datetime(df[col], unit="ns").astype("datetime64[ms]")
+                df[col] = pd.to_datetime(df[col], unit="ms")
+
+        # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
         if "timestamp" in df.columns:
             df["dt"] = df["timestamp"].dt.strftime("%Y-%m-%d")
+        elif "receipt_timestamp" in df.columns:
+            df["dt"] = df["receipt_timestamp"].dt.strftime("%Y-%m-%d")
+        else:
+            LOG.warning("No timestamp column found. Using current date for 'dt'.")
+            df["dt"] = pd.Timestamp.now().strftime("%Y-%m-%d")
 
-    def _convert_category_fields(self, df: pd.DataFrame):
-        LOG.debug("Converting category fields.")
-        category_columns = [
-            "exchange",
-            "symbol",
-            "side",
-            "type",
-            "status",
-            "currency",
-            "liquidity",
-        ]
-        for col in category_columns:
-            if col in df.columns:
-                # Add empty string as a category if it's not already present
-                categories = df[col].unique().tolist()
-                if "" not in categories:
-                    categories.append("")
-                df[col] = pd.Categorical(df[col], categories=categories)
-
-    def _convert_int_fields(self, df: pd.DataFrame):
-        LOG.debug("Converting integer fields.")
+    def _convert_int_columns(self, df: pd.DataFrame):
+        LOG.debug("Converting integer columns.")
         int_columns = ["id", "trade_id", "trades"]
         for col in int_columns:
             if col in df.columns:
-                df[col] = df[col].astype("int64")
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype(
+                    "Int64"
+                )  # Use nullable integer type
+
+    def _ensure_partition_columns(self, df: pd.DataFrame):
+        LOG.debug("Ensuring all partition columns are present and not null.")
+        for col in self.partition_cols:
+            if col not in df.columns:
+                if col in ["exchange", "symbol"]:
+                    df[col] = "unknown"
+                elif col == "dt":
+                    # 'dt' should already be created in _convert_datetime_columns
+                    LOG.warning("'dt' column not found. This should not happen.")
+                    df[col] = pd.Timestamp.now().strftime("%Y-%m-%d")
+                else:
+                    df[col] = "unknown"
+
+            # Fill any remaining null values
+            if df[col].isnull().any():
+                LOG.warning(
+                    f"Found null values in partition column {col}. Filling with default values."
+                )
+                df[col] = df[col].fillna(
+                    "unknown"
+                    if col != "dt"
+                    else pd.Timestamp.now().strftime("%Y-%m-%d")
+                )
+
+    def _handle_missing_values(self, df: pd.DataFrame):
+        LOG.debug("Handling missing values.")
+        for col in df.columns:
+            if col in ["exchange", "symbol"]:  # Removed 'dt' from this list
+                # These are partition columns and should never be null
+                if df[col].isnull().any():
+                    LOG.warning(
+                        f"Found null values in partition column {col}. Filling with default values."
+                    )
+                    df[col] = df[col].fillna("unknown")
+            elif pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(
+                    self.none_to if self.none_to is not None else 0
+                )
+            elif pd.api.types.is_string_dtype(df[col]):
+                df[col] = df[col].fillna(
+                    self.none_to if self.none_to is not None else ""
+                )
+            elif pd.api.types.is_bool_dtype(df[col]):
+                df[col] = df[col].fillna(
+                    self.none_to if self.none_to is not None else False
+                )
+            elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = df[col].fillna(
+                    self.none_to if self.none_to is not None else pd.NaT
+                )
+            else:
+                df[col] = df[col].fillna(
+                    self.none_to if self.none_to is not None else ""
+                )
 
     async def _write_batch(self, df: pd.DataFrame):
         if df.empty:
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
-
-        # Ensure all partition columns are present in the DataFrame
-        for col in self.partition_cols:
-            if col not in df.columns:
-                if col == "exchange" or col == "symbol":
-                    df[col] = ""  # Default to empty string for categorical columns
-                elif col == "dt":
-                    df[col] = pd.Timestamp.min.strftime(
-                        "%Y-%m-%d"
-                    )  # Default to min date for date columns
-                else:
-                    df[col] = 0  # Default to 0 for numeric columns
 
         max_retries = 3
         retry_delay = 5  # seconds
@@ -191,27 +272,11 @@ class DeltaLakeCallback(BackendQueue):
                 LOG.info(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
                 )
-                # Debug output the schema of the DataFrame
                 LOG.debug(f"DataFrame schema:\n{df.dtypes}")
-
-                # Convert timestamp columns to datetime64[ms]
-                timestamp_columns = df.select_dtypes(include=["datetime64"]).columns
-                for col in timestamp_columns:
-                    df[col] = df[col].astype("datetime64[ms]")
-
-                # Convert numeric columns to the specified numeric type
-                numeric_columns = df.select_dtypes(include=[np.number]).columns
-                for col in numeric_columns:
-                    df[col] = df[col].astype(self.numeric_type)
-
-                # Handle null values
-                df = self._handle_null_values(df)
 
                 LOG.info(
                     f"Writing batch of {len(df)} records to {self.delta_table_path}"
                 )
-                # Debug output the schema of the DataFrame
-                LOG.debug(f"DataFrame schema before write:\n{df.dtypes}")
 
                 write_deltalake(
                     self.delta_table_path,
@@ -233,10 +298,8 @@ class DeltaLakeCallback(BackendQueue):
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
-                # When error is related to timestamp, print the schema of the DataFrame and the df
                 LOG.error(f"DataFrame schema:\n{df.dtypes}")
                 LOG.error(f"DataFrame:\n{df}")
-
                 LOG.error(
                     f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
                 )
@@ -248,24 +311,6 @@ class DeltaLakeCallback(BackendQueue):
                     LOG.error(
                         "Max retries reached. Failed to write batch to Delta Lake."
                     )
-
-    def _handle_null_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.none_to is not None:
-            return df.fillna(self.none_to)
-        else:
-            for col in df.columns:
-                if pd.api.types.is_string_dtype(df[col]):
-                    df[col] = df[col].fillna("")
-                elif pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].fillna(0)
-                elif pd.api.types.is_bool_dtype(df[col]):
-                    df[col] = df[col].fillna(False)
-                elif pd.api.types.is_datetime64_any_dtype(df[col]):
-                    df[col] = df[col].fillna(pd.Timestamp.min)
-                else:
-                    # For any other data types, use an empty string as a fallback
-                    df[col] = df[col].astype(object).fillna("")
-        return df
 
     async def _optimize_table(self):
         LOG.info(f"Running OPTIMIZE on table {self.delta_table_path}")
