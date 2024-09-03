@@ -62,7 +62,6 @@ class DeltaLakeCallback(BackendQueue):
             self._convert_int_columns,
             self._ensure_partition_columns,
             self._handle_missing_values,
-            self._reorder_columns,
         ]
         if custom_transformations:
             self.transformations.extend(custom_transformations)
@@ -179,10 +178,9 @@ class DeltaLakeCallback(BackendQueue):
 
     def _reorder_columns(self, df: pd.DataFrame):
         LOG.debug("Reordering columns to prioritize exchange and symbol.")
-        cols = ["exchange", "symbol"] + [
-            col for col in df.columns if col not in ["exchange", "symbol"]
-        ]
-        df.reindex(columns=cols, inplace=True)
+        priority_cols = ["exchange", "symbol"]
+        other_cols = [col for col in df.columns if col not in priority_cols]
+        df = df[priority_cols + other_cols]
 
     def _convert_datetime_columns(self, df: pd.DataFrame):
         LOG.debug("Converting datetime columns.")
