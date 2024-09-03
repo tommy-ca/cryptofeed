@@ -13,9 +13,23 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
 
 # Add these lines after the imports
@@ -109,23 +123,32 @@ class DeltaLakeCallback(BackendQueue):
         return [col for col in z_order_cols if col not in self.partition_cols]
 
     async def writer(self):
-        LOG.warning("Writer method called")  # Changed to warning
+        LOG.warning("Writer method started")
         while self.running:
-            async with self.read_queue() as updates:
-                LOG.warning(
-                    f"Read queue returned {len(updates)} updates"
-                )  # Changed to warning
-                if updates:
-                    LOG.warning(
-                        f"Received {len(updates)} updates for processing."
-                    )  # Changed to warning
+            try:
+                async with self.read_queue() as updates:
+                    LOG.warning(f"Read queue returned {len(updates)} updates")
+                    if updates:
+                        LOG.warning(f"Received {len(updates)} updates for processing.")
+                        df = pd.DataFrame(updates)
+                        LOG.warning(f"Created DataFrame with shape: {df.shape}")
 
-                    df = pd.DataFrame(updates)
+                        LOG.warning("Starting field transformation")
+                        self._transform_fields(df)
+                        LOG.warning("Field transformation completed")
 
-                    self._transform_columns(df)
-                    self._validate_columns(df)
+                        LOG.warning("Validating columns")
+                        self._validate_columns(df)
+                        LOG.warning("Columns validation completed")
 
-                    await self._write_batch(df)
+                        LOG.warning("Starting batch write")
+                        await self._write_batch(df)
+                        LOG.warning("Batch write completed")
+                    else:
+                        LOG.warning("No updates received, continuing loop")
+            except Exception as e:
+                LOG.error(f"Error in writer method: {e}", exc_info=True)
+        LOG.warning("Writer method ended")
 
     def _validate_columns(self, df: pd.DataFrame):
         LOG.debug("Validating DataFrame columns.")
