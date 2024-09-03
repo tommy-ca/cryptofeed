@@ -17,9 +17,10 @@ from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, Ba
 from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
                                 OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
 
+
 # Add these lines after the imports
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger().setLevel(logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
+# logging.getLogger().setLevel(logging.DEBUG)
 
 LOG = logging.getLogger("feedhandler")
 
@@ -40,7 +41,7 @@ class DeltaLakeCallback(BackendQueue):
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
-        LOG.debug("Initializing DeltaLakeCallback")
+        LOG.warning("Initializing DeltaLakeCallback")  # Changed to warning
         super().__init__()
         self.key = key or self.default_key
         self.base_path = base_path
@@ -108,12 +109,16 @@ class DeltaLakeCallback(BackendQueue):
         return [col for col in z_order_cols if col not in self.partition_cols]
 
     async def writer(self):
-        LOG.debug("Writer method called")
+        LOG.warning("Writer method called")  # Changed to warning
         while self.running:
             async with self.read_queue() as updates:
-                LOG.debug(f"Read queue returned {len(updates)} updates")
+                LOG.warning(
+                    f"Read queue returned {len(updates)} updates"
+                )  # Changed to warning
                 if updates:
-                    LOG.info(f"Received {len(updates)} updates for processing.")
+                    LOG.warning(
+                        f"Received {len(updates)} updates for processing."
+                    )  # Changed to warning
 
                     df = pd.DataFrame(updates)
 
@@ -251,7 +256,9 @@ class DeltaLakeCallback(BackendQueue):
                 )
 
     async def _write_batch(self, df: pd.DataFrame):
-        LOG.debug(f"_write_batch called with DataFrame of shape {df.shape}")
+        LOG.warning(
+            f"_write_batch called with DataFrame of shape {df.shape}"
+        )  # Changed to warning
         if df.empty:
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
@@ -261,14 +268,14 @@ class DeltaLakeCallback(BackendQueue):
 
         for attempt in range(max_retries):
             try:
-                LOG.info(
+                LOG.warning(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
-                )
-                LOG.debug(f"DataFrame schema:\n{df.dtypes}")
+                )  # Changed to warning
+                LOG.warning(f"DataFrame schema:\n{df.dtypes}")  # Changed to warning
 
-                LOG.info(
+                LOG.warning(
                     f"Writing batch of {len(df)} records to {self.delta_table_path}"
-                )
+                )  # Changed to warning
 
                 write_deltalake(
                     self.delta_table_path,
@@ -286,7 +293,7 @@ class DeltaLakeCallback(BackendQueue):
                 if self.time_travel:
                     self._update_metadata()
 
-                LOG.info("Batch write successful.")
+                LOG.warning("Batch write successful.")  # Changed to warning
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
@@ -297,7 +304,9 @@ class DeltaLakeCallback(BackendQueue):
                 )
 
                 if attempt < max_retries - 1:
-                    LOG.info(f"Retrying in {retry_delay} seconds...")
+                    LOG.warning(
+                        f"Retrying in {retry_delay} seconds..."
+                    )  # Changed to warning
                     await asyncio.sleep(retry_delay)
                 else:
                     LOG.error(
@@ -305,12 +314,14 @@ class DeltaLakeCallback(BackendQueue):
                     )
 
     async def _optimize_table(self):
-        LOG.info(f"Running OPTIMIZE on table {self.delta_table_path}")
+        LOG.warning(
+            f"Running OPTIMIZE on table {self.delta_table_path}"
+        )  # Changed to warning
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
         dt.optimize.compact()
         if self.z_order_cols:
             dt.optimize.z_order(self.z_order_cols)
-        LOG.info("OPTIMIZE operation completed.")
+        LOG.warning("OPTIMIZE operation completed.")  # Changed to warning
 
     def _update_metadata(self):
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
