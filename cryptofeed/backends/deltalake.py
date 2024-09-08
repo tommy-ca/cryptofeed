@@ -41,7 +41,7 @@ class DeltaLakeCallback(BackendQueue):
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
-        LOG.warning("Initializing DeltaLakeCallback")  # Changed to warning
+        LOG.warning("Initializing DeltaLakeCallback")
         super().__init__()
         self.key = key or self.default_key
         self.base_path = base_path
@@ -192,7 +192,7 @@ class DeltaLakeCallback(BackendQueue):
         for col in datetime_columns:
             if col in df.columns:
                 # Log sample of original values
-                LOG.warning(
+                LOG.debug(
                     f"Sample {col} before conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}"
                 )
                 # Convert to microsecond precision, handling both string and datetime inputs
@@ -200,7 +200,7 @@ class DeltaLakeCallback(BackendQueue):
                 # Log sample of converted values in readable format
                 if len(df) > 0:
                     readable_time = df[col].iloc[0].strftime("%Y-%m-%d %H:%M:%S.%f")
-                    LOG.warning(f"Sample {col} after conversion: {readable_time}")
+                    LOG.debug(f"Sample {col} after conversion: {readable_time}")
 
         # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
         min_valid_date = pd.Timestamp("2000-01-01")  # Adjust this as needed
@@ -222,7 +222,7 @@ class DeltaLakeCallback(BackendQueue):
 
         # Log sample of 'dt' column
         if "dt" in df.columns and len(df) > 0:
-            LOG.warning(f"Sample 'dt' value: {df['dt'].iloc[0]}")
+            LOG.debug(f"Sample 'dt' value: {df['dt'].iloc[0]}")
 
         LOG.debug("Datetime columns converted to microsecond precision.")
 
@@ -293,7 +293,7 @@ class DeltaLakeCallback(BackendQueue):
     async def _write_batch(self, df: pd.DataFrame):
         LOG.warning(
             f"_write_batch called with DataFrame of shape {df.shape}"
-        )  # Changed to warning
+        )
         if df.empty:
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
@@ -305,12 +305,12 @@ class DeltaLakeCallback(BackendQueue):
             try:
                 LOG.warning(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
-                )  # Changed to warning
-                LOG.warning(f"DataFrame schema:\n{df.dtypes}")  # Changed to warning
+                )
+                LOG.debug(f"DataFrame schema:\n{df.dtypes}")
 
                 LOG.warning(
                     f"Writing batch of {len(df)} records to {self.delta_table_path}"
-                )  # Changed to warning
+                )
 
                 write_deltalake(
                     self.delta_table_path,
@@ -328,7 +328,7 @@ class DeltaLakeCallback(BackendQueue):
                 if self.time_travel:
                     self._update_metadata()
 
-                LOG.warning("Batch write successful.")  # Changed to warning
+                LOG.warning("Batch write successful.")
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
@@ -341,7 +341,7 @@ class DeltaLakeCallback(BackendQueue):
                 if attempt < max_retries - 1:
                     LOG.warning(
                         f"Retrying in {retry_delay} seconds..."
-                    )  # Changed to warning
+                    )
                     await asyncio.sleep(retry_delay)
                 else:
                     LOG.error(
@@ -351,12 +351,12 @@ class DeltaLakeCallback(BackendQueue):
     async def _optimize_table(self):
         LOG.warning(
             f"Running OPTIMIZE on table {self.delta_table_path}"
-        )  # Changed to warning
+        )
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
         dt.optimize.compact()
         if self.z_order_cols:
             dt.optimize.z_order(self.z_order_cols)
-        LOG.warning("OPTIMIZE operation completed.")  # Changed to warning
+        LOG.warning("OPTIMIZE operation completed.")
 
     def _update_metadata(self):
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
