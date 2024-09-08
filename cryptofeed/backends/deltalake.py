@@ -155,14 +155,14 @@ class DeltaLakeCallback(BackendQueue):
             "exchange": "object",
             "symbol": "object",
             "dt": "object",
-            "timestamp": "datetime64[ms]",
-            "receipt_timestamp": "datetime64[ms]",
+            "timestamp": "datetime64[us]",
+            "receipt_timestamp": "datetime64[us]",
         }
         for col, expected_type in expected_types.items():
             if col in df.columns:
-                if expected_type == "datetime64[ms]":
-                    # Ensure datetime columns are in millisecond precision
-                    df[col] = df[col].astype("datetime64[ms]")
+                if expected_type == "datetime64[us]":
+                    # Ensure datetime columns are in microsecond precision
+                    df[col] = df[col].astype("datetime64[us]")
                 if not df[col].dtype == expected_type:
                     raise TypeError(
                         f"Column '{col}' should be of type {expected_type}, but is {df[col].dtype}"
@@ -187,7 +187,7 @@ class DeltaLakeCallback(BackendQueue):
         df = df[priority_cols + other_cols]
 
     def _convert_datetime_columns(self, df: pd.DataFrame):
-        LOG.debug("Converting datetime columns to millisecond precision.")
+        LOG.debug("Converting datetime columns to microsecond precision.")
         datetime_columns = ["timestamp", "receipt_timestamp"]
         for col in datetime_columns:
             if col in df.columns:
@@ -195,13 +195,11 @@ class DeltaLakeCallback(BackendQueue):
                 LOG.warning(
                     f"Sample {col} before conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}"
                 )
-                # Convert to millisecond precision, handling both string and datetime inputs
-                df[col] = pd.to_datetime(df[col]).astype("datetime64[ms]")
+                # Convert to microsecond precision, handling both string and datetime inputs
+                df[col] = pd.to_datetime(df[col]).astype("datetime64[us]")
                 # Log sample of converted values in readable format
                 if len(df) > 0:
-                    readable_time = (
-                        df[col].iloc[0].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                    )
+                    readable_time = df[col].iloc[0].strftime("%Y-%m-%d %H:%M:%S.%f")
                     LOG.warning(f"Sample {col} after conversion: {readable_time}")
 
         # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
@@ -226,7 +224,7 @@ class DeltaLakeCallback(BackendQueue):
         if "dt" in df.columns and len(df) > 0:
             LOG.warning(f"Sample 'dt' value: {df['dt'].iloc[0]}")
 
-        LOG.debug("Datetime columns converted to millisecond precision.")
+        LOG.debug("Datetime columns converted to microsecond precision.")
 
     def _convert_int_columns(self, df: pd.DataFrame):
         LOG.debug("Converting integer columns.")
@@ -388,8 +386,8 @@ class TradeDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TRADES
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -406,14 +404,14 @@ class FundingDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = FUNDING
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
     - mark_price: float64 (nullable)
     - rate: float64
-    - next_funding_time: datetime64[ms] (nullable)
+    - next_funding_time: datetime64[us] (nullable)
     - predicted_rate: float64 (nullable)
     """
 
@@ -422,8 +420,8 @@ class TickerDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TICKER
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -436,8 +434,8 @@ class OpenInterestDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = OPEN_INTEREST
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -449,8 +447,8 @@ class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = LIQUIDATIONS
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -466,8 +464,8 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     default_key = "book"
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -486,13 +484,13 @@ class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = CANDLES
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
-    - start: datetime64[ms]
-    - stop: datetime64[ms]
+    - start: datetime64[us]
+    - stop: datetime64[us]
     - interval: string
     - trades: int64 (nullable)
     - open: float64
@@ -508,8 +506,8 @@ class OrderInfoDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = ORDER_INFO
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
@@ -529,8 +527,8 @@ class TransactionsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = TRANSACTIONS
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - currency: category
@@ -544,8 +542,8 @@ class BalancesDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = BALANCES
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - currency: category
@@ -558,8 +556,8 @@ class FillsDeltaLake(DeltaLakeCallback, BackendCallback):
     default_key = FILLS
     """
     Schema:
-    - timestamp: datetime64[ms] (from 'date' column)
-    - receipt_timestamp: datetime64[ms]
+    - timestamp: datetime64[us] (from 'date' column)
+    - receipt_timestamp: datetime64[us]
     - dt: string
     - exchange: category
     - symbol: category
