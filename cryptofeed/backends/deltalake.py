@@ -205,20 +205,12 @@ class DeltaLakeCallback(BackendQueue):
         # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
         min_valid_date = pd.Timestamp("2000-01-01")  # Adjust this as needed
         if "timestamp" in df.columns:
-            df["dt"] = (
-                df["timestamp"]
-                .where(df["timestamp"] >= min_valid_date, pd.Timestamp.now())
-                .dt.strftime("%Y-%m-%d")
-            )
+            df["dt"] = df["timestamp"].where(df["timestamp"] >= min_valid_date, pd.Timestamp.now()).dt.date
         elif "receipt_timestamp" in df.columns:
-            df["dt"] = (
-                df["receipt_timestamp"]
-                .where(df["receipt_timestamp"] >= min_valid_date, pd.Timestamp.now())
-                .dt.strftime("%Y-%m-%d")
-            )
+            df["dt"] = df["receipt_timestamp"].where(df["receipt_timestamp"] >= min_valid_date, pd.Timestamp.now()).dt.date
         else:
             LOG.warning("No timestamp column found. Using current date for 'dt'.")
-            df["dt"] = pd.Timestamp.now().strftime("%Y-%m-%d")
+            df["dt"] = pd.Timestamp.now().date()
 
         # Log sample of 'dt' column
         if "dt" in df.columns and len(df) > 0:
@@ -244,7 +236,7 @@ class DeltaLakeCallback(BackendQueue):
                 elif col == "dt":
                     # 'dt' should already be created in _convert_datetime_columns
                     LOG.warning("'dt' column not found. This should not happen.")
-                    df[col] = pd.Timestamp.now().strftime("%Y-%m-%d")
+                    df[col] = pd.Timestamp.now().date()
                 else:
                     df[col] = "unknown"
 
@@ -256,7 +248,7 @@ class DeltaLakeCallback(BackendQueue):
                 df[col] = df[col].fillna(
                     "unknown"
                     if col != "dt"
-                    else pd.Timestamp.now().strftime("%Y-%m-%d")
+                    else pd.Timestamp.now().date()
                 )
 
     def _handle_missing_values(self, df: pd.DataFrame):
@@ -388,7 +380,7 @@ class TradeDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - id: int64 (nullable)
@@ -406,7 +398,7 @@ class FundingDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - mark_price: float64 (nullable)
@@ -422,7 +414,7 @@ class TickerDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - bid: float64
@@ -436,7 +428,7 @@ class OpenInterestDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - open_interest: float64
@@ -449,7 +441,7 @@ class LiquidationsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - side: category
@@ -466,7 +458,7 @@ class BookDeltaLake(DeltaLakeCallback, BackendBookCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - delta: dict (nullable, contains 'bid' and 'ask' updates)
@@ -486,7 +478,7 @@ class CandlesDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - start: datetime64[us]
@@ -508,7 +500,7 @@ class OrderInfoDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - id: int64
@@ -529,7 +521,7 @@ class TransactionsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - currency: category
     - type: category
@@ -544,7 +536,7 @@ class BalancesDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - currency: category
     - balance: float64
@@ -558,7 +550,7 @@ class FillsDeltaLake(DeltaLakeCallback, BackendCallback):
     Schema:
     - timestamp: datetime64[us] (from 'date' column)
     - receipt_timestamp: datetime64[us]
-    - dt: string
+    - dt: date
     - exchange: category
     - symbol: category
     - price: float64
