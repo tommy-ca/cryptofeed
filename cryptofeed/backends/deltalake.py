@@ -200,7 +200,7 @@ class DeltaLakeCallback(BackendQueue):
 
     def _convert_datetime_columns(self, df: pd.DataFrame):
         LOG.debug("Converting datetime columns to UTC and microsecond precision.")
-        INVALID_DATE = np.datetime64('1900-01-01').date()
+        INVALID_DATE = pd.Timestamp('1900-01-01').date()
 
         for col in ['timestamp', 'receipt_timestamp']:
             if col in df.columns:
