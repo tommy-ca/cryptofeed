@@ -320,11 +320,14 @@ class DeltaLakeCallback(BackendQueue):
                 LOG.warning(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
                 )
-                LOG.debug(f"DataFrame schema:\n{df.dtypes}")
 
-                LOG.warning(
-                    f"Writing batch of {len(df)} records to {self.delta_table_path}"
-                )
+                # Moved logging statements here, just before write_deltalake
+                sample_size = min(5, len(df))  # Show up to 5 rows
+                LOG.warning(f"Sample of DataFrame to be written (first {sample_size} rows):")
+                LOG.warning(df.head(sample_size).to_string())
+                LOG.warning("DataFrame dtypes:")
+                LOG.warning(df.dtypes.to_string())
+                LOG.warning(f"Writing batch of {len(df)} records to {self.delta_table_path}")
 
                 write_deltalake(
                     self.delta_table_path,
@@ -346,16 +349,12 @@ class DeltaLakeCallback(BackendQueue):
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
+                LOG.error(f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}")
                 LOG.error(f"DataFrame schema:\n{df.dtypes}")
                 LOG.error(f"DataFrame:\n{df}")
-                LOG.error(
-                    f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
-                )
 
                 if attempt < max_retries - 1:
-                    LOG.warning(
-                        f"Retrying in {retry_delay} seconds..."
-                    )
+                    LOG.warning(f"Retrying in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
                 else:
                     LOG.error(
