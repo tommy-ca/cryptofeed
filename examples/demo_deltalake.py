@@ -23,26 +23,33 @@ def main():
         "AWS_REGION": "your_region"
     }
 
+    # Common configuration for all callbacks
+    common_config = {
+        "base_path": delta_base_path,
+        "storage_options": s3_options,
+        "batch_size": 1000,  # Process in batches of 1000 records
+        "flush_interval": 60.0,  # Flush every 60 seconds if batch size not reached
+        "optimize_interval": 100000,  # Optimize after 100,000 rows written
+        "time_travel": True,
+    }
+
     # Add Binance feed with Delta Lake callbacks
     f.add_feed(Binance(
         channels=[TRADES, FUNDING, TICKER],
         symbols=['BTC-USDT', 'ETH-USDT'],
         callbacks={
             TRADES: TradeDeltaLake(
-                base_path=delta_base_path, 
-                optimize_interval=50,  # More frequent table optimization
-                time_travel=True,  # Enable time travel feature
-                storage_options=s3_options  # Add S3 configuration
+                **common_config,
+                z_order_cols=['timestamp', 'price', 'amount']
             ),
             FUNDING: FundingDeltaLake(
-                base_path=delta_base_path,
-                storage_options=s3_options  # Add S3 configuration
+                **common_config,
+                z_order_cols=['timestamp', 'rate']
             ),
             TICKER: TickerDeltaLake(
-                base_path=delta_base_path,
-                partition_cols=['exchange', 'symbol', 'year', 'month', 'day'],  # Custom partitioning
-                z_order_cols=['timestamp', 'bid', 'ask'],  # Enable Z-ordering
-                storage_options=s3_options  # Add S3 configuration
+                **common_config,
+                partition_cols=['exchange', 'symbol', 'dt'],
+                z_order_cols=['timestamp', 'bid', 'ask']
             )
         }
     ))
