@@ -11,7 +11,6 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
@@ -45,7 +44,7 @@ class DeltaLakeCallback(BackendQueue):
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
-        LOG.warning("Initializing DeltaLakeCallback")
+        LOG.debug("Initializing DeltaLakeCallback")
         super().__init__()
         self.key = key or self.default_key
         self.base_path = base_path
@@ -116,13 +115,13 @@ class DeltaLakeCallback(BackendQueue):
         return [col for col in z_order_cols if col not in self.partition_cols]
 
     async def writer(self):
-        LOG.warning("Writer method started")
+        LOG.debug("Writer method started")
         while self.running:
             try:
                 async with self.read_queue() as updates:
-                    LOG.warning(f"Read queue returned: {updates}")
+                    LOG.debug(f"Read queue returned: {updates}")
                     if updates:
-                        LOG.warning(f"Received {len(updates)} updates for processing.")
+                        LOG.debug(f"Received {len(updates)} updates for processing.")
                         self.batch.extend(updates)
 
                         if len(self.batch) >= self.batch_size or (time.time() - self.last_flush_time) >= self.flush_interval:
@@ -132,11 +131,11 @@ class DeltaLakeCallback(BackendQueue):
                         if (time.time() - self.last_flush_time) >= self.flush_interval and self.batch:
                             await self._process_batch()
                         else:
-                            LOG.warning("No updates received, continuing loop")
+                            LOG.debug("No updates received, continuing loop")
                             await asyncio.sleep(1)  # Add a small delay to prevent busy-waiting
             except Exception as e:
                 LOG.error(f"Error in writer method: {e}", exc_info=True)
-        LOG.warning("Writer method ended")
+        LOG.debug("Writer method ended")
 
     async def _process_batch(self):
         df = pd.DataFrame(self.batch)
@@ -296,16 +295,16 @@ class DeltaLakeCallback(BackendQueue):
 
         for attempt in range(max_retries):
             try:
-                LOG.warning(
+                LOG.debug(
                     f"Attempting to write batch to Delta Lake (Attempt {attempt + 1}/{max_retries})."
                 )
 
-                # Moved logging statements here, just before write_deltalake
+                # Logging statements just before write_deltalake
                 sample_size = min(5, len(df))  # Show up to 5 rows
-                LOG.warning(f"Sample of DataFrame to be written (first {sample_size} rows):")
-                LOG.warning(df.head(sample_size).to_string())
-                LOG.warning("DataFrame dtypes:")
-                LOG.warning(df.dtypes.to_string())
+                LOG.debug(f"Sample of DataFrame to be written (first {sample_size} rows):")
+                LOG.debug(df.head(sample_size).to_string())
+                LOG.debug("DataFrame dtypes:")
+                LOG.debug(df.dtypes.to_string())
                 LOG.warning(f"Writing batch of {len(df)} records to {self.delta_table_path}")
 
                 write_deltalake(
@@ -341,14 +340,14 @@ class DeltaLakeCallback(BackendQueue):
                     )
 
     async def _optimize_table(self):
-        LOG.warning(
+        LOG.debug(
             f"Running OPTIMIZE on table {self.delta_table_path}"
         )
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
         dt.optimize.compact()
         if self.z_order_cols:
             dt.optimize.z_order(self.z_order_cols)
-        LOG.warning("OPTIMIZE operation completed.")
+        LOG.debug("OPTIMIZE operation completed.")
 
     def _update_metadata(self):
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
