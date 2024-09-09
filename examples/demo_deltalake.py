@@ -12,7 +12,7 @@ from cryptofeed.exchanges import Binance
 
 def main():
     f = FeedHandler()
-    
+
     # Define the Delta Lake base path (can be local or S3)
     delta_base_path = 's3://your-bucket/path/to/delta/tables'
 
@@ -53,7 +53,7 @@ def main():
             )
         }
     ))
-    
+
     f.run()
 
 

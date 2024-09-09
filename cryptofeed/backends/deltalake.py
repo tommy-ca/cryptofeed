@@ -221,6 +221,7 @@ class DeltaLakeCallback(BackendQueue):
             LOG.debug(f"Sample 'dt' value: {df['dt'].iloc[0]}")
 
         LOG.debug("Datetime columns converted and 'dt' column created.")
+
     def _convert_int_columns(self, df: pd.DataFrame):
         LOG.debug("Converting integer columns.")
         int_columns = ["id", "trade_id", "trades"]
