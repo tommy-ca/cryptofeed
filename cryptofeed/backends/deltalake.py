@@ -172,9 +172,6 @@ class DeltaLakeCallback(BackendQueue):
         }
         for col, expected_type in expected_types.items():
             if col in df.columns:
-                if expected_type == "datetime64[us]":
-                    # Ensure datetime columns are in microsecond precision
-                    df[col] = df[col].astype("datetime64[us]")
                 if not df[col].dtype == expected_type:
                     raise TypeError(
                         f"Column '{col}' should be of type {expected_type}, but is {df[col].dtype}"
@@ -205,8 +202,7 @@ class DeltaLakeCallback(BackendQueue):
         for col in ['timestamp', 'receipt_timestamp']:
             if col in df.columns:
                 # Convert timestamp (seconds since epoch) to UTC datetime
-                df[col] = pd.to_datetime(df[col], unit='s', utc=True)
-                df[col] = df[col].dt.tz_localize(None)  # Remove timezone info after conversion
+                df[col] = pd.to_datetime(df[col], unit='s', utc=True).dt.tz_localize(None)
                 LOG.debug(f"Sample {col} after conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}")
 
         # Create 'dt' column, prioritizing 'timestamp', then 'receipt_timestamp', fallback to INVALID_DATE
