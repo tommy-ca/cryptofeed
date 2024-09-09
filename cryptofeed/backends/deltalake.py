@@ -300,9 +300,9 @@ class DeltaLakeCallback(BackendQueue):
                 )
 
                 # Logging statements just before write_deltalake
-                sample_size = min(5, len(df))  # Show up to 5 rows
-                LOG.debug(f"Sample of DataFrame to be written (first {sample_size} rows):")
-                LOG.debug(df.head(sample_size).to_string())
+                # sample_size = min(5, len(df))  # Show up to 5 rows
+                # LOG.debug(f"Sample of DataFrame to be written (first {sample_size} rows):")
+                # LOG.debug(df.head(sample_size).to_string())
                 LOG.debug("DataFrame dtypes:")
                 LOG.debug(df.dtypes.to_string())
                 LOG.warning(f"Writing batch of {len(df)} records to {self.delta_table_path}")
