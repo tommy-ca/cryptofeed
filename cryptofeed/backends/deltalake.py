@@ -39,8 +39,8 @@ class DeltaLakeCallback(BackendQueue):
         storage_options: Optional[Dict[str, Any]] = None,
         numeric_type: Union[type, str] = float,
         none_to: Any = None,
-        batch_size: int = 1000,
-        flush_interval: float = 60.0,
+        batch_size: int = 100,
+        flush_interval: float = 10.0,
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
@@ -138,21 +138,10 @@ class DeltaLakeCallback(BackendQueue):
         LOG.warning("Writer method ended")
 
     async def _process_batch(self):
-        LOG.warning(f"Processing batch of {len(self.batch)} updates")
         df = pd.DataFrame(self.batch)
-        LOG.warning(f"Created DataFrame with shape: {df.shape}")
-
-        LOG.warning("Starting field transformation")
         self._transform_columns(df)
-        LOG.warning("Field transformation completed")
-
-        LOG.warning("Validating columns")
         self._validate_columns(df)
-        LOG.warning("Columns validation completed")
-
-        LOG.warning("Starting batch write")
         await self._write_batch(df)
-        LOG.warning("Batch write completed")
 
         self.batch = []
         self.last_flush_time = time.time()
@@ -305,9 +294,6 @@ class DeltaLakeCallback(BackendQueue):
                 )
 
     async def _write_batch(self, df: pd.DataFrame):
-        LOG.warning(
-            f"_write_batch called with DataFrame of shape {df.shape}"
-        )
         if df.empty:
             LOG.warning("DataFrame is empty. Skipping write operation.")
             return
