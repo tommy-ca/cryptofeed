@@ -38,7 +38,7 @@ class DeltaLakeCallback(BackendQueue):
         z_order_cols: Optional[List[str]] = None,
         time_travel: bool = True,
         storage_options: Optional[Dict[str, Any]] = None,
-        numeric_type: Union[type, str] = "float64",
+        numeric_type: Union[type, str] = float,
         none_to: Any = None,
         batch_size: int = 10000,
         flush_interval: float = 10.0,
