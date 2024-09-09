@@ -7,10 +7,9 @@ associated with this software.
 import os
 import sys
 
-from setuptools import Extension, setup
-from setuptools import find_packages
-from setuptools.command.test import test as TestCommand
 from Cython.Build import cythonize
+from setuptools import Extension, find_packages, setup
+from setuptools.command.test import test as TestCommand
 
 
 def get_long_description():
