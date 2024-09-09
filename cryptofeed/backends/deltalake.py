@@ -34,13 +34,13 @@ class DeltaLakeCallback(BackendQueue):
         key: Optional[str] = None,
         custom_columns: Optional[Dict[str, str]] = None,
         partition_cols: Optional[List[str]] = None,
-        optimize_interval: int = 100,
+        optimize_interval: int = 1000,
         z_order_cols: Optional[List[str]] = None,
-        time_travel: bool = False,
+        time_travel: bool = True,
         storage_options: Optional[Dict[str, Any]] = None,
-        numeric_type: Union[type, str] = float,
+        numeric_type: Union[type, str] = "float64",
         none_to: Any = None,
-        batch_size: int = 100,
+        batch_size: int = 10000,
         flush_interval: float = 10.0,
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
@@ -54,7 +54,7 @@ class DeltaLakeCallback(BackendQueue):
         self.partition_cols = partition_cols or ["exchange", "symbol", "dt"]
         self.optimize_interval = optimize_interval
         self.z_order_cols = z_order_cols or self._default_z_order_cols()
-        self.time_travel = time_travel
+        self.time_travel = time_travel or False
         self.storage_options = storage_options or {}
         self.write_count = 0
         self.running = True
