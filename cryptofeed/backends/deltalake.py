@@ -11,6 +11,7 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
@@ -198,37 +199,30 @@ class DeltaLakeCallback(BackendQueue):
         df = df[priority_cols + other_cols]
 
     def _convert_datetime_columns(self, df: pd.DataFrame):
-        LOG.debug("Converting datetime columns to microsecond precision.")
-        datetime_columns = ["timestamp", "receipt_timestamp"]
-        for col in datetime_columns:
-            if col in df.columns:
-                # Log sample of original values
-                LOG.debug(
-                    f"Sample {col} before conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}"
-                )
-                # Convert to microsecond precision, handling both string and datetime inputs
-                df[col] = pd.to_datetime(df[col]).astype("datetime64[us]")
-                # Log sample of converted values in readable format
-                if len(df) > 0:
-                    readable_time = df[col].iloc[0].strftime("%Y-%m-%d %H:%M:%S.%f")
-                    LOG.debug(f"Sample {col} after conversion: {readable_time}")
+        LOG.debug("Converting datetime columns to UTC and microsecond precision.")
+        INVALID_DATE = np.Timestamp('1900-01-01').date()
 
-        # Create 'dt' column, prioritizing 'timestamp' over 'receipt_timestamp'
-        min_valid_date = pd.Timestamp("2000-01-01")  # Adjust this as needed
+        for col in ['timestamp', 'receipt_timestamp']:
+            if col in df.columns:
+                # Convert timestamp (seconds since epoch) to UTC datetime
+                df[col] = pd.to_datetime(df[col], unit='s', utc=True)
+                df[col] = df[col].dt.tz_localize(None)  # Remove timezone info after conversion
+                LOG.debug(f"Sample {col} after conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}")
+
+        # Create 'dt' column, prioritizing 'timestamp', then 'receipt_timestamp', fallback to INVALID_DATE
         if "timestamp" in df.columns:
-            df["dt"] = df["timestamp"].where(df["timestamp"] >= min_valid_date, pd.Timestamp.now()).dt.date
+            df["dt"] = df["timestamp"].dt.date
         elif "receipt_timestamp" in df.columns:
-            df["dt"] = df["receipt_timestamp"].where(df["receipt_timestamp"] >= min_valid_date, pd.Timestamp.now()).dt.date
+            df["dt"] = df["receipt_timestamp"].dt.date
         else:
-            LOG.warning("No timestamp column found. Using current date for 'dt'.")
-            df["dt"] = pd.Timestamp.now().date()
+            LOG.warning("Neither timestamp nor receipt_timestamp column found. Using invalid date for 'dt'.")
+            df["dt"] = INVALID_DATE
 
         # Log sample of 'dt' column
         if "dt" in df.columns and len(df) > 0:
             LOG.debug(f"Sample 'dt' value: {df['dt'].iloc[0]}")
 
-        LOG.debug("Datetime columns converted to microsecond precision.")
-
+        LOG.debug("Datetime columns converted and 'dt' column created.")
     def _convert_int_columns(self, df: pd.DataFrame):
         LOG.debug("Converting integer columns.")
         int_columns = ["id", "trade_id", "trades"]
