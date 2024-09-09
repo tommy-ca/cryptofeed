@@ -119,7 +119,7 @@ class DeltaLakeCallback(BackendQueue):
         while self.running:
             try:
                 async with self.read_queue() as updates:
-                    LOG.warning(f"Read queue returned {len(updates)} updates")
+                    LOG.warning(f"Read queue returned: {updates}")
                     if updates:
                         LOG.warning(f"Received {len(updates)} updates for processing.")
                         self.batch.extend(updates)
