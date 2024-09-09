@@ -205,7 +205,7 @@ class DeltaLakeCallback(BackendQueue):
         for col in ['timestamp', 'receipt_timestamp']:
             if col in df.columns:
                 # Convert timestamp (seconds since epoch) to UTC datetime
-                df[col] = pd.to_datetime(df[col], unit='s', utc=True).dt.tz_localize(None).astype("datetime64[us, UTC]")
+                df[col] = pd.to_datetime(df[col], unit='s', utc=True).dt.tz_localize(None)
                 LOG.debug(f"Sample {col} after conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}")
 
         # Create 'dt' column, prioritizing 'timestamp', then 'receipt_timestamp', fallback to INVALID_DATE
