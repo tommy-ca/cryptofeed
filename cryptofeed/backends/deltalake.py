@@ -7,6 +7,7 @@ associated with this software.
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
@@ -38,6 +39,8 @@ class DeltaLakeCallback(BackendQueue):
         storage_options: Optional[Dict[str, Any]] = None,
         numeric_type: Union[type, str] = float,
         none_to: Any = None,
+        batch_size: int = 1000,
+        flush_interval: float = 60.0,
         custom_transformations: Optional[List[callable]] = None,
         **kwargs: Any,
     ):
@@ -67,6 +70,10 @@ class DeltaLakeCallback(BackendQueue):
             self.transformations.extend(custom_transformations)
         # Validate configuration parameters
         self._validate_configuration()
+        self.batch_size = batch_size
+        self.flush_interval = flush_interval
+        self.batch = []
+        self.last_flush_time = time.time()
 
     def _validate_configuration(self):
         if self.optimize_interval <= 0:
@@ -115,25 +122,40 @@ class DeltaLakeCallback(BackendQueue):
                     LOG.warning(f"Read queue returned {len(updates)} updates")
                     if updates:
                         LOG.warning(f"Received {len(updates)} updates for processing.")
-                        df = pd.DataFrame(updates)
-                        LOG.warning(f"Created DataFrame with shape: {df.shape}")
+                        self.batch.extend(updates)
 
-                        LOG.warning("Starting field transformation")
-                        self._transform_columns(df)
-                        LOG.warning("Field transformation completed")
-
-                        LOG.warning("Validating columns")
-                        self._validate_columns(df)
-                        LOG.warning("Columns validation completed")
-
-                        LOG.warning("Starting batch write")
-                        await self._write_batch(df)
-                        LOG.warning("Batch write completed")
+                        if len(self.batch) >= self.batch_size or (time.time() - self.last_flush_time) >= self.flush_interval:
+                            await self._process_batch()
                     else:
-                        LOG.warning("No updates received, continuing loop")
+                        # Check if we need to flush based on time
+                        if (time.time() - self.last_flush_time) >= self.flush_interval and self.batch:
+                            await self._process_batch()
+                        else:
+                            LOG.warning("No updates received, continuing loop")
+                            await asyncio.sleep(1)  # Add a small delay to prevent busy-waiting
             except Exception as e:
                 LOG.error(f"Error in writer method: {e}", exc_info=True)
         LOG.warning("Writer method ended")
+
+    async def _process_batch(self):
+        LOG.warning(f"Processing batch of {len(self.batch)} updates")
+        df = pd.DataFrame(self.batch)
+        LOG.warning(f"Created DataFrame with shape: {df.shape}")
+
+        LOG.warning("Starting field transformation")
+        self._transform_columns(df)
+        LOG.warning("Field transformation completed")
+
+        LOG.warning("Validating columns")
+        self._validate_columns(df)
+        LOG.warning("Columns validation completed")
+
+        LOG.warning("Starting batch write")
+        await self._write_batch(df)
+        LOG.warning("Batch write completed")
+
+        self.batch = []
+        self.last_flush_time = time.time()
 
     def _validate_columns(self, df: pd.DataFrame):
         LOG.debug("Validating DataFrame columns.")
@@ -357,6 +379,9 @@ class DeltaLakeCallback(BackendQueue):
     async def stop(self):
         LOG.info("Stopping DeltaLakeCallback writer.")
         self.running = False
+        # Flush any remaining data
+        if self.batch:
+            await self._process_batch()
 
     def get_version(self, timestamp: Optional[int] = None) -> Optional[int]:
         if self.time_travel:
