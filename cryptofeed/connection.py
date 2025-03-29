@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -16,7 +16,8 @@ from dataclasses import dataclass
 
 from aiohttp.client_reqrep import ClientResponse
 import requests
-import websockets
+from websockets.asyncio.client import connect, ClientConnection
+from websockets.protocol import State
 import aiohttp
 from aiohttp.typedefs import StrOrURL
 from yapic import json as json_parser
@@ -55,9 +56,13 @@ class HTTPSync(Connection):
         r = requests.get(address, headers=headers, params=params)
         return self.process_response(r, address, json=json, text=text, uuid=uuid)
 
-    def write(self, address: str, data=None, json=False, text=True, uuid=None):
+    def write(self, address: str, data=None, json=False, text=True, uuid=None, is_data_json=False):
         LOG.debug("HTTPSync: post to %s", address)
-        r = requests.post(address, data=data)
+        if (is_data_json):
+            r = requests.post(address, json=data)
+        else:
+            r = requests.post(address, data=data)
+
         return self.process_response(r, address, json=json, text=text, uuid=uuid)
 
 
@@ -81,7 +86,7 @@ class AsyncConnection(Connection):
         self.last_message = None
         self.authentication = authentication
         self.subscription = subscription
-        self.conn: Union[websockets.WebSocketClientProtocol, aiohttp.ClientSession] = None
+        self.conn: Union[ClientConnection, aiohttp.ClientSession] = None
         atexit.register(self.__del__)
 
     def __del__(self):
@@ -303,7 +308,7 @@ class WSAsyncConn(AsyncConnection):
 
     @property
     def is_open(self) -> bool:
-        return self.conn and not self.conn.closed
+        return self.conn and not self.conn.state == State.CLOSED
 
     async def _open(self):
         if self.is_open:
@@ -315,7 +320,7 @@ class WSAsyncConn(AsyncConnection):
             if self.authentication:
                 self.address, self.ws_kwargs = await self.authentication(self.address, self.ws_kwargs)
 
-            self.conn = await websockets.connect(self.address, **self.ws_kwargs)
+            self.conn = await connect(self.address, **self.ws_kwargs)
         self.sent = 0
         self.received = 0
         self.last_message = None
@@ -357,7 +362,7 @@ class WebsocketEndpoint:
     authentication: bool = None
 
     def __post_init__(self):
-        defaults = {'ping_interval': 10, 'ping_timeout': None, 'max_size': 2**23, 'max_queue': None, 'read_limit': 2**18}
+        defaults = {'ping_interval': 10, 'ping_timeout': None, 'max_size': None, 'max_queue': None}
         if self.options:
             defaults.update(self.options)
         self.options = defaults

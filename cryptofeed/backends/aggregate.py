@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -13,11 +13,7 @@ import numpy as np
 class AggregateCallback:
     def __init__(self, handler):
         self.handler = handler
-        if (
-            hasattr(self.handler, "__class__")
-            and hasattr(self.handler, "start")
-            and hasattr(self.handler, "stop")
-        ):
+        if hasattr(self.handler, "__class__") and hasattr(self.handler, "start") and hasattr(self.handler, "stop"):
             setattr(self, "start", self.handler.start)
             setattr(self, "stop", self.handler.stop)
             self.__name__ = self.handler.__class__

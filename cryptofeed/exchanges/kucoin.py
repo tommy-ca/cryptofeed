@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -285,7 +285,7 @@ class KuCoin(Feed):
                     await conn.write(json.dumps({
                         'id': 1,
                         'type': 'subscribe',
-                        'topic': f"{chan}:{','.join(symbols[slice_index: slice_index+100])}",
+                        'topic': f"{chan}: {','.join(symbols[slice_index: slice_index + 100])}",
                         'privateChannel': False,
                         'response': True
                     }))

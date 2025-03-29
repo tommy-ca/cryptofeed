@@ -1,6 +1,7 @@
 ## Changelog
 
-### 2.4.1
+### 2.4.1 (2025-02-08)
+ * Update: Added `is_data_json` to `write()` in `HTTPSync` from `connection.py` to support JSON payloads (#1071)
  * Bugfix: Handle empty nextFundingRate in OKX
  * Bugfix: Handle null next_funding_time and estimated_rate in HuobiSwap funding
  * Update: transitioned from Coinbase Pro (retired) to Coinbase Advanced Trade
@@ -9,7 +10,8 @@
  * Bugfix: Handle None ids for Kraken trades in QuestDB
  * Bugfix: Handle OrderChanged event in IndependentReserve
  * Bugfix: Remove deprecated `USD` currency from bit.com
- * Bugfix: Make `entry` key optional when retrieving symbols for BitMex  
+ * Bugfix: Make `entry` key optional when retrieving symbols for BitMex
+ * Update: Changes to work with latest version of websockets
 
 ### 2.4.0 (2024-01-07)
  * Update: Fix tests

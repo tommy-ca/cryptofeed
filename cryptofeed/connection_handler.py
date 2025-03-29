@@ -1,19 +1,17 @@
 '''
-Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import asyncio
 import logging
-import random
 from socket import error as socket_error
 import time
 from typing import Awaitable
 import zlib
 
 from websockets import ConnectionClosed
-from websockets.exceptions import InvalidStatusCode
 
 from cryptofeed.connection import AsyncConnection
 from cryptofeed.exceptions import ExhaustedRetries
@@ -52,7 +50,6 @@ class ConnectionHandler:
     async def _create_connection(self):
         await asyncio.sleep(self.start_delay)
         retries = 0
-        rate_limited = 1
         delay = 1
         while (retries <= self.retries or self.retries == -1) and self.running:
             try:
@@ -61,7 +58,6 @@ class ConnectionHandler:
                     await self.subscribe(connection)
                     # connection was successful, reset retry count and delay
                     retries = 0
-                    rate_limited = 0
                     delay = 1
                     if self.timeout != -1:
                         loop = asyncio.get_running_loop()
@@ -77,22 +73,6 @@ class ConnectionHandler:
                 await asyncio.sleep(delay)
                 retries += 1
                 delay *= 2
-            except InvalidStatusCode as e:
-                if self.exceptions:
-                    for ex in self.exceptions:
-                        if isinstance(e, ex):
-                            LOG.warning("%s: encountered exception %s, which is on the ignore list. Raising", self.conn.uuid, str(e))
-                            raise
-                if e.status_code == 429:
-                    rand = random.uniform(1.0, 3.0)
-                    LOG.warning("%s: Rate Limited - waiting %d seconds to reconnect", self.conn.uuid, (rate_limited * 60 * rand))
-                    await asyncio.sleep(rate_limited * 60 * rand)
-                    rate_limited += 1
-                else:
-                    LOG.warning("%s: encountered connection issue %s - reconnecting in %.1f seconds...", self.conn.uuid, str(e), delay, exc_info=True)
-                    await asyncio.sleep(delay)
-                    retries += 1
-                    delay *= 2
             except Exception as e:
                 if self.exceptions:
                     for ex in self.exceptions:

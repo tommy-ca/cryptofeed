@@ -1,5 +1,5 @@
 """
-Copyright (C) 2017-2024 Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -61,7 +61,7 @@ setup(
     url="https://github.com/bmoscon/cryptofeed",
     packages=find_packages(exclude=['tests*']),
     cmdclass={'test': Test},
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     classifiers=[
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
@@ -75,9 +75,9 @@ setup(
     tests_require=["pytest"],
     install_requires=[
         "requests>=2.18.4",
-        "websockets>=10.0",
+        "websockets>=14.1",
         "pyyaml",
-        "aiohttp>=3.9.4",
+        "aiohttp>=3.11.6",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
         'uvloop ; platform_system!="Windows"',
