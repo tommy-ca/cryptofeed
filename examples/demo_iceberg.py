@@ -1,200 +1,84 @@
-"""
-Cryptofeed Iceberg Backend Demo
+'''
+Copyright (C) 2017-2021  Bryant Moscon - bmoscon@gmail.com
 
-This script demonstrates how to use the Iceberg backend with Cryptofeed to publish
-market data from exchanges to Apache Iceberg tables.
-
-Prerequisites:
-1. Install Cryptofeed with Iceberg support:
-   pip install cryptofeed[iceberg]
-   (This installs pyiceberg, pyarrow, pandas)
-
-2. Run an Iceberg Catalog. A simple way to get started is with a Dockerized REST Catalog.
-   The Tabular image provides a REST catalog with S3 (MinIO) backend.
-
-   Docker command for Tabular quickstart (includes MinIO & REST Catalog):
-   docker run -p 8080:8080 -p 9000:9000 -p 8181:8181 \\
-     --name tabular-iceberg-rest \\
-     tabulario/iceberg-rest-runtime:latest
-
-   This makes:
-   - MinIO (S3 compatible) UI: http://localhost:9000 (admin/password)
-   - Iceberg REST Catalog: http://localhost:8181
-
-   You might need to create a bucket in MinIO (e.g., 'iceberg') and configure
-   the warehouse path accordingly. The Tabular image might pre-configure a default
-   warehouse and credentials. Refer to its documentation if needed.
-   The default credentials for MinIO in this image are often 'admin'/'password'.
-
-   The catalog_config below assumes this Tabular Docker setup.
-
-To run this script:
-   python examples/demo_iceberg.py
-
-After the script runs for a bit (and you stop it with CTRL+C), the data will be
-in Iceberg tables. You can then inspect the data using PyIceberg or query
-engines like Spark, Trino, Dremio, or DuckDB (if they can connect to your catalog).
-"""
-import asyncio
-import logging
-
+Please see the LICENSE file for the terms and conditions
+associated with this software.
+'''
 from cryptofeed import FeedHandler
+from cryptofeed.defines import TICKER, TRADES
 from cryptofeed.exchanges import Coinbase
-from cryptofeed.defines import TRADES, TICKER, L2_BOOK
-from cryptofeed.backends.iceberg import TradeIceberg, TickerIceberg, BookIceberg
 
-# Configure logging for Cryptofeed and PyIceberg (optional, for debugging)
-# logging.basicConfig(level=logging.INFO,
-#                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# logging.getLogger('pyiceberg').setLevel(logging.DEBUG)
+# Import the Iceberg callbacks
+from cryptofeed.backends.iceberg import TickerIceberg, TradeIceberg
 
+# Example configuration for a local Iceberg catalog.
+# Replace with your actual Iceberg catalog configuration.
+# For S3: path = "s3://your-bucket/warehouse/"
+# For GCS: path = "gcs://your-bucket/warehouse/"
+# For local: path = "/path/to/your/iceberg_warehouse" (ensure this directory exists)
+# The catalog name (e.g., "demo_catalog") will be the last part of the path if not specified otherwise.
+ICEBERG_CATALOG_PATH = "iceberg_data"  # This will create a catalog named 'iceberg_data' in the local directory.
+                                      # Make sure 'iceberg_data' directory exists or can be created.
 
-# --- Configuration for Iceberg Catalog ---
-# This example uses a REST catalog, assuming the Tabular Docker image mentioned above.
-# Adjust these settings based on your Iceberg catalog setup.
-CATALOG_NAME = "tabular_rest" # A local name for this catalog configuration
-CATALOG_URI = "http://localhost:8181" # REST Catalog endpoint
-S3_ENDPOINT_URL = "http://localhost:9000" # MinIO endpoint from Tabular container
-S3_ACCESS_KEY = "admin" # Default for Tabular's MinIO
-S3_SECRET_KEY = "password" # Default for Tabular's MinIO
-ICEBERG_WAREHOUSE_PATH = "s3a://iceberg/cryptofeed_data/" # Bucket 'iceberg', path 'cryptofeed_data/'
-# Ensure the 'iceberg' bucket exists in MinIO. You can create it via MinIO UI (localhost:9000).
-
-CATALOG_CONFIG = {
-    "name": CATALOG_NAME,
-    "type": "rest", # Explicitly setting type, though 'uri' often implies it for REST
-    "uri": CATALOG_URI,
-    "s3.endpoint": S3_ENDPOINT_URL, # Note: pyiceberg might prefer 's3.endpoint' or 's3.endpoint-url'
-                                     # Check pyiceberg docs for exact S3 client factory keys.
-                                     # For REST catalog, these S3 settings are usually passed in its server config,
-                                     # but pyiceberg client might need them for certain operations if it interacts
-                                     # with S3 directly, or if the REST catalog itself needs them passed this way.
-                                     # More commonly, for a REST catalog, the 'warehouse' property is key,
-                                     # and S3 settings are on the REST server.
-                                     # Let's assume REST catalog is configured to use this S3 backend.
-                                     # PyIceberg's load_catalog for REST primarily uses 'uri' and 'credential'.
-                                     # For warehouse path on S3, it's often just 'warehouse'.
-    "warehouse": ICEBERG_WAREHOUSE_PATH,
-    # If your REST catalog requires authentication:
-    # "credential": "Bearer <your_token>",
-    # Or for other auth methods, refer to PyIceberg docs.
-    # For the Tabular image, it typically runs without auth by default.
-
-    # For S3 client configuration directly in pyiceberg (might be needed if not using REST server's S3 config):
-    # These are typical PyIceberg properties for S3FileIO
-    "io-impl": "pyiceberg.io.s3.S3FileIO", # Example if needing to specify S3FileIO explicitly
-    "s3.access-key-id": S3_ACCESS_KEY,
-    "s3.secret-access-key": S3_SECRET_KEY,
-    "s3.endpoint-url": S3_ENDPOINT_URL, # Some PyIceberg versions might use this key
-}
-
-
-# Database and table prefix in Iceberg
-DATABASE_NAME = "cryptofeed_db"
-TABLE_PREFIX = "demo" # Tables will be like demo_trades, demo_tickers, demo_orderbooks
-BATCH_SIZE = 10 # Number of messages to buffer before writing to Iceberg (small for demo)
+# Example for local MinIO S3 setup (ensure MinIO is running and bucket exists)
+# ICEBERG_CATALOG_PATH = "s3://cryptofeed/iceberg"
+# S3_ACCESS_KEY_ID = "minioadmin"
+# S3_SECRET_ACCESS_KEY = "minioadmin"
+# S3_ENDPOINT_URL = "http://localhost:9000" # Required if not using AWS S3
 
 
 def main():
-    fh = FeedHandler()
+    f = FeedHandler()
 
-    # Define Iceberg callbacks
-    trade_cb = TradeIceberg(
-        catalog_config=CATALOG_CONFIG,
-        database_name=DATABASE_NAME,
-        table_prefix=TABLE_PREFIX,
-        batch_size=BATCH_SIZE
-    )
-    ticker_cb = TickerIceberg(
-        catalog_config=CATALOG_CONFIG,
-        database_name=DATABASE_NAME,
-        table_prefix=TABLE_PREFIX,
-        batch_size=BATCH_SIZE
-    )
-    book_cb = BookIceberg(
-        catalog_config=CATALOG_CONFIG,
-        database_name=DATABASE_NAME,
-        table_prefix=TABLE_PREFIX,
-        batch_size=BATCH_SIZE, # Book snapshots can be larger, adjust if needed
-        # snapshots_only=True # Consider for BookIceberg if delta handling is complex initially
-    )
+    # Configuration for the Iceberg backend.
+    # The `key` argument in the callback corresponds to the data type (e.g., TICKER, TRADES).
+    # This will also be used as the base table name in Iceberg.
+    # So, for TICKER, the table will be something like 'iceberg_data.ticker_table'.
+    # The exact table name format is catalog_name.table_name.
+    # The table name is derived from the `key` (e.g. TICKER -> "ticker")
 
-    # Add Coinbase feed for BTC-USD trades, tickers, and L2 book
-    fh.add_feed(Coinbase(
-        symbols=['BTC-USD'],
-        channels=[TRADES, TICKER, L2_BOOK],
-        callbacks={
-            TRADES: trade_cb,
-            TICKER: ticker_cb,
-            L2_BOOK: book_cb
-        }
-    ))
+    # This example uses a local filesystem catalog.
+    # Ensure the directory `iceberg_data` exists in the same directory where you run the script,
+    # or provide an absolute path.
+    iceberg_config_ticker = {
+        'path': ICEBERG_CATALOG_PATH,
+        # For S3, you might need to add s3_access_key_id, s3_secret_access_key, and potentially s3_region or endpoint overrides
+        # 's3_access_key_id': S3_ACCESS_KEY_ID,
+        # 's3_secret_access_key': S3_SECRET_ACCESS_KEY,
+        # 's3_endpoint_override': S3_ENDPOINT_URL, # if using MinIO or non-AWS S3
+        # 's3_region': 'us-east-1'
+        # For GCS, you might need gcs_project_id and gcs_token
+        # 'gcs_project_id': 'your-gcp-project-id'
+    }
 
-    print(f"Starting FeedHandler. Writing data to Iceberg via catalog: {CATALOG_CONFIG.get('name', CATALOG_CONFIG.get('uri'))}")
-    print(f"Target Iceberg Database: {DATABASE_NAME}")
-    print(f"Table prefix: {TABLE_PREFIX}")
-    print(f"Batch size: {BATCH_SIZE}")
-    print(f"Data will be written to tables like: {DATABASE_NAME}.{TABLE_PREFIX}_trades, etc.")
-    print("Run this for a while and then stop with CTRL+C.")
-    print("After stopping, you can inspect the Iceberg tables.")
+    # Add Coinbase feed for Ticker data, writing to Iceberg
+    # The table name will be determined by the catalog name (from path) and the default_key of TickerIceberg (which is TICKER)
+    # e.g. iceberg_data.ticker
+    f.add_feed(Coinbase(channels=[TICKER], symbols=['BTC-USD'], callbacks={TICKER: TickerIceberg(**iceberg_config_ticker)}))
 
-    try:
-        fh.run()
-    except KeyboardInterrupt:
-        print("FeedHandler stopped by user.")
-    finally:
-        print("\n--- Inspecting Data (Example) ---")
-        print("Attempting to load tables using PyIceberg and print some data...")
-        print("Note: This inspection part requires the same catalog configuration to be accessible.")
+    # Example for TRADES (uncomment to use)
+    # iceberg_config_trades = {'path': ICEBERG_CATALOG_PATH}
+    # f.add_feed(Coinbase(channels=[TRADES], symbols=['BTC-USD'], callbacks={TRADES: TradeIceberg(**iceberg_config_trades)}))
 
-        try:
-            from pyiceberg.catalog import load_catalog
-            catalog = load_catalog(**CATALOG_CONFIG)
+    # Example for L2_BOOK (uncomment to use)
+    # Note: Book data can be voluminous. Ensure your Iceberg setup can handle it.
+    # A BookIceberg class would be needed in cryptofeed.backends.iceberg
+    # iceberg_config_l2book = {'path': ICEBERG_CATALOG_PATH}
+    # f.add_feed(Coinbase(channels=[L2_BOOK], symbols=['BTC-USD'], callbacks={L2_BOOK: BookIceberg(**iceberg_config_l2book)}))
 
-            trades_table_name = f"{DATABASE_NAME}.{TABLE_PREFIX}_trades"
-            try:
-                print(f"\nLoading table: {trades_table_name}")
-                table = catalog.load_table(trades_table_name)
-                print(f"Schema: {table.schema()}")
-                df_trades = table.scan(row_filter="price > 0", selected_fields=("timestamp", "price", "amount", "side")).to_pandas()
-                print("Sample Trades Data (first 5 rows):")
-                print(df_trades.head())
-            except Exception as e:
-                print(f"Could not load or scan trades table '{trades_table_name}': {e}")
+    print(f"Writing data to Iceberg. Catalog path: {ICEBERG_CATALOG_PATH}")
+    print("Running for 60 seconds. Check your Iceberg catalog/tables after the script finishes.")
+    print("Make sure the catalog directory (e.g., 'iceberg_data/') exists if using a local file system catalog.")
 
-            tickers_table_name = f"{DATABASE_NAME}.{TABLE_PREFIX}_tickers"
-            try:
-                print(f"\nLoading table: {tickers_table_name}")
-                table = catalog.load_table(tickers_table_name)
-                print(f"Schema: {table.schema()}")
-                df_tickers = table.scan(selected_fields=("timestamp", "bid", "ask")).to_pandas()
-                print("Sample Tickers Data (first 5 rows):")
-                print(df_tickers.head())
-            except Exception as e:
-                print(f"Could not load or scan tickers table '{tickers_table_name}': {e}")
+    f.run(duration=60) # Run for 60 seconds
 
-            # Book table inspection can be more complex due to nested data
-            books_table_name = f"{DATABASE_NAME}.{TABLE_PREFIX}_orderbooks" # default_table is 'orderbooks'
-            try:
-                print(f"\nLoading table: {books_table_name}")
-                table = catalog.load_table(books_table_name)
-                print(f"Schema: {table.schema()}")
-                # Scanning list<struct<...>> can be tricky with to_pandas() if not flattened.
-                # PyIceberg's scan should handle it.
-                df_books = table.scan(selected_fields=("timestamp", "bids", "asks")).to_pandas()
-                print("Sample Book Data (first 2 rows, bids/asks might be truncated):")
-                # Pandas display options for wide/nested columns
-                pd.set_option('display.max_colwidth', 100)
-                print(df_books.head(2))
-            except Exception as e:
-                print(f"Could not load or scan orderbooks table '{books_table_name}': {e}")
-
-        except Exception as e:
-            print(f"Could not initialize PyIceberg catalog for inspection: {e}")
-            print("Please ensure your Iceberg catalog is running and configured correctly.")
-
+    print("Feed handler stopped.")
 
 if __name__ == '__main__':
-    # For asyncio event loop management, especially if fh.run() is wrapped or other async ops are added
-    # asyncio.run(main()) # This is not needed if fh.run() manages the loop, which it does.
+    # Create the local directory for the Iceberg catalog if it doesn't exist.
+    import os
+    if not ICEBERG_CATALOG_PATH.startswith("s3://") and not ICEBERG_CATALOG_PATH.startswith("gcs://"):
+        if not os.path.exists(ICEBERG_CATALOG_PATH):
+            os.makedirs(ICEBERG_CATALOG_PATH)
+            print(f"Created directory: {ICEBERG_CATALOG_PATH}")
     main()

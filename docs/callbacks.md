@@ -45,227 +45,97 @@ The backends are defined [here](../cryptofeed/backends/). Currently the followin
 * TCP/UDP/UDS sockets
 * VictoriaMetrics
 * ZMQ
-* NATS
 * Iceberg
 
 There are also a handful of wrappers defined [here](../cryptofeed/backends/aggregate.py) that can be used in conjunction with these and raw callbacks to convert data to OHLCV, throttle data, etc.
 
-### NATS Backend
+### Apache Iceberg Backend
 
-The NATS backend allows publishing data from Cryptofeed to NATS subjects.
-
-**Installation**
-
-To use the NATS backend, you need to install the necessary extra dependencies:
-
-```bash
-pip install cryptofeed[nats]
-```
-
-This will install the `nats-py` library.
-
-**Configuration**
-
-The NATS backend is configured within the `callbacks` section of your Cryptofeed configuration.
-
-Example using a Python dictionary:
-
-```python
-from cryptofeed.defines import TRADES, L2_BOOK
-from cryptofeed.backends.nats import TradeNATS, BookNATS
-
-config = {
-    'log': {
-        'filename': 'feedhandler.log',
-        'level': 'INFO'
-    },
-    'callbacks': {
-        TRADES: TradeNATS(addr=['nats://localhost:4222', 'nats://another_server:4222'], subject_prefix='crypto.feed'),
-        L2_BOOK: BookNATS(addr='nats://localhost:4222', subject_prefix='crypto.l2book')
-    }
-}
-```
-
-Example using `config.yaml`:
-
-```yaml
-log:
-  filename: feedhandler.log
-  level: INFO
-callbacks:
-  TRADES:
-    class: TradeNATS
-    addr: ['nats://localhost:4222', 'nats://another_server:4222'] # Can be a single string or a list of strings
-    subject_prefix: crypto.feed # Optional, defaults to 'cryptofeed'
-  L2_BOOK:
-    class: BookNATS
-    addr: nats://localhost:4222
-    subject_prefix: crypto.l2book # Optional, defaults to 'cryptofeed'
-    # Other options like 'book_depth', 'max_depth' can be added for BookNATS
-```
-
-**Configuration Parameters:**
-
-*   `class`: The specific NATS callback class to use (e.g., `TradeNATS`, `BookNATS`).
-*   `addr`: (Required) A NATS server URL string or a list of NATS server URL strings. Defaults to `'nats://localhost:4222'` if not provided in the specific callback constructor, but it's best to specify it explicitly.
-*   `subject_prefix`: (Optional) A prefix for all NATS subjects published by this callback. Defaults to `'cryptofeed'`.
-*   Other parameters specific to the data type (e.g., `book_depth` for `BookNATS`) can also be passed.
-
-**NATS Subject Naming**
-
-The NATS subjects are constructed using the following pattern:
-
-`<subject_prefix>-<data_type>-<exchange>-<symbol>`
-
-Where:
-*   `<subject_prefix>` is the configured prefix (e.g., `crypto.feed`).
-*   `<data_type>` is derived from the callback class (e.g., `trades` for `TradeNATS`, `book` for `BookNATS`).
-*   `<exchange>` is the name of the exchange (e.g., `coinbase`).
-*   `<symbol>` is the trading symbol (e.g., `BTC-USD`).
-
-For example, a trade update for BTC-USD from Coinbase with `subject_prefix='crypto.feed'` would be published to: `crypto.feed-trades-coinbase-BTC-USD`.
-
-**Available NATS Callback Classes:**
-
-The following NATS-specific callback classes are available in `cryptofeed.backends.nats`:
-
-*   `TradeNATS`
-*   `BookNATS`
-*   `TickerNATS`
-*   `FundingNATS`
-*   `OpenInterestNATS`
-*   `LiquidationsNATS`
-*   `CandlesNATS`
-*   `OrderInfoNATS`
-*   `TransactionsNATS`
-*   `BalancesNATS`
-*   `FillsNATS`
-
-These classes inherit the appropriate base callback functionality (e.g., `BackendCallback`, `BackendBookCallback`) and handle publishing to NATS.
-
-### Iceberg Backend
-
-The Iceberg backend allows publishing data from Cryptofeed to Apache Iceberg tables. It buffers data in memory and writes it in batches. Tables are automatically created with predefined schemas if they do not exist.
+The Apache Iceberg backend allows you to store cryptofeed data into Iceberg tables, enabling robust data lakehouse capabilities. It leverages `pyiceberg` to interact with Iceberg catalogs (supporting local filesystem, S3, GCS, and others) and `pyarrow` for data serialization.
 
 **Installation**
 
-To use the Iceberg backend, you need to install the necessary extra dependencies:
-
+To use the Iceberg backend, you need to install the required dependencies:
 ```bash
-pip install cryptofeed[iceberg]
+pip install pyiceberg>=0.6.0 pyarrow>=10.0.0
 ```
-
-This will install `pyiceberg`, `pyarrow`, and `pandas`. Depending on your Iceberg catalog and storage, you might need additional packages (e.g., `boto3` for S3, `psycopg2-binary` for a PostgreSQL-backed catalog). Refer to the PyIceberg documentation for catalog-specific requirements.
+Depending on your chosen catalog (S3, GCS), you might also need additional libraries like `boto3` (for S3) or `google-cloud-storage` (for GCS). `pyiceberg` often lists these as extras, e.g., `pip install pyiceberg[s3]` or `pyiceberg[gcs]`.
 
 **Configuration**
 
-The Iceberg backend is configured within the `callbacks` section of your Cryptofeed configuration.
+The primary class for this backend is `cryptofeed.backends.iceberg.IcebergCallback`. Specific data types have their own callback classes inheriting from it (e.g., `TickerIceberg`, `TradeIceberg`).
 
-Example using a Python dictionary:
+Key configuration parameters for `IcebergCallback` and its children:
+
+*   `path` (str): **Required**. The URI for the Iceberg catalog. This determines the type of catalog and its location.
+    *   For a local filesystem catalog: `/path/to/your/iceberg_warehouse` or `relative/path/warehouse`. The last component of this path (e.g., `iceberg_warehouse`) is used as the catalog identifier when constructing table names.
+    *   For S3: `s3://your-s3-bucket/path/to/warehouse/`
+    *   For GCS: `gcs://your-gcs-bucket/path/to/warehouse/`
+*   `key` (str): Optional. The data type being stored (e.g., `TICKER`, `TRADES`). This defaults to the `default_key` of the specific callback class (like `TickerIceberg.default_key` is `TICKER`). This key is used as the base name for the Iceberg table. For example, if the catalog identifier derived from `path` is `my_catalog` and `key` is `ticker`, the table will be `my_catalog.ticker`.
+*   `gcs_project_id` (str): Optional. Required if using a GCS catalog to specify the Google Cloud Project ID.
+*   `**kwargs`: Additional keyword arguments are passed directly to `pyiceberg.catalog.load_catalog()`. This is how you provide credentials and other configurations for S3, GCS, or other catalog types.
+    *   **For S3:**
+        *   `s3.access-key-id`: Your S3 access key ID.
+        *   `s3.secret-access-key`: Your S3 secret access key.
+        *   `s3.region`: The AWS region for the S3 bucket (e.g., `us-west-2`).
+        *   `s3.endpoint-override`: The S3 endpoint URL, necessary for S3-compatible storage like MinIO (e.g., `http://localhost:9000`).
+        *   And other S3 properties supported by PyIceberg's FsspecFileIO.
+    *   **For GCS:**
+        *   `gcs.token`: GCS token, if not relying on default credentials.
+        *   And other GCS properties.
+    *   Refer to the [PyIceberg documentation](https://pyiceberg.apache.org/configuration/) for all available catalog configuration options.
+
+**Table Naming**
+
+Iceberg tables are created with names in the format: `catalog_identifier.table_base_name`.
+*   `catalog_identifier`: Derived from the last component of the `path` argument. For example, if `path` is `/opt/data/my_iceberg_catalog`, the identifier is `my_iceberg_catalog`.
+*   `table_base_name`: This is taken from the `key` argument (e.g., `ticker`, `trades`).
+
+**Example Usage**
 
 ```python
-from cryptofeed.defines import TRADES, L2_BOOK
-from cryptofeed.backends.iceberg import TradeIceberg, BookIceberg
+from cryptofeed import FeedHandler
+from cryptofeed.exchanges import Coinbase
+from cryptofeed.defines import TICKER, TRADES
+from cryptofeed.backends.iceberg import TickerIceberg, TradeIceberg
 
-# Example for a REST catalog
-rest_catalog_config = {
-    "name": "my_rest_catalog", # Optional: local name for the catalog instance
-    "uri": "http://localhost:8181", # REST catalog URI
-    "s3.endpoint-url": "http://minio:9000", # Example if warehouse is S3 via MinIO
-    "s3.access-key-id": "YOUR_ACCESS_KEY",
-    "s3.secret-access-key": "YOUR_SECRET_KEY",
-    "warehouse": "s3a://my-bucket/iceberg_warehouse/"
-}
+def main():
+    f = FeedHandler()
 
-# Example for a Hive catalog
-hive_catalog_config = {
-    "name": "my_hive_catalog",
-    "uri": "thrift://localhost:9083", # Hive Metastore URI
-    "warehouse": "s3a://my-bucket/iceberg_warehouse/" # Example S3 warehouse path
-    # Add s3.endpoint-url, keys, etc. if using S3 with Hive
-}
-
-
-config = {
-    'log': {
-        'filename': 'feedhandler.log',
-        'level': 'INFO'
-    },
-    'callbacks': {
-        TRADES: TradeIceberg(
-            catalog_config=rest_catalog_config,
-            database_name='crypto_data',
-            table_prefix='cf',
-            batch_size=500
-        ),
-        L2_BOOK: BookIceberg(
-            catalog_config=rest_catalog_config,
-            database_name='crypto_data',
-            table_prefix='cf_book',
-            batch_size=200,
-            # pandas_kwargs={'columns': ['custom_col_order']} # Optional
-        )
+    # Configure for a local Iceberg catalog in the 'iceberg_warehouse' directory
+    # The catalog identifier will be 'iceberg_warehouse'
+    # Ticker data will go to 'iceberg_warehouse.ticker'
+    # Trade data will go to 'iceberg_warehouse.trades'
+    iceberg_config_local = {
+        'path': 'iceberg_warehouse'
     }
-}
+
+    # Example for S3 (ensure S3 bucket 'my-crypto-data' and prefix 'iceberg_catalog/' exist)
+    # iceberg_config_s3 = {
+    #     'path': 's3://my-crypto-data/iceberg_catalog/',
+    #     's3.access-key-id': 'YOUR_AWS_ACCESS_KEY_ID',
+    #     's3.secret-access-key': 'YOUR_AWS_SECRET_ACCESS_KEY',
+    #     's3.region': 'us-east-1'
+    # }
+
+    f.add_feed(Coinbase(channels=[TICKER], symbols=['BTC-USD'], callbacks={TICKER: TickerIceberg(**iceberg_config_local)}))
+    f.add_feed(Coinbase(channels=[TRADES], symbols=['ETH-USD'], callbacks={TRADES: TradeIceberg(**iceberg_config_local)}))
+
+    # To use the S3 example:
+    # f.add_feed(Coinbase(channels=[TICKER], symbols=['BTC-USD'], callbacks={TICKER: TickerIceberg(**iceberg_config_s3)}))
+
+    f.run()
+
+if __name__ == '__main__':
+    main()
 ```
 
-Example using `config.yaml`:
+**Available Callback Classes**
 
-```yaml
-log:
-  filename: feedhandler.log
-  level: INFO
+The following specific callback classes are available in `cryptofeed.backends.iceberg`:
 
-callbacks:
-  TRADES:
-    class: TradeIceberg
-    catalog_config:
-      name: "my_rest_catalog" # Optional: local name for the catalog instance
-      uri: "http://localhost:8181" # REST catalog URI
-      s3.endpoint-url: "http://minio:9000" # Example for S3 via MinIO
-      s3.access-key-id: "YOUR_ACCESS_KEY"
-      s3.secret-access-key: "YOUR_SECRET_KEY"
-      warehouse: "s3a://my-bucket/iceberg_warehouse/"
-    database_name: crypto_data
-    table_prefix: cf             # Table will be cf_trades
-    batch_size: 500
-  L2_BOOK:
-    class: BookIceberg
-    catalog_config: # Can reuse catalog_config or define another
-      name: "my_rest_catalog"
-      uri: "http://localhost:8181"
-      # ... other catalog properties
-    database_name: crypto_data
-    table_prefix: cf_book        # Table will be cf_book_orderbooks
-    batch_size: 200
-    # pandas_kwargs:
-    #   columns: ['exchange', 'symbol', 'timestamp', ...] # To enforce column order/selection
-```
-
-**Configuration Parameters:**
-
-*   `class`: The specific Iceberg callback class (e.g., `TradeIceberg`, `BookIceberg`).
-*   `catalog_config`: (Required) A dictionary containing properties to initialize the PyIceberg catalog (e.g., `uri`, `warehouse`, S3 credentials, etc.). The specific keys and values depend heavily on your chosen Iceberg catalog type (REST, Hive, Nessie, SQL). Consult the PyIceberg documentation for `pyiceberg.catalog.load_catalog()` and your catalog's specific configuration.
-*   `database_name`: (Optional) The Iceberg namespace (database) where tables will be managed. Defaults to `'default'`. The backend will attempt to create this namespace if it doesn't exist.
-*   `table_prefix`: (Optional) A prefix for table names. The full table name is formed as `<table_prefix>_<data_type_key>` (e.g., `cryptofeed_trades`). Defaults to `'cryptofeed'`.
-*   `batch_size`: (Optional) The number of records to buffer in memory before writing to an Iceberg table. Defaults to `1000`.
-*   `pandas_kwargs`: (Optional) A dictionary of keyword arguments passed to `pandas.DataFrame.from_records()` when creating DataFrames from buffered data. This can be used to control aspects like column selection or indexing. By default, subclasses set `columns` based on their predefined schema.
-
-**Table Management and Schemas**
-
-Tables are automatically created by the backend if they do not already exist in the specified database. Each data-type specific callback (like `TradeIceberg`) has a predefined `pyarrow.Schema` that dictates the table structure.
-
-**Book Data (`BookIceberg`)**
-
-The `BookIceberg` callback stores order book snapshots. Bids and asks are stored in a structured format within the table, specifically as a `list` of `structs`, where each struct contains `price` and `size` fields (both floats). This allows for querying individual price levels. The schema also includes a `delta` boolean field to distinguish full snapshots from records originating from delta updates (though all records written by `BookIceberg` represent the state of the book or changes at a point in time).
-
-**Available Iceberg Callback Classes:**
-
-The following Iceberg-specific callback classes are available in `cryptofeed.backends.iceberg`:
-
-*   `TradeIceberg`
 *   `TickerIceberg`
-*   `BookIceberg`
+*   `TradeIceberg`
 *   `FundingIceberg`
 *   `OpenInterestIceberg`
 *   `LiquidationsIceberg`
@@ -275,7 +145,7 @@ The following Iceberg-specific callback classes are available in `cryptofeed.bac
 *   `BalancesIceberg`
 *   `FillsIceberg`
 
-These classes manage the buffering, schema definition, and writing of their respective data types to Iceberg tables.
+Each class defaults to the appropriate `key` for its data type.
 
 ### Performance Considerations
 
