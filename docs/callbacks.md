@@ -46,12 +46,13 @@ The backends are defined [here](../cryptofeed/backends/). Currently the followin
 * VictoriaMetrics
 * ZMQ
 * NATS
+* Iceberg
 
 There are also a handful of wrappers defined [here](../cryptofeed/backends/aggregate.py) that can be used in conjunction with these and raw callbacks to convert data to OHLCV, throttle data, etc.
 
 ### NATS Backend
 
-The NATS backend allows publishing data from Cryptofeed to NATS subjects.
+The NATS backend allows publishing data from Cryptofeed to NATS subjects. It supports both core NATS publishing and NATS JetStream for persistent, acknowledged streaming.
 
 **Installation**
 
@@ -79,8 +80,17 @@ config = {
         'level': 'INFO'
     },
     'callbacks': {
-        TRADES: TradeNATS(addr=['nats://localhost:4222', 'nats://another_server:4222'], subject_prefix='crypto.feed'),
-        L2_BOOK: BookNATS(addr='nats://localhost:4222', subject_prefix='crypto.l2book')
+        TRADES: TradeNATS(
+            addr=['nats://localhost:4222', 'nats://another_server:4222'],
+            subject_prefix='crypto.feed',
+            jetstream_mode=True,       # Enable JetStream
+            jetstream_timeout=5.0      # Optional: Timeout for JS operations
+        ),
+        L2_BOOK: BookNATS(
+            addr='nats://localhost:4222',
+            subject_prefix='crypto.l2book',
+            # jetstream_mode=False, # Defaults to False (core NATS)
+        )
     }
 }
 ```
@@ -96,18 +106,23 @@ callbacks:
     class: TradeNATS
     addr: ['nats://localhost:4222', 'nats://another_server:4222'] # Can be a single string or a list of strings
     subject_prefix: crypto.feed # Optional, defaults to 'cryptofeed'
+    jetstream_mode: true        # Enable JetStream publishing
+    jetstream_timeout: 5        # Optional: Timeout for JetStream operations (default 2.0)
   L2_BOOK:
     class: BookNATS
     addr: nats://localhost:4222
     subject_prefix: crypto.l2book # Optional, defaults to 'cryptofeed'
+    # jetstream_mode: false       # Explicitly use core NATS (this is the default)
     # Other options like 'book_depth', 'max_depth' can be added for BookNATS
 ```
 
 **Configuration Parameters:**
 
 *   `class`: The specific NATS callback class to use (e.g., `TradeNATS`, `BookNATS`).
-*   `addr`: (Required) A NATS server URL string or a list of NATS server URL strings. Defaults to `'nats://localhost:4222'` if not provided in the specific callback constructor, but it's best to specify it explicitly.
+*   `addr`: (Required) A NATS server URL string or a list of NATS server URL strings. Defaults to `'nats://localhost:4222'`.
 *   `subject_prefix`: (Optional) A prefix for all NATS subjects published by this callback. Defaults to `'cryptofeed'`.
+*   `jetstream_mode`: (Optional) Boolean, set to `true` to enable NATS JetStream publishing. Defaults to `false`, which uses core NATS publish.
+*   `jetstream_timeout`: (Optional) Float, timeout in seconds for JetStream operations, including publish acknowledgment and JetStream context creation. Defaults to `2.0`.
 *   Other parameters specific to the data type (e.g., `book_depth` for `BookNATS`) can also be passed.
 
 **NATS Subject Naming**
@@ -122,7 +137,34 @@ Where:
 *   `<exchange>` is the name of the exchange (e.g., `coinbase`).
 *   `<symbol>` is the trading symbol (e.g., `BTC-USD`).
 
-For example, a trade update for BTC-USD from Coinbase with `subject_prefix='crypto.feed'` would be published to: `crypto.feed-trades-coinbase-BTC-USD`.
+For example, a trade update for BTC-USD from Coinbase with `subject_prefix='crypto.feed'` would be published to: `crypto.feed-trades-coinbase-BTC-USD`. This subject naming remains the same for both core NATS and JetStream publishing.
+
+**Using NATS JetStream (`jetstream_mode: true`)**
+
+When `jetstream_mode` is enabled, the NATS backend publishes messages using NATS JetStream, which provides features like message persistence, at-least-once delivery guarantees (with acknowledgments), and more complex stream consumption models. This is recommended for scenarios requiring higher durability or reliable message delivery.
+
+*   **Publishing Semantics:** The current implementation, when `jetstream_mode` is `true`, awaits an acknowledgment (`ack`) from the JetStream server for each published message. The duration of this wait is controlled by `jetstream_timeout`. If an ack is not received within this timeout, a `NatsTimeoutError` is logged, and the message might not have been successfully persisted by the stream.
+
+*   **User-Managed Streams:** The callback itself **does not** create or manage JetStream streams. It only publishes to NATS subjects. You are responsible for defining and configuring JetStream streams on your NATS server to capture these subjects.
+
+    For example, to create a file-backed stream named `CRYPTO_DATA` that captures all subjects published by this backend with a prefix of `cryptofeed.demo`:
+
+    ```bash
+    nats stream add CRYPTO_DATA --subjects "cryptofeed.demo.>" --ack --max-msgs=-1 --max-bytes=-1 --storage=file --retention=limits --defaults
+    ```
+    Or using the newer `nats stream create` syntax:
+    ```bash
+    nats stream create CRYPTO_DATA --subjects "cryptofeed.demo.>" --ack --max-msgs=-1 --max-bytes=-1 --storage file --retention limits
+    ```
+
+    Key parts of this example command:
+    *   `CRYPTO_DATA`: The name of your stream.
+    *   `--subjects "cryptofeed.demo.>" `: Binds the stream to subjects starting with `cryptofeed.demo.`. Adjust this to match your `subject_prefix` and desired subject patterns. The `>` is a wildcard for one or more tokens.
+    *   `--ack`: Requires acknowledgments for messages, enabling at-least-once delivery.
+    *   `--storage=file`: Specifies file-based storage for persistence. Other options include `memory`.
+    *   `--retention=limits`: Retains messages up to specified limits (like `max-msgs`, `max-bytes`, `max-age`). `interest` (messages are kept as long as there are active consumers) and `workqueue` (messages are delivered to one subscriber in a group) are other retention policies.
+
+    Consult the NATS JetStream documentation for detailed information on stream configuration and management.
 
 **Available NATS Callback Classes:**
 
@@ -141,6 +183,140 @@ The following NATS-specific callback classes are available in `cryptofeed.backen
 *   `FillsNATS`
 
 These classes inherit the appropriate base callback functionality (e.g., `BackendCallback`, `BackendBookCallback`) and handle publishing to NATS.
+
+### Iceberg Backend
+
+The Iceberg backend allows publishing data from Cryptofeed to Apache Iceberg tables. It buffers data in memory and writes it in batches. Tables are automatically created with predefined schemas if they do not exist.
+
+**Installation**
+
+To use the Iceberg backend, you need to install the necessary extra dependencies:
+
+```bash
+pip install cryptofeed[iceberg]
+```
+
+This will install `pyiceberg`, `pyarrow`, and `pandas`. Depending on your Iceberg catalog and storage, you might need additional packages (e.g., `boto3` for S3, `psycopg2-binary` for a PostgreSQL-backed catalog). Refer to the PyIceberg documentation for catalog-specific requirements.
+
+**Configuration**
+
+The Iceberg backend is configured within the `callbacks` section of your Cryptofeed configuration.
+
+Example using a Python dictionary:
+
+```python
+from cryptofeed.defines import TRADES, L2_BOOK
+from cryptofeed.backends.iceberg import TradeIceberg, BookIceberg
+
+# Example for a REST catalog
+rest_catalog_config = {
+    "name": "my_rest_catalog", # Optional: local name for the catalog instance
+    "uri": "http://localhost:8181", # REST catalog URI
+    "s3.endpoint-url": "http://minio:9000", # Example if warehouse is S3 via MinIO
+    "s3.access-key-id": "YOUR_ACCESS_KEY",
+    "s3.secret-access-key": "YOUR_SECRET_KEY",
+    "warehouse": "s3a://my-bucket/iceberg_warehouse/"
+}
+
+# Example for a Hive catalog
+hive_catalog_config = {
+    "name": "my_hive_catalog",
+    "uri": "thrift://localhost:9083", # Hive Metastore URI
+    "warehouse": "s3a://my-bucket/iceberg_warehouse/" # Example S3 warehouse path
+    # Add s3.endpoint-url, keys, etc. if using S3 with Hive
+}
+
+
+config = {
+    'log': {
+        'filename': 'feedhandler.log',
+        'level': 'INFO'
+    },
+    'callbacks': {
+        TRADES: TradeIceberg(
+            catalog_config=rest_catalog_config,
+            database_name='crypto_data',
+            table_prefix='cf',
+            batch_size=500
+        ),
+        L2_BOOK: BookIceberg(
+            catalog_config=rest_catalog_config,
+            database_name='crypto_data',
+            table_prefix='cf_book',
+            batch_size=200,
+            # pandas_kwargs={'columns': ['custom_col_order']} # Optional
+        )
+    }
+}
+```
+
+Example using `config.yaml`:
+
+```yaml
+log:
+  filename: feedhandler.log
+  level: INFO
+
+callbacks:
+  TRADES:
+    class: TradeIceberg
+    catalog_config:
+      name: "my_rest_catalog" # Optional: local name for the catalog instance
+      uri: "http://localhost:8181" # REST catalog URI
+      s3.endpoint-url: "http://minio:9000" # Example for S3 via MinIO
+      s3.access-key-id: "YOUR_ACCESS_KEY"
+      s3.secret-access-key: "YOUR_SECRET_KEY"
+      warehouse: "s3a://my-bucket/iceberg_warehouse/"
+    database_name: crypto_data
+    table_prefix: cf             # Table will be cf_trades
+    batch_size: 500
+  L2_BOOK:
+    class: BookIceberg
+    catalog_config: # Can reuse catalog_config or define another
+      name: "my_rest_catalog"
+      uri: "http://localhost:8181"
+      # ... other catalog properties
+    database_name: crypto_data
+    table_prefix: cf_book        # Table will be cf_book_orderbooks
+    batch_size: 200
+    # pandas_kwargs:
+    #   columns: ['exchange', 'symbol', 'timestamp', ...] # To enforce column order/selection
+```
+
+**Configuration Parameters:**
+
+*   `class`: The specific Iceberg callback class (e.g., `TradeIceberg`, `BookIceberg`).
+*   `catalog_config`: (Required) A dictionary containing properties to initialize the PyIceberg catalog (e.g., `uri`, `warehouse`, S3 credentials, etc.). The specific keys and values depend heavily on your chosen Iceberg catalog type (REST, Hive, Nessie, SQL). Consult the PyIceberg documentation for `pyiceberg.catalog.load_catalog()` and your catalog's specific configuration.
+*   `database_name`: (Optional) The Iceberg namespace (database) where tables will be managed. Defaults to `'default'`. The backend will attempt to create this namespace if it doesn't exist.
+*   `table_prefix`: (Optional) A prefix for table names. The full table name is formed as `<table_prefix>_<data_type_key>` (e.g., `cryptofeed_trades`). Defaults to `'cryptofeed'`.
+*   `batch_size`: (Optional) The number of records to buffer in memory before writing to an Iceberg table. Defaults to `1000`.
+*   `pandas_kwargs`: (Optional) A dictionary of keyword arguments passed to `pandas.DataFrame.from_records()` when creating DataFrames from buffered data. This can be used to control aspects like column selection or indexing. By default, subclasses set `columns` based on their predefined schema.
+
+**Table Management and Schemas**
+
+Tables are automatically created by the backend if they do not already exist in the specified database. Each data-type specific callback (like `TradeIceberg`) has a predefined `pyarrow.Schema` that dictates the table structure.
+
+**Book Data (`BookIceberg`)**
+
+The `BookIceberg` callback stores order book snapshots. Bids and asks are stored in a structured format within the table, specifically as a `list` of `structs`, where each struct contains `price` and `size` fields (both floats). This allows for querying individual price levels. The schema also includes a `delta` boolean field to distinguish full snapshots from records originating from delta updates (though all records written by `BookIceberg` represent the state of the book or changes at a point in time).
+
+**Available Iceberg Callback Classes:**
+
+The following Iceberg-specific callback classes are available in `cryptofeed.backends.iceberg`:
+
+*   `TradeIceberg`
+*   `TickerIceberg`
+*   `BookIceberg`
+*   `FundingIceberg`
+*   `OpenInterestIceberg`
+*   `LiquidationsIceberg`
+*   `CandlesIceberg`
+*   `OrderInfoIceberg`
+*   `TransactionsIceberg`
+*   `BalancesIceberg`
+*   `FillsIceberg`
+
+These classes manage the buffering, schema definition, and writing of their respective data types to Iceberg tables.
 
 ### Performance Considerations
 
