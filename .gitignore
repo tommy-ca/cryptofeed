@@ -110,3 +110,7 @@ ENV/
 .idea/
 .aider*
 .trunk/
+
+# uv specific
+/.venv/
+uv_install.sh

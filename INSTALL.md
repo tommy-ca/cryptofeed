@@ -10,9 +10,11 @@ Several ways to get/use Cryptofeed:
 
 ## Installation with Pip
 
+First, create and activate a virtual environment: `uv venv` followed by `source .venv/bin/activate`.
+
 The safe way to install and upgrade the Cryptofeed library:
 
-    pip install --user --upgrade cryptofeed
+    uv pip install cryptofeed
 
 Cryptofeed supports many backends as Redis, ZeroMQ, RabbitMQ, MongoDB, PostgreSQL, Google Cloud and many others.
 Cryptofeed is usually used with a subset of the available backends, and installing the dependencies of all backends is not required. 
@@ -24,45 +26,45 @@ for the exhaustive list of these *extra* dependencies.
 * Install all optional dependencies  
   To install Cryptofeed along with all optional dependencies in one bundle:
 
-        pip install --user --upgrade cryptofeed[all]
+        uv pip install cryptofeed[all]
 
 * Arctic backend  
   To install Cryptofeed along with [Arctic](https://github.com/man-group/arctic/) in one bundle:
 
-         pip install --user --upgrade cryptofeed[arctic]
+         uv pip install cryptofeed[arctic]
 
 * Google Cloud Pub / Sub backend
 
-         pip install --user --upgrade cryptofeed[gcp_pubsub]
+         uv pip install cryptofeed[gcp_pubsub]
 
 * Kafka backend
 
-         pip install --user --upgrade cryptofeed[kafka]
+         uv pip install cryptofeed[kafka]
 
 * MongoDB backend
 
-         pip install --user --upgrade cryptofeed[mongo]
+         uv pip install cryptofeed[mongo]
 
 * PostgreSQL backend
 
-         pip install --user --upgrade cryptofeed[postgres]
+         uv pip install cryptofeed[postgres]
 
 * QuasarDB backend  
   To install Cryptofeed along with [QuasarDB](https://quasar.ai/) in one bundle:
 
-         pip install --user --upgrade cryptofeed[quasardb]
+         uv pip install cryptofeed[quasardb]
 
 * RabbitMQ backend
 
-         pip install --user --upgrade cryptofeed[rabbit]
+         uv pip install cryptofeed[rabbit]
 
 * Redis backend
 
-          pip install --user --upgrade cryptofeed[redis]
+          uv pip install cryptofeed[redis]
 
 * ZeroMQ backend
 
-         pip install --user --upgrade cryptofeed[zmq]
+         uv pip install cryptofeed[zmq]
 
 If you have a problem with the installation/hacking of Cryptofeed, you are welcome to:
 * open a new issue: https://github.com/bmoscon/cryptofeed/issues/

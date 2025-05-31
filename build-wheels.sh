@@ -28,10 +28,14 @@ function repair_wheel {
 # Install a system package required by our library
 #yum install -y gcc g++ buildtools
 
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.cargo/bin:$PATH"
+
 # Compile wheels
 for PYBIN in "${py_vers[@]}"; do
-    "${PYBIN}/pip" install cython
-    "${PYBIN}/pip" wheel /io/ --no-deps -w wheelhouse/
+    "${PYBIN}/python" -m uv pip install cython --python "${PYBIN}/python"
+    "${PYBIN}/python" -m uv pip wheel /io/ --no-deps -w wheelhouse/ --python "${PYBIN}/python"
 done
 
 # Bundle external shared libraries into the wheels

@@ -13,5 +13,14 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install Flake8
+        run: |
+          uv venv
+          uv pip install .[test] # Assuming flake8 is now in the 'test' extras
+          echo "source .venv/bin/activate" >> $GITHUB_ENV
+      - name: Run flake8
+        run: uv run flake8

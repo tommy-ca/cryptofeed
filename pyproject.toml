@@ -28,3 +28,58 @@ ensure_newline_before_comments = true
 
 [build-system]
 requires = ["setuptools", "wheel", "Cython"]
+
+[project]
+name = "cryptofeed"
+version = "2.4.1"
+authors = [{name = "Bryant Moscon", email = "bmoscon@gmail.com"}]
+description = "Cryptocurrency Exchange Websocket Data Feed Handler"
+readme = "README.md"
+license = {text = "XFree86"}
+requires-python = ">=3.9"
+keywords = ["cryptocurrency", "bitcoin", "btc", "feed handler", "market feed", "market data", "crypto assets", "Trades", "Tickers", "BBO", "Funding", "Open Interest", "Liquidation", "Order book", "Bid", "Ask", "fmfw.io", "Bitfinex", "bitFlyer", "AscendEX", "Bitstamp", "Blockchain.com", "Bybit", "Binance", "Binance Delivery", "Binance Futures", "Binance US", "BitMEX", "Coinbase", "Deribit", "EXX", "Gate.io", "Gemini", "HitBTC", "Huobi", "Huobi DM", "Huobi Swap", "Kraken", "Kraken Futures", "OKCoin", "OKX", "Poloniex", "ProBit", "Upbit"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: AsyncIO",
+]
+
+dependencies = [
+    "requests>=2.18.4",
+    "websockets>=14.1",
+    "pyyaml",
+    "aiohttp>=3.11.6",
+    "aiofile>=2.0.0",
+    "yapic.json>=1.6.3",
+    "uvloop; platform_system!='Windows'",
+    "order_book>=0.6.1",
+    "aiodns>=1.1",
+    "cchardet",
+    "cython",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/bmoscon/cryptofeed"
+
+[project.optional-dependencies]
+arctic = ["arctic", "pandas"]
+gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
+kafka = ["aiokafka>=0.7.0"]
+mongo = ["motor"]
+postgres = ["asyncpg"]
+quasardb = ["quasardb", "numpy"]
+rabbit = ["aio_pika", "pika"]
+redis = ["hiredis", "redis>=4.5.1"]
+zmq = ["pyzmq"]
+deltalake = ["deltalake>=0.6.1", "pandas"]
+all = [
+    "arctic", "google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub", "aiokafka>=0.7.0",
+    "motor", "asyncpg", "aio_pika", "pika", "hiredis", "redis>=4.5.1", "pyzmq",
+    "deltalake>=0.6.1"
+]
+test = ["pytest", "flake8"]

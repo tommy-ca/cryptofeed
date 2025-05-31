@@ -41,6 +41,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Install uv
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+    - name: Add uv to PATH
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Create virtual environment and install dependencies
+      run: |
+        uv venv
+        uv pip install .[all]
+        # Activate venv for subsequent steps in shell
+        echo "source .venv/bin/activate" >> $GITHUB_ENV
+
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3

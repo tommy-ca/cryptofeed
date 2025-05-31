@@ -16,11 +16,15 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Create venv and Install dependencies with uv
         run: |
-          python -m pip install --upgrade pip
-          pip install flake8 pytest cython
-          python -m pip install -e .
+          uv venv
+          uv pip install -e .[test,all]
+          echo "source .venv/bin/activate" >> $GITHUB_ENV
       - name: Test with pytest
         run: |
           pytest tests/
