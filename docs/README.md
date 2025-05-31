@@ -9,3 +9,5 @@
 * [Authenticated Channels](auth_channels.md)
 * [Performance Considerations](performance.md)
 * [REST endpoints](rest.md)
+* Data Storage Backends
+    * [Delta Lake](backends/deltalake.md)

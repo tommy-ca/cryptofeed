@@ -14,19 +14,74 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 from deltalake import DeltaTable, write_deltalake
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
-from cryptofeed.defines import (BALANCES, CANDLES, FILLS, FUNDING, LIQUIDATIONS,
-                                OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, TRANSACTIONS)
+from cryptofeed.backends.backend import (
+    BackendBookCallback,
+    BackendCallback,
+    BackendQueue,
+)
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    LIQUIDATIONS,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    TRANSACTIONS,
+)
 
-
-# Add these lines after the imports
-# logging.basicConfig(level=logging.DEBUG)
-# logging.getLogger().setLevel(logging.DEBUG)
-
-LOG = logging.getLogger("feedhandler")
+LOG = logging.getLogger("Callback")  # Changed from "feedhandler" for consistency
 
 
 class DeltaLakeCallback(BackendQueue):
+    """
+    DeltaLakeCallback stores data into a Delta Lake table.
+
+    Parameters
+    ----------
+    base_path : str
+        The base directory path where Delta Lake tables will be stored.
+        Each table (keyed by `key`) will be a subdirectory under this path.
+    key : Optional[str], default None
+        The name of the data type being stored (e.g., TRADES, L2_BOOK).
+        If None, uses `default_key` from the specific callback class.
+        This determines the subdirectory name under `base_path`.
+    custom_columns : Optional[Dict[str, str]], default None
+        A dictionary to rename columns. Keys are new column names,
+        values are original column names from the cryptofeed data.
+    partition_cols : Optional[List[str]], default ["exchange", "symbol", "dt"]
+        A list of column names by which the Delta table will be partitioned.
+        'dt' is typically derived from the timestamp.
+    optimize_interval : int, default 1000
+        The interval (number of writes) at which to run OPTIMIZE operations
+        (compaction and Z-ordering if configured) on the table.
+    z_order_cols : Optional[List[str]], default None
+        A list of column names to use for Z-ordering when OPTIMIZE is run.
+        If None, defaults are chosen based on the `key`.
+    time_travel : bool, default True
+        If True, enables metadata updates for Delta Lake time travel queries.
+        (Note: Current implementation of _update_metadata is a placeholder).
+    storage_options : Optional[Dict[str, Any]], default None
+        Storage options to pass to the Delta Lake writer, e.g., for S3 access.
+    numeric_type : Union[type, str], default float
+        The numeric type to use for fields like price and amount.
+        (Note: This parameter is initialized but not directly used in current transformations;
+        Pandas/Arrow types are generally inferred or explicitly set).
+    none_to : Any, default None
+        A value to replace None/NaNs with during data cleaning.
+        If None, type-specific defaults are used (0 for numeric, "" for string, etc.).
+    batch_size : int, default 10000
+        The maximum number of records to accumulate in memory before writing to Delta Lake.
+    flush_interval : float, default 10.0
+        The maximum time in seconds to wait before flushing the current batch,
+        even if `batch_size` has not been reached.
+    custom_transformations : Optional[List[callable]], default None
+        A list of custom transformation functions to apply to the DataFrame
+        before writing. Each function should accept a DataFrame and modify it in place
+        or return a new DataFrame.
+    """
     def __init__(
         self,
         base_path: str,
@@ -124,15 +179,23 @@ class DeltaLakeCallback(BackendQueue):
                         LOG.debug(f"Received {len(updates)} updates for processing.")
                         self.batch.extend(updates)
 
-                        if len(self.batch) >= self.batch_size or (time.time() - self.last_flush_time) >= self.flush_interval:
+                        if (
+                            len(self.batch) >= self.batch_size
+                            or (time.time() - self.last_flush_time)
+                            >= self.flush_interval
+                        ):
                             await self._process_batch()
                     else:
                         # Check if we need to flush based on time
-                        if (time.time() - self.last_flush_time) >= self.flush_interval and self.batch:
+                        if (
+                            time.time() - self.last_flush_time
+                        ) >= self.flush_interval and self.batch:
                             await self._process_batch()
                         else:
                             LOG.debug("No updates received, continuing loop")
-                            await asyncio.sleep(1)  # Add a small delay to prevent busy-waiting
+                            await asyncio.sleep(
+                                1
+                            )  # Add a small delay to prevent busy-waiting
             except Exception as e:
                 LOG.error(f"Error in writer method: {e}", exc_info=True)
         LOG.debug("Writer method ended")
@@ -191,21 +254,19 @@ class DeltaLakeCallback(BackendQueue):
             LOG.debug("Renaming columns based on custom_columns configuration.")
             df.rename(columns=self.custom_columns, inplace=True)
 
-    def _reorder_columns(self, df: pd.DataFrame):
-        LOG.debug("Reordering columns to prioritize exchange and symbol.")
-        priority_cols = ["exchange", "symbol"]
-        other_cols = [col for col in df.columns if col not in priority_cols]
-        df = df[priority_cols + other_cols]
-
     def _convert_datetime_columns(self, df: pd.DataFrame):
         LOG.debug("Converting datetime columns to UTC and microsecond precision.")
-        INVALID_DATE = pd.Timestamp('1900-01-01').date()
+        INVALID_DATE = pd.Timestamp("1900-01-01").date()
 
-        for col in ['timestamp', 'receipt_timestamp']:
+        for col in ["timestamp", "receipt_timestamp"]:
             if col in df.columns:
                 # Convert timestamp (seconds since epoch) to UTC datetime
-                df[col] = pd.to_datetime(df[col], unit='s', utc=True).dt.tz_localize(None)
-                LOG.debug(f"Sample {col} after conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}")
+                df[col] = pd.to_datetime(df[col], unit="s", utc=True).dt.tz_localize(
+                    None
+                )
+                LOG.debug(
+                    f"Sample {col} after conversion: {df[col].iloc[0] if len(df) > 0 else 'N/A'}"
+                )
 
         # Create 'dt' column, prioritizing 'timestamp', then 'receipt_timestamp', fallback to INVALID_DATE
         if "timestamp" in df.columns:
@@ -213,7 +274,9 @@ class DeltaLakeCallback(BackendQueue):
         elif "receipt_timestamp" in df.columns:
             df["dt"] = df["receipt_timestamp"].dt.date
         else:
-            LOG.warning("Neither timestamp nor receipt_timestamp column found. Using invalid date for 'dt'.")
+            LOG.warning(
+                "Neither timestamp nor receipt_timestamp column found. Using invalid date for 'dt'."
+            )
             df["dt"] = INVALID_DATE
 
         # Log sample of 'dt' column
@@ -250,9 +313,7 @@ class DeltaLakeCallback(BackendQueue):
                     f"Found null values in partition column {col}. Filling with default values."
                 )
                 df[col] = df[col].fillna(
-                    "unknown"
-                    if col != "dt"
-                    else pd.Timestamp.now().date()
+                    "unknown" if col != "dt" else pd.Timestamp.now().date()
                 )
 
     def _handle_missing_values(self, df: pd.DataFrame):
@@ -306,7 +367,9 @@ class DeltaLakeCallback(BackendQueue):
                 # LOG.debug(df.head(sample_size).to_string())
                 LOG.debug("DataFrame dtypes:")
                 LOG.debug(df.dtypes.to_string())
-                LOG.warning(f"Writing batch of {len(df)} records to {self.delta_table_path}")
+                LOG.info(  # Changed from WARNING to INFO
+                    f"Writing batch of {len(df)} records to {self.delta_table_path}"
+                )
 
                 write_deltalake(
                     self.delta_table_path,
@@ -324,11 +387,13 @@ class DeltaLakeCallback(BackendQueue):
                 if self.time_travel:
                     self._update_metadata()
 
-                LOG.warning("Batch write successful.")
+                LOG.info("Batch write successful.")  # Changed from WARNING to INFO
                 break  # Exit the retry loop if write is successful
 
             except Exception as e:
-                LOG.error(f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}")
+                LOG.error(
+                    f"Error writing to Delta Lake on attempt {attempt + 1}/{max_retries}: {e}"
+                )
                 LOG.error(f"DataFrame schema:\n{df.dtypes}")
                 LOG.error(f"DataFrame:\n{df}")
 
@@ -341,9 +406,7 @@ class DeltaLakeCallback(BackendQueue):
                     )
 
     async def _optimize_table(self):
-        LOG.debug(
-            f"Running OPTIMIZE on table {self.delta_table_path}"
-        )
+        LOG.debug(f"Running OPTIMIZE on table {self.delta_table_path}")
         dt = DeltaTable(self.delta_table_path, storage_options=self.storage_options)
         dt.optimize.compact()
         if self.z_order_cols:
