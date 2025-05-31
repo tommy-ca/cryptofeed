@@ -95,6 +95,7 @@ setup(
         "redis": ["hiredis", "redis>=4.5.1"],
         "zmq": ["pyzmq"],
         "deltalake": ["deltalake>=0.6.1", "pandas"],
+        "nats": ["nats-py>=2.0.0"],
         "all": [
             "arctic",
             "google_cloud_pubsub>=2.4.1",
@@ -108,6 +109,7 @@ setup(
             "redis>=4.5.1",
             "pyzmq",
             "deltalake>=0.6.1",
+            "nats-py>=2.0.0",
         ],
     },
 )
