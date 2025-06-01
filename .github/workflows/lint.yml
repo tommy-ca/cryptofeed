@@ -1,26 +1,24 @@
-name: flake8 Lint
+name: Ruff Lint
 
 on: [push, pull_request]
 
 jobs:
-  flake8-lint:
+  ruff-lint:
     runs-on: ubuntu-latest
     name: Lint
     steps:
       - name: Check out source repository
         uses: actions/checkout@v3
       - name: Set up Python environment
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - name: Install Flake8
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v1
+      - name: Install Ruff
         run: |
           uv venv
-          uv pip install .[test] # Assuming flake8 is now in the 'test' extras
+          uv pip install .[test] # Installs ruff via test extras
           echo "source .venv/bin/activate" >> $GITHUB_ENV
-      - name: Run flake8
-        run: uv run flake8
+      - name: Run ruff linter
+        run: uv run ruff check .

@@ -82,4 +82,4 @@ all = [
     "motor", "asyncpg", "aio_pika", "pika", "hiredis", "redis>=4.5.1", "pyzmq",
     "deltalake>=0.6.1"
 ]
-test = ["pytest", "flake8"]
+test = ["pytest", "ruff"]
