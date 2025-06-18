@@ -1,25 +1,66 @@
 [build-system]
 requires = [
-    "setuptools>=61.0",
-    "wheel", 
+    "hatchling>=1.21.0",
+    "hatch-cython>=0.5.0",
     "Cython>=3.0.0",
     # Note: numpy not required for core build but may be needed for some optional features
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-# Ensure Cython files are included in source distribution
-include-package-data = true
+# Hatch build configuration
+[tool.hatch.build]
+reproducible = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["cryptofeed"]
+
+# Add setuptools config to work around hatch-cython using setuptools
 [tool.setuptools.packages.find]
-exclude = ["tests*", "examples*", "docs*"]
+where = ["."]
+include = ["cryptofeed*"]
+exclude = ["tests*", "examples*", "docs*", "sample_data*", "test_build*", "tools*"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "cryptofeed/",
+    "*.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+exclude = [
+    "tests*",
+    "examples*",
+    "docs*",
+    ".github/",
+    "*.sh",
+    "wheels.sh",
+    "build-wheels.sh",
+    "test_build/",
+    "sample_data/",
+]
+
+# Cython extension configuration
+[tool.hatch.build.hooks.cython]
+dependencies = ["hatch-cython>=0.5.0"]
+
+[tool.hatch.build.hooks.cython.options]
+compile_py = false
+# Disable setuptools package discovery
+include_numpy = false
+
+[[tool.hatch.build.hooks.cython.options.extensions]]
+name = "cryptofeed.types"
+sources = ["cryptofeed/types.pyx"]
+extra_compile_args = ["/O2"]  # Windows
+extra_compile_args_unix = ["-O3"]  # Unix/Linux/macOS
+define_macros = [["CYTHON_WITHOUT_ASSERTIONS", ""]]
 
 [project]
 name = "cryptofeed"
 version = "2.4.1"
 description = "Cryptocurrency Exchange Websocket Data Feed Handler"
 readme = "README.md"
-license = { text = "XFree86" }
+license-files = ["LICENSE"]
 authors = [{ name = "Bryant Moscon", email = "bmoscon@gmail.com" }]
 maintainers = [{ name = "Bryant Moscon", email = "bmoscon@gmail.com" }]
 keywords = [
@@ -71,7 +112,6 @@ keywords = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -400,4 +440,4 @@ ci = [
 ]
 
 # Build-only dependencies
-build = ["build", "wheel", "setuptools>=61.0", "cython"]
+build = ["build", "wheel", "hatch", "hatch-cython", "cython"]
