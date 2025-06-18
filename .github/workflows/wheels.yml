@@ -34,8 +34,8 @@ jobs:
         with:
           version: latest
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.0
+      - name: Build wheels with uvx + cibuildwheel
+        run: uvx cibuildwheel --output-dir wheelhouse
         env:
           # Build for Python 3.9-3.12 as per project requirements
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-*
@@ -44,11 +44,11 @@ jobs:
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_MACOS: x86_64 arm64
 
-          # Use build (PEP 517) as the build frontend - works with hatch
-          CIBW_BUILD_FRONTEND: build
+          # Use UV as the build frontend for maximum speed (10-100x faster than pip)
+          CIBW_BUILD_FRONTEND: build[uv]
 
-          # Install build dependencies - hatch will handle Cython via build hooks
-          CIBW_BEFORE_BUILD: python -m pip install uv && uv pip install --system hatchling hatch-cython cython>=3.0.0
+          # Install build dependencies with UV (fast dependency resolution)
+          CIBW_BEFORE_BUILD: uv pip install hatchling hatch-cython cython>=3.0.0
 
           # Test wheel installation
           CIBW_TEST_COMMAND: |
@@ -90,13 +90,8 @@ jobs:
         with:
           version: latest
 
-      - name: Install build dependencies with uv
-        run: |
-          uv venv
-          uv pip install hatch
-
-      - name: Build source distribution with hatch
-        run: uv run hatch build --target sdist
+      - name: Build source distribution with uv
+        run: uv build --sdist
 
       - name: Upload sdist
         uses: actions/upload-artifact@v4
@@ -138,7 +133,6 @@ jobs:
 
       - name: Test wheel installation with uv
         run: |
-          python -m pip install uv
           uv pip install --system --find-links dist cryptofeed --force-reinstall
           python -c "
           import cryptofeed

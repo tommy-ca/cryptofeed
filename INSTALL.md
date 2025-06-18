@@ -167,3 +167,106 @@ If you have a problem with the installation/hacking of Cryptofeed, you are welco
 - or on GitHub Discussion: https://github.com/bmoscon/cryptofeed/discussions
 
 Your Pull Requests are also welcome, even for minor changes.
+
+## Building Wheels
+
+### Local Wheel Building
+
+**Build with hatch (recommended):**
+
+```bash
+# Install build dependencies
+pip install hatch
+
+# Build wheel and source distribution
+hatch build
+
+# Build wheel only
+hatch build --target wheel
+
+# Build source distribution only  
+hatch build --target sdist
+
+# Clean previous builds
+hatch clean
+```
+
+**Build with build (alternative):**
+
+```bash
+# Install build dependencies
+pip install build
+
+# Build both wheel and sdist
+python -m build
+
+# Build wheel only
+python -m build --wheel
+
+# Build sdist only
+python -m build --sdist
+```
+
+**Build with uv (fastest):**
+
+```bash
+# Native UV build (recommended - fastest)
+uv build                    # Build both wheel and sdist
+uv build --wheel           # Build wheel only
+uv build --sdist           # Build source distribution only
+
+# Alternative: UV + hatch in managed environment
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install hatch
+hatch build
+
+# Alternative: UV run approach (may have dependency conflicts)
+uv run hatch build
+uv run python -m build
+```
+
+### Cross-Platform Wheel Building (CI/CD)
+
+The project uses GitHub Actions with UV-accelerated cibuildwheel for automated cross-platform wheel building:
+
+**Supported platforms:**
+- Linux x86_64 (Ubuntu latest)
+- macOS x86_64 (Intel)
+- macOS ARM64 (Apple Silicon)
+
+**Trigger wheel builds:**
+
+1. **Tag-based release (recommended):**
+   ```bash
+   git tag v2.4.2
+   git push origin v2.4.2
+   ```
+
+2. **Manual trigger:**
+   - Go to GitHub Actions → "Build Wheels" workflow
+   - Click "Run workflow"
+
+3. **GitHub release:**
+   - Create a new release on GitHub
+   - Wheels are automatically built and uploaded
+
+**Performance optimizations:**
+- Uses `uvx cibuildwheel` for tool isolation and speed
+- UV build frontend (`build[uv]`) for 10-100x faster dependency resolution
+- UV pip for rapid build dependency installation
+
+**Python versions supported:**
+- Python 3.9, 3.10, 3.11, 3.12
+
+**Build configuration:**
+- Uses hatch as build backend with UV frontend for maximum speed
+- Cython extensions optimized with `-O3 -ffast-math`
+- Object pooling with `@cython.freelist(128)`
+- No assertions in release builds for maximum performance
+- UV-accelerated dependency resolution and installation
+
+**Artifacts:**
+- Wheels: `cryptofeed-{version}-{python}-{abi}-{platform}.whl`
+- Source: `cryptofeed-{version}.tar.gz`
+- Automatically uploaded to PyPI on releases

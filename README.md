@@ -199,7 +199,27 @@ pip install cryptofeed[all]  # With all optional dependencies
    pip install -e .
    ```
 
-See more discussion of package installation and backend-specific setup in [INSTALL.md](https://github.com/bmoscon/cryptofeed/blob/master/INSTALL.md).
+See more discussion of package installation, backend-specific setup, and **wheel building instructions** in [INSTALL.md](https://github.com/bmoscon/cryptofeed/blob/master/INSTALL.md).
+
+### Building from Source
+
+For developers who want to build wheels locally or contribute to the project:
+
+```bash
+# Quick local build with UV (fastest)
+uv build
+
+# Quick local build with hatch
+pip install hatch
+hatch build
+
+# Development setup with uv
+git clone https://github.com/bmoscon/cryptofeed.git
+cd cryptofeed
+uv sync --frozen
+```
+
+**Cross-platform wheels** are automatically built via GitHub Actions on git tags (`v*`) and releases, supporting Linux x86_64, macOS x86_64/ARM64, and Python 3.9-3.12.
 
 ## Rest API
 
