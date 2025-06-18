@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -31,19 +31,11 @@ async def book(feed, symbol, book, timestamp):
     try:
         assert (t - timestamp) < 2
         assert bids[-1] < asks[0]
-    except Exception:
-        print("FAILED")
-        print("BID", bids[-1])
-        print("ASKS", asks[0])
-        print("DELTA", t - timestamp)
-        print("COUNTER", counter)
+    except Exception as e:
+        print(f"Book validation error: {e}")
 
     if counter % STATS == 0:
-        print("Checked", counter, "updates")
-        print("Runtime", t - START)
-        print("Current spread", asks[0] - bids[-1])
-        print("Average book update handle time", avg / counter)
-        print("\n")
+        print(f"Processed {counter} book updates")
 
 
 def main():

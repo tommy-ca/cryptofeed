@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -40,11 +40,10 @@ def main(only_exchange=None):
     skip = [EXX]
     files = glob.glob("*")
     for f in files:
-        for e in EXCHANGE_MAP.keys():
+        for e in EXCHANGE_MAP:
             if e + "." in f:
                 skip.append(e.split(".")[0])
 
-    print(f"Generating test data. This will take approximately {(len(EXCHANGE_MAP) - len(set(skip))) * 0.5} minutes.")
     loop = asyncio.get_event_loop()
     for exch_str, exchange in (
         EXCHANGE_MAP.items() if only_exchange is None else [(only_exchange, EXCHANGE_MAP[only_exchange])]
@@ -52,7 +51,6 @@ def main(only_exchange=None):
         if exch_str in skip:
             continue
 
-        print(f"Collecting data for {exch_str}")
         fh = FeedHandler(
             raw_data_collection=AsyncFileCallback("./"),
             config={
@@ -85,21 +83,18 @@ def main(only_exchange=None):
         fh.run(start_loop=False)
 
         loop.call_later(31, stop)
-        print("Starting feedhandler. Will run for 30 seconds...")
         loop.run_forever()
 
         fh.stop(loop=loop)
         del fh
 
-    print("Checking raw message dumps for errors...")
     for exch_str, _ in EXCHANGE_MAP.items():
         for file in glob.glob(exch_str + "*"):
             try:
-                print(f"Checking {file}")
                 check_dump(file)
             except Exception as e:
-                print(f"File {file} failed")
-                print(e)
+                print(f"Error processing {file}: {e}")
+                continue
 
 
 if __name__ == "__main__":

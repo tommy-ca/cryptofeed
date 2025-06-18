@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -20,16 +20,12 @@ async def book(feed, symbol, book, timestamp):
     global PREV
     global counter
     if book == PREV:
-        print("Current")
-        print(book)
-        print("\n\n")
-        print("Previous")
-        print(PREV)
+        return  # Skip if book hasn't changed
     assert book != PREV
     PREV = deepcopy(book)
     counter += 1
     if counter % 10 == 0:
-        print(".", end="", flush=True)
+        pass
 
 
 def main():
