@@ -1,0 +1,208 @@
+name: Build Wheels
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install cibuildwheel build
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.2
+        env:
+          # Build for Python 3.9-3.12 as per project requirements
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-*
+          
+          # Platform-specific architectures
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          
+          # Install build dependencies
+          CIBW_BEFORE_BUILD: pip install cython>=3.0.0 setuptools wheel
+          
+          # Test wheel installation
+          CIBW_TEST_COMMAND: |
+            python -c "
+            import cryptofeed
+            from cryptofeed.types import Trade
+            print('✅ Wheel installation test passed')
+            print(f'Cryptofeed version: {getattr(cryptofeed, \"__version__\", \"unknown\")}')
+            "
+          
+          # Skip problematic builds
+          CIBW_SKIP: |
+            pp*
+            *-musllinux_*
+            
+          # Build options
+          CIBW_BUILD_VERBOSITY: 1
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+
+      - name: Install build dependencies
+        run: |
+          uv venv
+          uv pip install build cython>=3.0.0
+
+      - name: Build source distribution
+        run: uv run python -m build --sdist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  test_wheels:
+    name: Test wheels
+    needs: [build_wheels, build_sdist]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Download sdist
+        uses: actions/download-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist
+
+      - name: Test wheel installation
+        run: |
+          python -m pip install --find-links dist cryptofeed --force-reinstall
+          python -c "
+          import cryptofeed
+          from cryptofeed.defines import BID, ASK
+          from cryptofeed.types import Trade, Ticker
+          from cryptofeed.exchanges import EXCHANGE_MAP
+          print('✅ All imports successful')
+          print(f'Available exchanges: {len(EXCHANGE_MAP)}')
+          print('✅ Wheel test completed successfully')
+          "
+
+      - name: Run basic functionality tests
+        run: |
+          python -c "
+          from cryptofeed.types import Trade
+          from decimal import Decimal
+          import time
+          
+          # Test Cython-compiled types
+          trade = Trade(
+              'TEST_EXCHANGE',
+              'BTC-USD', 
+              'buy',
+              Decimal('1.0'),
+              Decimal('50000.0'),
+              time.time()
+          )
+          
+          print(f'✅ Trade object created: {trade.exchange} {trade.symbol}')
+          print(f'✅ Price: {trade.price}, Amount: {trade.amount}')
+          print('✅ Cython types working correctly')
+          "
+
+  upload_all:
+    name: Upload if release
+    needs: [build_wheels, build_sdist, test_wheels]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: release
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: List distributions
+        run: ls -la dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+        continue-on-error: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

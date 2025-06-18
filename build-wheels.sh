@@ -1,19 +1,16 @@
 #!/bin/bash
-#set -e -x
-
-py_vers=("/opt/python/cp312-cp312/bin" "/opt/python/cp313-cp313/bin")
-
-#for PY in "${py_vers[@]}"; do
-#    "${PY}/pip" wheel /io/ -w wheelhouse/
-#done
-
-#for whl in wheelhouse/*.whl; do
-#    auditwheel repair "$whl" -w /io/wheelhouse/
-#done
-
 set -e -u -x
 
-PLAT=manylinux_2_34_x86_64
+# Support Python 3.9-3.12 as per project requirements
+py_vers=(
+    "/opt/python/cp39-cp39/bin"
+    "/opt/python/cp310-cp310/bin" 
+    "/opt/python/cp311-cp311/bin"
+    "/opt/python/cp312-cp312/bin"
+)
+
+# Use more compatible manylinux tag (manylinux_2_28 is widely supported)
+PLAT=manylinux_2_28_x86_64
 
 function repair_wheel {
     wheel="$1"
@@ -25,13 +22,17 @@ function repair_wheel {
 }
 
 
-# Install a system package required by our library
-#yum install -y gcc g++ buildtools
-
-# Compile wheels
+# Install build dependencies for each Python version
 for PYBIN in "${py_vers[@]}"; do
-    "${PYBIN}/pip" install cython
-    "${PYBIN}/pip" wheel /io/ --no-deps -w wheelhouse/
+    echo "Installing dependencies for ${PYBIN}"
+    "${PYBIN}/pip" install -U pip setuptools wheel
+    "${PYBIN}/pip" install cython>=3.0.0 build
+done
+
+# Build wheels using modern build backend
+for PYBIN in "${py_vers[@]}"; do
+    echo "Building wheel with ${PYBIN}"
+    "${PYBIN}/python" -m build --wheel /io/ --outdir wheelhouse/
 done
 
 # Bundle external shared libraries into the wheels
