@@ -24,7 +24,7 @@ def test_binance_address_generation():
         chans = []
 
         sub = random.sample(symbols, length)
-        addr = Binance(symbols=sub, channels=channels)._address()
+        addr = Binance(symbols=sub, channels=channels)._address()  # noqa: SLF001
 
         if length * len(channels) < 200:
             assert isinstance(addr, str)
@@ -37,10 +37,10 @@ def test_binance_address_generation():
         else:
             assert isinstance(addr, list)
 
-            for value in addr:
-                value = value.split("=", 1)[1]
-                value = value.split("/")
-                for entry in value:
+            for addr_value in addr:
+                param_value = addr_value.split("=", 1)[1]
+                stream_list = param_value.split("/")
+                for entry in stream_list:
                     sym, chan = entry.split("@", 1)
                     syms.append(sym)
                     chans.append(chan)
