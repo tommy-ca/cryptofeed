@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -37,7 +37,7 @@ class Upbit(Feed, UpbitRestMixin):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
         for entry in data:
@@ -48,7 +48,7 @@ class Upbit(Feed, UpbitRestMixin):
         return ret, info
 
     async def _trade(self, msg: dict, timestamp: float):
-        """Doc : https://docs.upbit.com/v1.0.7/reference#시세-체결-조회
+        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-ì.²´ê²°-ì¡°í
 
         {
             'ty': 'trade'             // Event type
@@ -82,7 +82,7 @@ class Upbit(Feed, UpbitRestMixin):
         await self.callback(TRADES, t, timestamp)
 
     async def _book(self, msg: dict, timestamp: float):
-        """Doc : https://docs.upbit.com/v1.0.7/reference#시세-호가-정보orderbook-조회
+        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-í¸ê°-ì ë³´.orderbook-ì¡°í
 
         Currently, Upbit orderbook api only provides 15 depth book state and does not support delta
 
@@ -135,7 +135,7 @@ class Upbit(Feed, UpbitRestMixin):
             LOG.warning("%s: Unhandled message %s", self.id, msg)
 
     async def subscribe(self, conn: AsyncConnection):
-        """Doc : https://docs.upbit.com/docs/upbit-quotation-websocket
+        """Doc : https://docs.upbit.com/docs/upbit-quotation-websocket.
 
         For subscription, ticket information is commonly required.
         In order to reduce the data size, format parameter is set to 'SIMPLE' instead of 'DEFAULT'
