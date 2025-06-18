@@ -6,10 +6,10 @@ rules:
   line-length:
     max: 120
     level: warning
-  
+
   # Flexible document structure
   document-start: disable
-  
+
   # Essential formatting
   indentation:
     spaces: 2
@@ -17,3 +17,5 @@ rules:
     required: only-when-needed
   truthy:
     allowed-values: ["true", "false", "yes", "no", "on", "off"]
+  comments:
+    min-spaces-from-content: 1  # Allow 1 space before comments (prettier format)
