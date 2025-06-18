@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 import zlib
 
 from yapic import json
@@ -37,7 +36,7 @@ class HuobiDM(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -70,14 +69,12 @@ class HuobiDM(Feed):
             'ts':1565857755552,
             'version':1565857755,
             'ch':'market.BTC_CW.depth.step0'
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["ch"].split(".")[1])
         data = msg["tick"]
 
         # When Huobi Delists pairs, empty updates still sent:
-        # {'ch': 'market.AKRO-USD.depth.step0', 'ts': 1606951241196, 'tick': {'mrid': 50651100044, 'id': 1606951241, 'ts': 1606951241195, 'version': 1606951241, 'ch': 'market.AKRO-USD.depth.step0'}}
-        # {'ch': 'market.AKRO-USD.depth.step0', 'ts': 1606951242297, 'tick': {'mrid': 50651100044, 'id': 1606951242, 'ts': 1606951242295, 'version': 1606951242, 'ch': 'market.AKRO-USD.depth.step0'}}
         if "bids" in data and "asks" in data:
             if pair not in self._l2_book:
                 self._l2_book[pair] = OrderBook(self.id, pair, max_depth=self.max_depth)
@@ -96,7 +93,7 @@ class HuobiDM(Feed):
                 'id': 100065340982,
                 'ts': 1549757127140,
                 'data': [{'id': '10006534098224147003732', 'amount': Decimal('0.0777'), 'price': Decimal('3669.69'), 'direction': 'buy', 'ts': 1549757127140}]}
-        }
+        }.
         """
         for trade in msg["tick"]["data"]:
             t = Trade(

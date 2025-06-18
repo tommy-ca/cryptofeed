@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,7 @@ associated with this software.
 import asyncio
 from collections import defaultdict
 import logging
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Union
 
 from aiohttp.typedefs import StrOrURL
 
@@ -114,9 +114,8 @@ class Feed(Exchange):
         self.candle_closed_only = candle_closed_only
         self._sequence_no = {}
 
-        if self.valid_candle_intervals != NotImplemented:
-            if candle_interval not in self.valid_candle_intervals:
-                raise ValueError(f"Candle interval must be one of {self.valid_candle_intervals}")
+        if self.valid_candle_intervals != NotImplemented and candle_interval not in self.valid_candle_intervals:
+            raise ValueError(f"Candle interval must be one of {self.valid_candle_intervals}")
 
         if self.candle_interval_map != NotImplemented:
             self.normalize_candle_interval = {value: key for key, value in self.candle_interval_map.items()}
@@ -187,7 +186,7 @@ class Feed(Exchange):
         """
         return []
 
-    def connect(self) -> List[Tuple[AsyncConnection, Callable[[None], None], Callable[[str, float], None]]]:
+    def connect(self) -> list[tuple[AsyncConnection, Callable[[None], None], Callable[[str, float], None]]]:
         """Generic websocket connection method for exchanges. Uses the websocket endpoints defined in the
         exchange to determine, based on the subscription information, which endpoints should be used,
         and what instruments/channels should be enabled on each connection.
@@ -284,7 +283,7 @@ class Feed(Exchange):
 
         return ret
 
-    def _ws_authentication(self, address: str, ws_options: dict) -> Tuple[str, dict]:
+    def _ws_authentication(self, address: str, ws_options: dict) -> tuple[str, dict]:
         """Used to do authentication immediately before connecting. Takes the address and the websocket options as
         arguments and returns a new address and new websocket options that will be used to connect.
         """
@@ -295,7 +294,7 @@ class Feed(Exchange):
         return
 
     @property
-    def address(self) -> Union[List, str]:
+    def address(self) -> Union[list, str]:
         if len(self.websocket_endpoints) == 0:
             return None
         addrs = [ep.get_address(sandbox=self.sandbox) for ep in self.websocket_endpoints]
@@ -360,7 +359,7 @@ class Feed(Exchange):
             c.running = False
 
     def start(self, loop: asyncio.AbstractEventLoop):
-        """Create tasks for exchange interfaces and backends"""
+        """Create tasks for exchange interfaces and backends."""
         for conn, sub, handler, auth in self.connect():
             self.connection_handlers.append(
                 ConnectionHandler(

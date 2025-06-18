@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -41,7 +41,7 @@ class ArcticCallback:
         kwargs:
             if library needs to be created you can specify the
             lib_type in the kwargs. Default is VersionStore, but you can
-            set to chunkstore with lib_type=arctic.CHUNK_STORE
+            set to chunkstore with lib_type=arctic.CHUNK_STORE.
         """
         con = arctic.Arctic(host, ssl=ssl)
         if library not in con.list_libraries():

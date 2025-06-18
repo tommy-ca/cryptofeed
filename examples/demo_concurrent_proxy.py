@@ -29,10 +29,7 @@ class Counter:
 
     @property
     def all_found(self):
-        for value in self.times.values():
-            if value is None:
-                return False
-        return True
+        return all(value is not None for value in self.times.values())
 
     def callback(self, exchange, channel, symbols):
         concurrency = "[sync_http]"

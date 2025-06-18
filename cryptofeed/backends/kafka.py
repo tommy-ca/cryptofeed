@@ -1,14 +1,14 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 """
+from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
 from collections.abc import ByteString
 import logging
-from typing import Optional
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaConnectionError, NodeNotReadyError, RequestTimedOutError
@@ -25,7 +25,7 @@ class KafkaCallback(BackendQueue):
         """You can pass configuration options to AIOKafkaProducer as keyword arguments.
         (either individual kwargs, an unpacked dictionary `**config_dict`, or both)
         A full list of configuration parameters can be found at
-        https://aiokafka.readthedocs.io/en/stable/api.html#aiokafka.AIOKafkaProducer
+        https://aiokafka.readthedocs.io/en/stable/api.html#aiokafka.AIOKafkaProducer.
 
         A 'value_serializer' option allows use of other schemas such as Avro, Protobuf etc.
         The default serialization is JSON Bytes
@@ -57,14 +57,14 @@ class KafkaCallback(BackendQueue):
         if not self.producer:
             loop = asyncio.get_event_loop()
             try:
-                config_keys = ", ".join([k for k in self.producer_config.keys()])
+                config_keys = ", ".join(list(self.producer_config.keys()))
                 LOG.info(
                     f"{self.__class__.__name__}: Configuring AIOKafka with the following parameters: {config_keys}"
                 )
                 self.producer = AIOKafkaProducer(**self.producer_config, loop=loop)
             # Quit if invalid config option passed to AIOKafka
             except (TypeError, ValueError) as e:
-                LOG.error(
+                LOG.exception(
                     f"{self.__class__.__name__}: Invalid AIOKafka configuration: {e.args}{chr(10)}See https://aiokafka.readthedocs.io/en/stable/api.html#aiokafka.AIOKafkaProducer for list of configuration options"
                 )
                 raise SystemExit
@@ -73,7 +73,7 @@ class KafkaCallback(BackendQueue):
                     try:
                         await self.producer.start()
                     except KafkaConnectionError:
-                        LOG.error(f"{self.__class__.__name__}: Unable to bootstrap from host(s)")
+                        LOG.exception(f"{self.__class__.__name__}: Unable to bootstrap from host(s)")
                         await asyncio.sleep(10)
                     else:
                         LOG.info(
@@ -84,10 +84,10 @@ class KafkaCallback(BackendQueue):
     def topic(self, data: dict) -> str:
         return f"{self.key}-{data['exchange']}-{data['symbol']}"
 
-    def partition_key(self, data: dict) -> Optional[bytes]:
+    def partition_key(self, data: dict) -> bytes | None:
         return None
 
-    def partition(self, data: dict) -> Optional[int]:
+    def partition(self, data: dict) -> int | None:
         return None
 
     async def writer(self):
@@ -108,11 +108,11 @@ class KafkaCallback(BackendQueue):
                         send_future = await self.producer.send(topic, value, key, partition)
                         await send_future
                     except RequestTimedOutError:
-                        LOG.error(
+                        LOG.exception(
                             f"{self.__class__.__name__}: No response received from server within {self.producer._request_timeout_ms} ms. Messages may not have been delivered"
                         )
                     except NodeNotReadyError:
-                        LOG.error(f"{self.__class__.__name__}: Node not ready")
+                        LOG.exception(f"{self.__class__.__name__}: Node not ready")
                     except Exception as e:
                         LOG.info(f"{self.__class__.__name__}: Encountered an error:{chr(10)}{e}")
         LOG.info(

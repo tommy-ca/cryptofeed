@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -38,7 +38,7 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
             for filename in filenames:
                 if "http" in filename:
                     with open(filename, encoding="utf-8") as fp:
-                        for line in fp.readlines():
+                        for line in fp:
                             if line.startswith("http"):
                                 file_url, data = line.split(" -> ")
                                 _, msg = data.split(": ", 1)
@@ -63,7 +63,7 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
             exchange = f.rsplit("/", 1)[1]
             exchange = exchange.split(".", 1)[0]
             with open(f, encoding="utf-8") as fp:
-                for line in fp.readlines():
+                for line in fp:
                     if "configuration" in line:
                         sub = json.loads(line.split(": ", 1)[1])
                         ws.subscription = sub
@@ -87,9 +87,9 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
         callback_stats[kwargs["cb_type"]] += 1
 
     if not callbacks:
-        callbacks = {ctype: functools.partial(internal_cb, cb_type=ctype) for ctype in sub.keys()}
+        callbacks = {ctype: functools.partial(internal_cb, cb_type=ctype) for ctype in sub}
     else:
-        for ctype in callbacks.keys():
+        for ctype in callbacks:
             callbacks[ctype] = [callbacks[ctype], functools.partial(internal_cb, cb_type=ctype)]
     feed = EXCHANGE_MAP[feed](candle_closed_only=False, config=config, subscription=sub, callbacks=callbacks)
 
@@ -100,7 +100,7 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
         exchange_sub[c] = s
     ws.subscription = exchange_sub
 
-    for _, sub, handler, auth in feed.connect():
+    for _, sub, handler, _auth in feed.connect():
         await sub(ws)
 
     counter = 0
@@ -122,17 +122,15 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
                     counter += 1
 
                     if OKCOIN in filename or OKX in filename:
-                        if message.startswith("b'") or message.startswith('b"'):
+                        if message.startswith(("b'", 'b"')):
                             message = bytes_string_to_bytes(message)
                     elif HUOBI in filename:
                         message = bytes_string_to_bytes(message)
-                    elif UPBIT in filename:
-                        if message.startswith("b'") or message.startswith('b"'):
-                            message = message.strip()[2:-1]
+                    elif UPBIT in filename and message.startswith(("b'", 'b"')):
+                        message = message.strip()[2:-1]
 
                     await handler(message, ws, timestamp)
                 except Exception:
-                    print("Playback failed on message:", message)
                     feed.stop()
                     await feed.shutdown()
                     raise

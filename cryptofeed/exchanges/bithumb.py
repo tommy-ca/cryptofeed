@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ from datetime import datetime as dt
 from datetime import timedelta
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -53,7 +52,7 @@ class Bithumb(Feed):
     # To qeury the ticker endpoint, you need to know which quote currency you want. So far, seems like the exhcnage
     # only offers KRW and BTC as quote currencies.
     @classmethod
-    def symbol_mapping(cls, refresh=False) -> Dict:
+    def symbol_mapping(cls, refresh=False) -> dict:
         if Symbols.populated(cls.id) and not refresh:
             return Symbols.get(cls.id)[0]
         try:
@@ -73,13 +72,13 @@ class Bithumb(Feed):
             raise
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
 
         for quote_curr, response in data.items():
             bases = response["data"]
-            for base_curr in bases.keys():
+            for base_curr in bases:
                 if base_curr == "date":
                     continue
                 s = Symbol(base_curr, quote_curr)
@@ -107,7 +106,7 @@ class Bithumb(Feed):
                     }
                 ]
             }
-        }
+        }.
         """
         trades = msg.get("content", {}).get("list", [])
 
@@ -140,7 +139,7 @@ class Bithumb(Feed):
                     json.dumps(
                         {
                             "type": chan,
-                            "symbols": [symbol for symbol in self.subscription[chan]],
+                            "symbols": list(self.subscription[chan]),
                             # API ref list uses '-', but subscription requires '_'
                         }
                     )

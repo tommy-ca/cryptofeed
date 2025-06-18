@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -24,7 +24,7 @@ class BitmexRestMixin(RestExchange):
     def _generate_signature(self, verb: str, url: str, data="") -> dict:
         """verb: GET/POST
         url: api endpoint
-        data: body (if present)
+        data: body (if present).
         """
         expires = int(round(time.time()) + 30)
 
@@ -81,7 +81,7 @@ class BitmexRestMixin(RestExchange):
         }
 
     async def trades(self, symbol, start=None, end=None, retry_count=1, retry_delay=60):
-        """Data format
+        """Data format.
 
         {
             'timestamp': '2018-01-01T23:59:59.907Z',

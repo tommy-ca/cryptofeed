@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -70,7 +70,7 @@ class KrakenRestMixin(RestExchange):
     async def _post_public(self, command: str, payload=None, retry_count=1, retry_delay=60):
         url = f"{self.api}{command}"
         resp = await self.http_conn.write(
-            url, msg={} if not payload else payload, retry_count=retry_count, retry_delay=retry_delay
+            url, msg=payload if payload else {}, retry_count=retry_count, retry_delay=retry_delay
         )
         return json.loads(resp, parse_float=Decimal)
 
@@ -107,6 +107,7 @@ class KrakenRestMixin(RestExchange):
         data = data["result"]
         for _, val in data.items():
             return {"symbol": symbol, "feed": self.id, "bid": Decimal(val["b"][0]), "ask": Decimal(val["a"][0])}
+        return None
 
     async def l2_book(self, symbol: str, retry_count=1, retry_delay=60):
         ret = OrderBook(self.id, symbol)
@@ -118,13 +119,14 @@ class KrakenRestMixin(RestExchange):
             ret.book.bids = {Decimal(u[0]): Decimal(u[1]) for u in val["bids"]}
             ret.book.asks = {Decimal(u[0]): Decimal(u[1]) for u in val["asks"]}
             return ret
+        return None
 
     async def trades(self, symbol: str, start=None, end=None, retry_count=1, retry_delay=60):
         start, end = self._interval_normalize(start, end)
         if start and end:
             async for data in self._historical_trades(symbol, start, end, retry_count, retry_delay):
                 data = data["result"]
-                data = data[list(data.keys())[0]]
+                data = data[next(iter(data.keys()))]
                 data = [self._trade_normalization(d, symbol) for d in data]
                 yield [d for d in data if d["timestamp"] <= end]
         else:
@@ -133,7 +135,7 @@ class KrakenRestMixin(RestExchange):
                 "/public/Trades", {"pair": sym}, retry_count=retry_count, retry_delay=retry_delay
             )
             data = data["result"]
-            data = data[list(data.keys())[0]]
+            data = data[next(iter(data.keys()))]
             yield [self._trade_normalization(d, symbol) for d in data]
 
     async def _historical_trades(self, symbol, start_date, end_date, retry_count, retry_delay):
@@ -151,7 +153,7 @@ class KrakenRestMixin(RestExchange):
             await asyncio.sleep(1 / self.request_limit)
 
     def _trade_normalization(self, trade: list, symbol: str) -> dict:
-        """['976.00000', '1.34379010', 1483270225.7744, 's', 'l', '']"""
+        """['976.00000', '1.34379010', 1483270225.7744, 's', 'l', '']."""
         return {
             "timestamp": float(trade[2]),
             "symbol": symbol,
@@ -201,6 +203,7 @@ class KrakenRestMixin(RestExchange):
 
         for order_id, order in data["result"].items():
             return self._order_status(order_id, order)
+        return None
 
     async def place_order(self, symbol: str, side: str, order_type: str, amount: Decimal, price=None, options=None):
         ot = self.normalize_order_options(self.id, order_type)
@@ -304,15 +307,15 @@ class KrakenRestMixin(RestExchange):
     def _convert_private_sym(self, sym):
         """XETHZGBP = > ETHGBP
         XETH => ETH
-        ZGBP => GBP
+        ZGBP => GBP.
         """
         cleansym = sym
         try:
             symlen = len(sym)
-            if symlen == 8 or symlen == 9:
+            if symlen in {8, 9}:
                 cleansym = sym[1:4] + sym[5:]
             elif symlen == 4:
                 cleansym = sym[1:]
         except Exception as ex:
-            LOG.error(f"Couldnt convert private api symbol {sym} for {self.id}", ex)
+            LOG.exception(f"Couldnt convert private api symbol {sym} for {self.id}", ex)
         return cleansym

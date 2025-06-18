@@ -1,4 +1,4 @@
-"""Copyright (C) 2018-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2018-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -11,7 +11,7 @@ import hmac
 import logging
 import re
 import time
-from typing import Dict, Tuple, Union
+from typing import Union
 
 from yapic import json
 
@@ -165,7 +165,7 @@ class Bybit(Feed):
         return re.sub(r"(USDT|USDC|EUR|BTC|ETH|DAI|BRZ)$", r"/\1", pair)
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -185,11 +185,10 @@ class Bybit(Feed):
 
                     expiry = None
 
-                    if stype is FUTURES:
-                        if not symbol["symbol"].endswith(quote):
-                            # linear futures
-                            if "-" in symbol["symbol"]:
-                                expiry = symbol["symbol"].split("-")[-1]
+                    if stype is FUTURES and not symbol["symbol"].endswith(quote):
+                        # linear futures
+                        if "-" in symbol["symbol"]:
+                            expiry = symbol["symbol"].split("-")[-1]
 
                     s = Symbol(base, quote, type=stype, expiry_date=expiry)
 
@@ -241,7 +240,7 @@ class Bybit(Feed):
             ],
             "ts": 1671187815755,
             "type": "snapshot"
-        }
+        }.
         """
         symbol = msg["topic"].split(".")[-1]
         if market == "spot":
@@ -286,7 +285,7 @@ class Bybit(Feed):
                 "size": "0.003",
                 "price": "43511.70"
             }
-        }
+        }.
         """
         liq = Liquidation(
             self.id,
@@ -314,7 +313,6 @@ class Bybit(Feed):
                     if msg["request"]["op"] == "auth":
                         LOG.debug("%s: Authenticated successful", conn.uuid)
                 elif msg["op"] == "subscribe":
-                    # {"success": true, "ret_msg": "","op": "subscribe","conn_id": "cejreassvfrsfvb9v1a0-2m"}
                     LOG.debug("%s: Subscribed to channel.", conn.uuid)
                 else:
                     LOG.warning("%s: Unhandled 'successs' message received", conn.uuid)
@@ -334,8 +332,6 @@ class Bybit(Feed):
             await self._order(msg, timestamp)
         elif "execution" in msg["topic"]:
             await self._execution(msg, timestamp)
-        # elif "position" in msg["topic"]:
-        #     await self._balances(msg, timestamp)
         else:
             LOG.warning("%s: Unhandled message type %s", conn.uuid, msg)
 
@@ -399,7 +395,7 @@ class Bybit(Feed):
                 "p": "16578.50",
                 "L": "PlusTick",
                 "i": "20f43950-d8dd-5b31-9112-a178eb6023af",
-                "BT": false}]}
+                "BT": false}]}.
         """
         data = msg["data"]
         if isinstance(data, list):
@@ -458,7 +454,7 @@ class Bybit(Feed):
             "seq": 7961638724
             }
             "cts": 1672304484976
-        }
+        }.
         """
         pair = msg["topic"].split(".")[-1]
         update_type = msg["type"]
@@ -478,7 +474,7 @@ class Bybit(Feed):
 
         for key, update in data.items():
             side = BID if key == "b" else ASK
-            if key == "a" or key == "b":
+            if key in {"a", "b"}:
                 for price, size in update:
                     price = Decimal(price)
                     size = Decimal(size)
@@ -529,7 +525,7 @@ class Bybit(Feed):
             },
             "cs": 24987956059,
             "ts": 1673272861686
-        }
+        }.
         """
         # Bybit does not provide bid/ask information for the spot market, only for perps at the moment
         update_type = msg["type"]
@@ -609,7 +605,7 @@ class Bybit(Feed):
                     "update_time": "2020-08-12T21:18:40.787986415Z"
                 }
             ]
-        }
+        }.
         """
         order_status = {
             "Created": SUBMITTING,
@@ -659,7 +655,7 @@ class Bybit(Feed):
                     "trade_time": "2020-01-14T14:07:23.629Z" // trade time
                 }
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             symbol = self.exchange_symbol_to_std_symbol(entry["symbol"])
@@ -681,9 +677,6 @@ class Bybit(Feed):
 
     # async def _balances(self, msg: dict, timestamp: float):
     #    for i in range(len(msg['data'])):
-    #        data = msg['data'][i]
-    #        symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
-    #        await self.callback(BALANCES, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
 
     async def authenticate(self, conn: AsyncConnection):
         if any(self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in conn.subscription):

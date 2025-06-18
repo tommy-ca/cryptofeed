@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -10,7 +10,7 @@ from decimal import Decimal
 import hmac
 import logging
 from time import time
-from typing import Dict, List, Tuple, Union
+from typing import Union
 
 from yapic import json
 
@@ -83,8 +83,8 @@ class Bitget(Feed):
         return ts / 1000
 
     @classmethod
-    def _parse_symbol_data(cls, data: Union[List, Dict]) -> Tuple[Dict, Dict]:
-        """Contract types
+    def _parse_symbol_data(cls, data: Union[list, dict]) -> tuple[dict, dict]:
+        """Contract types.
 
         umcbl	USDT Unified Contract
         dmcbl	Quanto Swap Contract
@@ -157,7 +157,7 @@ class Bitget(Feed):
                     'labeId': 0
                 }
             ]
-        }
+        }.
         """
         key = "ts"
         if msg["arg"]["instType"] == "mc":
@@ -188,7 +188,7 @@ class Bitget(Feed):
             'data': [
                 ['1649014224602', '46464.51', '0.0023', 'sell']
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             t = Trade(
@@ -211,7 +211,7 @@ class Bitget(Feed):
                 'instId': 'BTCUSDT'
             },
             'data': [['1649014920000', '46434.2', '46437.98', '46434.2', '46437.98', '0.9469']]
-        }
+        }.
         """
         for entry in msg["data"]:
             t = Candle(
@@ -315,7 +315,7 @@ class Bitget(Feed):
             )
 
     async def _account(self, msg: dict, symbol: str, timestamp: float):
-        """Spot
+        """Spot.
 
         {
             'action': 'snapshot',
@@ -393,7 +393,7 @@ class Bitget(Feed):
                     'uTime': '1650406613064'
                 }
             ]
-        }
+        }.
         """
         # exchange, symbol, position, entry_price, side, unrealised_pnl, timestamp, raw=None):
         for entry in msg["data"]:
@@ -451,7 +451,7 @@ class Bitget(Feed):
                     'uTime': 1650407316266
                 }
             ]
-        }
+        }.
 
 
         filled:
@@ -516,7 +516,6 @@ class Bitget(Feed):
         msg = json.loads(msg, parse_float=Decimal)
 
         if "event" in msg:
-            # {'event': 'subscribe', 'arg': {'instType': 'sp', 'channel': 'ticker', 'instId': 'BTCUSDT'}}
             if msg["event"] == "login" and msg["code"] == 0:
                 LOG.info("%s: Authenticated successfully", conn.uuid)
                 return

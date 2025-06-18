@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -45,7 +44,7 @@ class Kraken(Feed, KrakenRestMixin):
     request_limit = 10
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -187,7 +186,7 @@ class Kraken(Feed, KrakenRestMixin):
              42                     count
             ],
         'ohlc-1',
-        'XBT/USD']
+        'XBT/USD'].
         """
         start, end, open, high, low, close, _, volume, count = msg[1]
         interval = int(msg[-2].split("-")[-1])

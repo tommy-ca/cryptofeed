@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -9,7 +9,6 @@ from collections import defaultdict
 from decimal import Decimal
 import logging
 from time import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -44,7 +43,7 @@ class IndependentReserve(Feed):
     request_limit = 1
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -77,7 +76,7 @@ class IndependentReserve(Feed):
             },
             'Time': 1643578106584,
             'Event': 'Trade'
-        }
+        }.
         """
         t = Trade(
             self.id,
@@ -101,7 +100,7 @@ class IndependentReserve(Feed):
             },
             'Time': 1643931382903,
             'Event': 'OrderCanceled'
-        }
+        }.
 
         {
             'Channel': 'orderbook-xbt',

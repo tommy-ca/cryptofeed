@@ -83,7 +83,7 @@ class TestCoinbaseRest:
                 None,
                 Decimal("8054.66"),
                 Decimal("8109.53"),
-                Decimal("8122"),
+                Decimal(8122),
                 Decimal("8054.64"),
                 Decimal("78.91111363"),
                 True,

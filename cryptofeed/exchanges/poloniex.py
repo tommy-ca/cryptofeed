@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -36,7 +35,7 @@ class Poloniex(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
         for entry in data:
@@ -65,7 +64,7 @@ class Poloniex(Feed):
                 'id': '60183607',
                 'ts': 1661120814823
             }]
-        }
+        }.
         """
         price = Decimal(msg["data"][0]["price"])
         amount = Decimal(msg["data"][0]["amount"])

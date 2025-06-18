@@ -1,4 +1,4 @@
-"""Copyright (C) 2018-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2018-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -46,7 +45,7 @@ class Bitflyer(Feed):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
         for entry in data:
@@ -94,7 +93,7 @@ class Bitflyer(Feed):
                     "volume_by_product": 241.953371650000
                 }
             }
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["params"]["message"]["product_code"])
         bid = msg["params"]["message"]["best_bid"]
@@ -120,7 +119,7 @@ class Bitflyer(Feed):
                     }
                 ]
             }
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["params"]["channel"][21:])
         for update in msg["params"]["message"]:
@@ -143,7 +142,7 @@ class Bitflyer(Feed):
                 "channel":"lightning_board_BTC_JPY",
                 "message":{
                     "mid_price":2534243.0,
-                    "bids":[
+                    "bids":[.
 
                     ],
                     "asks":[
@@ -187,7 +186,7 @@ class Bitflyer(Feed):
                     if entry["size"] == 0:
                         if entry["price"] in self._l2_book[pair].book[side]:
                             del self._l2_book[pair].book[side][entry["price"]]
-                            delta[s].append((entry["price"], Decimal(0.0)))
+                            delta[s].append((entry["price"], Decimal("0.0")))
                     else:
                         self._l2_book[pair].book[side][entry["price"]] = entry["size"]
                         delta[s].append((entry["price"], entry["size"]))

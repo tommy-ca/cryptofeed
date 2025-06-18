@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from collections import defaultdict
 import logging
-from typing import Dict, Tuple
 
 from cryptofeed.connection import RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import CANDLES, L2_BOOK, OKCOIN, SPOT, TICKER, TRADES
@@ -24,7 +23,7 @@ class OKCoin(OKX):
     websocket_channels = {L2_BOOK: "books", TRADES: "trades", TICKER: "tickers", CANDLES: "candle"}
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 

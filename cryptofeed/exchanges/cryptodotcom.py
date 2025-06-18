@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -37,7 +36,7 @@ class CryptoDotCom(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -66,7 +65,7 @@ class CryptoDotCom(Feed):
                     'i': 'BTC_USDT'
                 }
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             t = Trade(
@@ -99,7 +98,7 @@ class CryptoDotCom(Feed):
                     'c': Decimal('1311.15')
                 }
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             await self.callback(
@@ -132,7 +131,7 @@ class CryptoDotCom(Feed):
                     'v': Decimal('366802.492134')
                 }
             ]
-        }
+        }.
         """
         interval = msg["interval"]
         if interval == "14D":
@@ -181,7 +180,7 @@ class CryptoDotCom(Feed):
                     ]
                 }
             ]
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["instrument_name"])
         for entry in msg["data"]:

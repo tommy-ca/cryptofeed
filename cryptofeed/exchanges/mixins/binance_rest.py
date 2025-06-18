@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -53,7 +53,7 @@ class BinanceRestMixin(RestExchange):
     }
 
     def _nonce(self):
-        return str(int(round(time.time() * 1000)))
+        return str(round(time.time() * 1000))
 
     def _generate_signature(self, query_string: str):
         h = hmac.new(self.key_secret.encode("utf8"), query_string.encode("utf8"), hashlib.sha256)
@@ -138,10 +138,7 @@ class BinanceRestMixin(RestExchange):
             end = int(end * 1000)
 
         while True:
-            if start and end:
-                endpoint = f"{ep}&startTime={start}&endTime={end}"
-            else:
-                endpoint = ep
+            endpoint = f"{ep}&startTime={start}&endTime={end}" if start and end else ep
             r = await self.http_conn.read(endpoint, retry_count=retry_count, retry_delay=retry_delay)
             data = json.loads(r, parse_float=Decimal)
             start = data[-1][6]

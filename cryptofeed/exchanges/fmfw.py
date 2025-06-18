@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -45,7 +44,7 @@ class FMFW(Feed):
     websocket_channels = {L2_BOOK: "orderbook/full", TRADES: "trades", TICKER: "ticker/1s", CANDLES: "candles/"}
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -122,7 +121,7 @@ class FMFW(Feed):
                     's': 'buy'
                 }]
             }
-        }
+        }.
         """
         for pair, update in msg["update"].items():
             symbol = self.exchange_symbol_to_std_symbol(pair)
@@ -160,7 +159,7 @@ class FMFW(Feed):
                     'L': 1417964345
                 }
             }
-        }
+        }.
         """
         for sym, ticker in msg["data"].items():
             t = Ticker(
@@ -187,7 +186,7 @@ class FMFW(Feed):
                     'q': '420.1435698'
                 }]
             }
-        }
+        }.
         """
         interval = msg["ch"].split("/")[-1]
         for sym, updates in msg["update"].items():

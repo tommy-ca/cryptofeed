@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -10,7 +10,6 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -61,7 +60,7 @@ class KuCoin(Feed):
         return channel in (L2_BOOK)
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"tick_size": {}, "instrument_type": {}}
         for symbol in data["data"]:
@@ -84,7 +83,7 @@ class KuCoin(Feed):
             )
         ]
         super().__init__(**kwargs)
-        if any([len(self.subscription[chan]) > 300 for chan in self.subscription]):
+        if any(len(self.subscription[chan]) > 300 for chan in self.subscription):
             raise ValueError("Kucoin has a limit of 300 symbols per connection")
         self.__reset()
 
@@ -102,7 +101,7 @@ class KuCoin(Feed):
             'subject': 'trade.candles.update',
             'topic': '/market/candles:BTC-USDT_1min',
             'type': 'message'
-        }
+        }.
         """
         symbol, interval = symbol.split("_")
         interval = self.normalize_candle_interval[interval]
@@ -131,7 +130,7 @@ class KuCoin(Feed):
             "type":"message",
             "topic":"/market/ticker:BTC-USDT",
             "subject":"trade.ticker",
-            "data":{
+            "data":{.
 
                 "sequence":"1545896668986", // Sequence number
                 "price":"0.08",             // Last traded price
@@ -151,7 +150,7 @@ class KuCoin(Feed):
             "type":"message",
             "topic":"/market/match:BTC-USDT",
             "subject":"trade.l3match",
-            "data":{
+            "data":{.
 
                 "sequence":"1545896669145",
                 "type":"match",
@@ -234,7 +233,7 @@ class KuCoin(Feed):
             'subject': 'trade.l2update',
             'topic': '/market/level2:BTC-USDT',
             'type': 'message'
-        }
+        }.
         """
         data = msg["data"]
         sequence = data["sequenceStart"]

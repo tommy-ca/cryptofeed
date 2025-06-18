@@ -14,7 +14,7 @@ from cryptofeed.exchanges import Kraken
 
 
 def callback(ch, method, properties, body):
-    print(" [x] Received %r" % body.decode())
+    print(f" [x] Received {body.decode()!r}")
 
 
 def receiver(port):

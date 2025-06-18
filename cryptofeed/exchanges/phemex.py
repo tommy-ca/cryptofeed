@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -9,7 +9,6 @@ from decimal import Decimal
 import hmac
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -29,12 +28,9 @@ class Phemex(Feed):
     rest_endpoints = [RestEndpoint("https://api.phemex.com", routes=Routes("/exchange/public/cfg/v2/products"))]
     price_scale = {}
     valid_candle_intervals = ("1m", "5m", "15m", "30m", "1h", "4h", "1d", "1M", "1Q", "1Y")
-    candle_interval_map = {
-        interval: second
-        for interval, second in zip(
+    candle_interval_map = dict(zip(
             valid_candle_intervals, [60, 300, 900, 1800, 3600, 14400, 86400, 604800, 2592000, 7776000, 31104000]
-        )
-    }
+        ))
 
     websocket_channels = {
         BALANCES: "aop.subscribe",
@@ -48,7 +44,7 @@ class Phemex(Feed):
         return ts / 1_000_000_000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -96,7 +92,7 @@ class Phemex(Feed):
             'symbol': 'BTCUSD',
             'timestamp': 1625329629283990943,
             'type': 'incremental'
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["symbol"])
         ts = self.timestamp_normalize(msg["timestamp"])
@@ -140,7 +136,7 @@ class Phemex(Feed):
                 [1625326381255067545, 'Buy', 345890000, 323]
             ],
             'type': 'incremental'
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["symbol"])
         for ts, side, price, amount in msg["trades"]:
@@ -163,7 +159,7 @@ class Phemex(Feed):
             'sequence': 9048385626,
             'symbol': 'BTCUSD',
             'type': 'incremental'
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["symbol"])
 
@@ -653,7 +649,7 @@ class Phemex(Feed):
         self.__reset(conn)
 
         for chan, symbols in conn.subscription.items():
-            if not self.exchange_channel_to_std(chan) == BALANCES:
+            if self.exchange_channel_to_std(chan) != BALANCES:
                 for sym in symbols:
                     msg = {"id": 1, "method": chan, "params": [sym]}
                     if self.exchange_channel_to_std(chan) == CANDLES:

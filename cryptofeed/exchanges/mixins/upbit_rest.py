@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -41,7 +41,7 @@ class UpbitRestMixin(RestExchange):
             "unit": 1
             },
             ...
-        ]
+        ].
         """
         sym = self.std_symbol_to_exchange_symbol(symbol)
         offset = timedelta_str_to_sec(interval)

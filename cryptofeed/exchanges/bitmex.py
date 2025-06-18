@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -72,7 +71,7 @@ class Bitmex(Feed, BitmexRestMixin):
     request_limit = 0.5
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -134,7 +133,7 @@ class Bitmex(Feed, BitmexRestMixin):
         return oi
 
     async def _order(self, msg: dict, timestamp: float):
-        """Order msg example
+        r"""Order msg example.
 
         {
           "table": "order",
@@ -360,7 +359,7 @@ class Bitmex(Feed, BitmexRestMixin):
             LOG.warning("%s: Unexpected message received: %s", self.id, msg)
 
     async def _trade(self, msg: dict, timestamp: float):
-        """Trade msg example
+        """Trade msg example.
 
         {
             'timestamp': '2018-05-19T12:25:26.632Z',
@@ -391,7 +390,7 @@ class Bitmex(Feed, BitmexRestMixin):
 
     async def _book(self, msg: dict, timestamp: float):
         """The Full bitmex book
-        Docs, https://www.bitmex.com/app/wsAPI
+        Docs, https://www.bitmex.com/app/wsAPI.
         """
         # PERF perf_start(self.id, 'book_msg')
 
@@ -506,7 +505,7 @@ class Bitmex(Feed, BitmexRestMixin):
              'fundingRate': Decimal('-0.000561'),
              'fundingRateDaily': Decimal('-0.001683')
             }]
-        }
+        }.
         """
         for data in msg["data"]:
             ts = self.timestamp_normalize(data["timestamp"])
@@ -523,7 +522,7 @@ class Bitmex(Feed, BitmexRestMixin):
             await self.callback(FUNDING, f, timestamp)
 
     async def _instrument(self, msg: dict, timestamp: float):
-        """Example instrument data
+        """Example instrument data.
 
         {
         'table':'instrument',
@@ -769,7 +768,7 @@ class Bitmex(Feed, BitmexRestMixin):
                 await self.callback(OPEN_INTEREST, oi, timestamp)
 
     async def _liquidation(self, msg: dict, timestamp: float):
-        """Liquidation msg example
+        """Liquidation msg example.
 
         {
             'orderID': '9513c849-ca0d-4e11-8190-9d221972288c',

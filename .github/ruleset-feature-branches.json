@@ -4,7 +4,12 @@
   "enforcement": "evaluate",
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/feature/*", "refs/heads/feat/*", "refs/heads/fix/*", "refs/heads/docs/*"],
+      "include": [
+        "refs/heads/feature/*",
+        "refs/heads/feat/*",
+        "refs/heads/fix/*",
+        "refs/heads/docs/*"
+      ],
       "exclude": []
     }
   },

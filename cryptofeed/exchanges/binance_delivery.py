@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -124,7 +124,7 @@ class BinanceDelivery(Binance, BinanceDeliveryRestMixin):
                 }
             ]
             }
-        }
+        }.
         """
         for balance in msg["a"]["B"]:
             b = Balance(self.id, balance["a"], Decimal(balance["wb"]), None, raw=msg)
@@ -186,7 +186,7 @@ class BinanceDelivery(Binance, BinanceDeliveryRestMixin):
                 "cr":"5.0",                 // Callback Rate, only puhed with TRAILING_STOP_MARKET order
                 "pP": false                 // If conditional order trigger is protected
             }
-        }
+        }.
         """
         oi = OrderInfo(
             self.id,

@@ -1,6 +1,18 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "Cython"]
+requires = [
+    "setuptools>=61.0",
+    "wheel", 
+    "Cython>=3.0.0",
+    # Note: numpy not required for core build but may be needed for some optional features
+]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Ensure Cython files are included in source distribution
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "examples*", "docs*"]
 
 [project]
 name = "cryptofeed"

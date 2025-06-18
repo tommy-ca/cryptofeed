@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -90,7 +90,7 @@ class GCPPubSubCallback:
 
     async def write(self, data: dict):
         """Publish message. For filtering, "feed" and "symbol" are added as attributes.
-        https://cloud.google.com/pubsub/docs/filtering
+        https://cloud.google.com/pubsub/docs/filtering.
         """
         client = await self.get_client()
         payload = json.dumps(data).encode()

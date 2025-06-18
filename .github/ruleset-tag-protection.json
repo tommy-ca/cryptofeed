@@ -5,7 +5,11 @@
   "conditions": {
     "ref_name": {
       "include": ["refs/tags/v*"],
-      "exclude": ["refs/tags/v*-rc*", "refs/tags/v*-beta*", "refs/tags/v*-alpha*"]
+      "exclude": [
+        "refs/tags/v*-rc*",
+        "refs/tags/v*-beta*",
+        "refs/tags/v*-alpha*"
+      ]
     }
   },
   "rules": [

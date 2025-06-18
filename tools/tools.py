@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -18,75 +18,55 @@ They may come in handy again . . .
 
 def poloniex_get_ticker_map():
     """Mappings between pair strings and pair IDs are not documented
-    so we can use their ticker endpoint which has the mappings embedded
+    so we can use their ticker endpoint which has the mappings embedded.
     """
     with urlopen("https://poloniex.com/public?command=returnTicker") as url:
         data = json.loads(url.read().decode())
-        print("{")
-        for key in data:
-            print("'{}': {},".format(key, data[key]["id"]))
-        print("}")
+        for _key in data:
+            pass
 
-        print("[", end="")
-        for key in data:
-            print(f"'{key}', ", end="")
-        print("]", end="")
+        for _key in data:
+            pass
 
 
 def bittrex_get_trading_pairs():
     with urlopen("https://bittrex.com/api/v1.1/public/getmarkets") as url:
         data = json.loads(url.read().decode())
-        print("[", end="")
-        for market in data["result"]:
-            print("'{}', ".format(market["MarketName"]), end="")
-        print("]", end="")
+        for _market in data["result"]:
+            pass
 
 
 def coinbase_get_trading_pairs():
     with urlopen("https://api.pro.coinbase.com/products") as url:
         data = json.loads(url.read().decode())
-        print("[", end="")
-        for pair in data:
-            print(
-                "'" + pair["id"] + "',",
-            )
-        print("]")
+        for _pair in data:
+            pass
 
 
 def hitbtc_get_trading_pairs():
     with urlopen("https://api.hitbtc.com/api/2/public/symbol") as url:
         data = json.loads(url.read().decode())
-        print("[", end="")
-        for pair in data:
-            print(
-                "'" + pair["id"] + "',",
-            )
-        print("]")
+        for _pair in data:
+            pass
 
 
 def cex_get_trading_pairs():
     r = requests.get("https://cex.io/api/currency_limits")
-    print("[")
-    for data in r.json()["data"]["pairs"]:
-        print("'{}-{}',".format(data["symbol1"], data["symbol2"]))
-    print("]")
+    for _data in r.json()["data"]["pairs"]:
+        pass
 
 
 def exx_get_trading_pairs():
     r = requests.get("https://api.exx.com/data/v1/tickers")
-    print("[")
-    for key in r.json():
-        print(f"'{key}',")
-    print("]")
+    for _key in r.json():
+        pass
 
 
 def bitmex_instruments():
     r = requests.get("https://www.bitmex.com/api/v1/instrument/active")
-    print("[")
     data = r.json()
-    for d in data:
-        print("'{}',".format(d["symbol"]))
-    print("]")
+    for _d in data:
+        pass
 
 
 if __name__ == "__main__":

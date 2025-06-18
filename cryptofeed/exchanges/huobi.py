@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 import zlib
 
 from yapic import json
@@ -47,7 +46,7 @@ class Huobi(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
 
@@ -96,7 +95,7 @@ class Huobi(Feed):
                 "lastPrice":52735.63,
                 "lastSize":0.03
             }
-        }
+        }.
         """
         t = Ticker(
             self.id,
@@ -126,7 +125,7 @@ class Huobi(Feed):
                     }
                 ]
             }
-        }
+        }.
         """
         for trade in msg["tick"]["data"]:
             t = Trade(
@@ -155,7 +154,7 @@ class Huobi(Feed):
                 'vol': Decimal('133570.944386'),
                 'count': 235}
             }
-        }
+        }.
         """
         interval = self.normalize_candle_interval[interval]
         start = int(msg["tick"]["id"])

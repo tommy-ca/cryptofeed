@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -19,7 +19,7 @@ def bytes_string_to_bytes(string):
 def main(filename):
     with open(filename) as fp:
         counter = 0
-        for line in fp.readlines():
+        for line in fp:
             counter += 1
             if line == "\n":
                 continue
@@ -36,21 +36,17 @@ def main(filename):
                 line = line.split("header:")[0]
             try:
                 if "OKCOIN" in filename or "OKX" in filename:
-                    if line.startswith("b'") or line.startswith('b"'):
+                    if line.startswith(("b'", 'b"')):
                         line = bytes_string_to_bytes(line)
                         line = zlib.decompress(line, -15).decode()
                 elif "HUOBI" in filename and "ws" in filename:
                     line = bytes_string_to_bytes(line)
                     line = zlib.decompress(line, 16 + zlib.MAX_WBITS)
-                elif "UPBIT" in filename:
-                    if line.startswith("b'") or line.startswith('b"'):
-                        line = line.strip()[2:-1]
+                elif "UPBIT" in filename and (line.startswith(("b'", 'b"'))):
+                    line = line.strip()[2:-1]
                 _ = json.loads(line)
             except Exception:
-                print(f"Failed on line {counter}: ")
-                print(line)
                 raise
-        print(f"Successfully verified {counter} updates")
 
 
 if __name__ == "__main__":

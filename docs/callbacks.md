@@ -4,49 +4,48 @@ Cryptofeed is a library that uses asyncio to handle asynchronous events. When `f
 
 ### Callback Types
 
-There are two types of callbacks supported in cryptofeed, *raw* and *backend*. The raw callbacks deliver the data directly to the specified function. Backend callbacks take the data and do something else with it (typically store or send). Some examples of the backend callbacks are Redis, Postgres and TCP. You might use the Redis or Postgres callbacks to store the data, and you could use the TCP callback to send data to another application for processing.
+There are two types of callbacks supported in cryptofeed, _raw_ and _backend_. The raw callbacks deliver the data directly to the specified function. Backend callbacks take the data and do something else with it (typically store or send). Some examples of the backend callbacks are Redis, Postgres and TCP. You might use the Redis or Postgres callbacks to store the data, and you could use the TCP callback to send data to another application for processing.
 
 The raw callbacks are defined [here](../cryptofeed/callback.py). They are:
 
-* Trade
-* Ticker
-* Book
-* Open Interest
-* Funding
-* Liquidation
-* Candles
-* Index
-* L1Book (aka Top of Book)
-* Order Info
-* User Fills
-* Transactions
-* Balances
+- Trade
+- Ticker
+- Book
+- Open Interest
+- Funding
+- Liquidation
+- Candles
+- Index
+- L1Book (aka Top of Book)
+- Order Info
+- User Fills
+- Transactions
+- Balances
 
 It's important to note that if your choose to use the raw callbacks and your callbacks are async functions, you do not need to use these wrappers (like is commonly shown in the example code). You can use your callback functions without wrapping them in `TradeCallback`, `TickerCallback`, etc.
 
 Every callback has the same signature, two positional arguments, the data object and the receipt timestamp. The data object differs by data type. The data objects are defined in [types.pyx](../cryptofeed/types.pyx)
 
-
 ### Backends
 
 The backends are defined [here](../cryptofeed/backends/). Currently the following are supported:
 
-* Arctic
-* ElasticSearch
-* GCP Pub/Sub
-* InfluxDB
-* Kafka
-* MongoDB
-* Postgres
-* QuestDB
-* RabbitMQ
-* Redis
-* Redis Streams
-* TCP/UDP/UDS sockets
-* VictoriaMetrics
-* ZMQ
+- Arctic
+- ElasticSearch
+- GCP Pub/Sub
+- InfluxDB
+- Kafka
+- MongoDB
+- Postgres
+- QuestDB
+- RabbitMQ
+- Redis
+- Redis Streams
+- TCP/UDP/UDS sockets
+- VictoriaMetrics
+- ZMQ
 
-There are also a handful of wrappers defined [here](../cryptofeed/backends/aggregate.py) that can be used in conjunction with these and raw callbacks to convert data to OHLCV, throttle data, etc. 
+There are also a handful of wrappers defined [here](../cryptofeed/backends/aggregate.py) that can be used in conjunction with these and raw callbacks to convert data to OHLCV, throttle data, etc.
 
 ### Performance Considerations
 

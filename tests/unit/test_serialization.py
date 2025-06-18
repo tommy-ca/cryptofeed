@@ -15,7 +15,7 @@ from cryptofeed.types import Candle, Funding, Liquidation, OrderBook, OrderInfo,
 
 def test_order_info():
     oi = OrderInfo(
-        "COINBASE", "BTC-USD", None, BUY, PENDING, LIMIT, Decimal(40000.00), Decimal(1.25), Decimal(1.25), time()
+        "COINBASE", "BTC-USD", None, BUY, PENDING, LIMIT, Decimal("40000.00"), Decimal("1.25"), Decimal("1.25"), time()
     )
     d = oi.to_dict(numeric_type=str)
     d = json.dumps(d)
@@ -105,7 +105,7 @@ def test_candle():
         Decimal(100),
         Decimal(200),
         Decimal(10),
-        Decimal(1234.5432),
+        Decimal("1234.5432"),
         True,
         time(),
     )

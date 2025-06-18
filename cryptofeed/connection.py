@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 import logging
 import time
-from typing import List, Union
+from typing import Union
 
 import aiohttp
 from aiohttp.client_reqrep import ClientResponse
@@ -59,10 +59,7 @@ class HTTPSync(Connection):
 
     def write(self, address: str, data=None, json=False, text=True, uuid=None, is_data_json=False):
         LOG.debug("HTTPSync: post to %s", address)
-        if is_data_json:
-            r = requests.post(address, json=data)
-        else:
-            r = requests.post(address, data=data)
+        r = requests.post(address, json=data) if is_data_json else requests.post(address, data=data)
 
         return self.process_response(r, address, json=json, text=text, uuid=uuid)
 
@@ -77,7 +74,7 @@ class AsyncConnection(Connection):
             function pointer that will be invoked directly before the connection
             is attempted. Some connections may need to do authentication at this point.
         subscription: dict
-            optional connection information
+            optional connection information.
         """
         AsyncConnection.conn_count += 1
         self.id: str = conn_id
@@ -132,7 +129,7 @@ class HTTPAsyncConn(AsyncConnection):
         """conn_id: str
             id associated with the connection
         proxy: str, URL
-            proxy url (GET only)
+            proxy url (GET only).
         """
         super().__init__(f"{conn_id}.http.{self.conn_count}")
         self.proxy = proxy
@@ -233,7 +230,7 @@ class HTTPAsyncConn(AsyncConnection):
 
 class HTTPPoll(HTTPAsyncConn):
     def __init__(
-        self, address: Union[List, str], conn_id: str, delay: float = 60, sleep: float = 1, proxy: StrOrURL = None
+        self, address: Union[list, str], conn_id: str, delay: float = 60, sleep: float = 1, proxy: StrOrURL = None
     ):
         super().__init__(f"{conn_id}.http.{self.conn_count}", proxy)
         if isinstance(address, str):
@@ -272,7 +269,7 @@ class HTTPPoll(HTTPAsyncConn):
 
 
 class HTTPConcurrentPoll(HTTPPoll):
-    """Polls each address concurrently in it's own Task"""
+    """Polls each address concurrently in it's own Task."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -317,7 +314,7 @@ class WSAsyncConn(AsyncConnection):
 
     @property
     def is_open(self) -> bool:
-        return self.conn and not self.conn.state == State.CLOSED
+        return self.conn and self.conn.state != State.CLOSED
 
     async def _open(self):
         if self.is_open:

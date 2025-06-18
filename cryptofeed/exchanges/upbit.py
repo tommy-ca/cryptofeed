@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 import uuid
 
 from yapic import json

@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -63,7 +62,7 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         base, info = super()._parse_symbol_data(data)
         add = {}
         for symbol, orig in base.items():
@@ -75,7 +74,7 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
 
     def __init__(self, open_interest_interval=1.0, **kwargs):
         """open_interest_interval: float
-        time in seconds between open_interest polls
+        time in seconds between open_interest polls.
         """
         super().__init__(**kwargs)
         self.open_interest_interval = open_interest_interval
@@ -113,7 +112,7 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
             "openInterest": "10659.509",
             "symbol": "BTCUSDT",
             "time": 1589437530011   // Transaction time
-        }
+        }.
         """
         pair = msg["symbol"]
         oi = msg["openInterest"]
@@ -183,7 +182,7 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
                 }
             ]
             }
-        }
+        }.
         """
         for balance in msg["a"]["B"]:
             b = Balance(self.id, balance["a"], Decimal(balance["wb"]), None, raw=msg)
@@ -242,7 +241,7 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
                 "cr":"5.0",                 // Callback Rate, only puhed with TRAILING_STOP_MARKET order
                 "rp":"0"                            // Realized Profit of the trade
             }
-        }
+        }.
         """
         oi = OrderInfo(
             self.id,
@@ -297,3 +296,4 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
             await self._candle(msg, timestamp)
         else:
             LOG.warning("%s: Unexpected message received: %s", self.id, msg)
+        return None

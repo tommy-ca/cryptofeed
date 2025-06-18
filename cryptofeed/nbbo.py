@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -16,7 +16,7 @@ class NBBO(Callback):
 
         self.last_update = None
 
-        super(NBBO, self).__init__(callback)
+        super().__init__(callback)
 
     def _update(self, book):
         bid, size = book.book.bids.index(0)

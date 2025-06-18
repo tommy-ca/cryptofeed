@@ -9,7 +9,7 @@ def test_funding_to_dict():
     data = {
         "exchange": "FTX",
         "symbol": "BTC-USD-PERP",
-        "mark_price": Decimal("50000"),
+        "mark_price": Decimal(50000),
         "rate": Decimal("0.0002"),
         "next_funding_time": Exchange.timestamp_normalize(
             datetime.datetime(2021, 12, 26, 21, 0, tzinfo=datetime.timezone.utc)

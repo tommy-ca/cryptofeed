@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -57,7 +57,7 @@ class BitfinexRestMixin(RestExchange):
     }
 
     def _nonce(self):
-        return str(int(round(time.time() * 1000000)))
+        return str(round(time.time() * 1000000))
 
     def _generate_signature(self, url: str, body=None):
         if not body:
@@ -97,7 +97,7 @@ class BitfinexRestMixin(RestExchange):
 
     def _dedupe(self, data, last):
         """Bitfinex does not support pagination, and using timestamps
-        to paginate can lead to duplicate data being pulled
+        to paginate can lead to duplicate data being pulled.
         """
         if len(last) == 0:
             return data
@@ -263,12 +263,11 @@ class BitfinexRestMixin(RestExchange):
     ):
         if order_type == MARKET and price:
             raise ValueError("Cannot specify price on a market order")
-        if order_type == LIMIT:
-            if not price:
-                raise ValueError("Must specify price on a limit order")
+        if order_type == LIMIT and not price:
+            raise ValueError("Must specify price on a limit order")
         if side is SELL:
             amount = amount * -1
-        cid = int(round(time.time() * 1000))
+        cid = round(time.time() * 1000)
         ot = self.normalize_order_options(order_type)
         sym = self.std_symbol_to_exchange_symbol(symbol)
         parameters = {

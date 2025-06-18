@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -12,7 +12,7 @@ import hmac
 import itertools
 import logging
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Union
 
 from yapic import json
 
@@ -72,12 +72,12 @@ class Gemini(Feed, GeminiRestMixin):
         return ts / 1000.0
 
     @classmethod
-    def _symbol_endpoint_prepare(cls, ep: RestEndpoint) -> Union[List[str], str]:
+    def _symbol_endpoint_prepare(cls, ep: RestEndpoint) -> Union[list[str], str]:
         ret = cls.http_sync.read(ep.route("currencies"), json=True, uuid=cls.id)
         return [ep.route("instruments").format(currency) for currency in ret]
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -175,7 +175,7 @@ class Gemini(Feed, GeminiRestMixin):
             "original_amount": "1",
             "price": "3592.00",
             "socket_sequence": 13
-        }]
+        }].
         """
         if msg["type"] == "initial" or msg["type"] == "accepted":
             status = SUBMITTING
@@ -228,7 +228,7 @@ class Gemini(Feed, GeminiRestMixin):
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
 
-    async def _ws_authentication(self, address: str, options: dict) -> Tuple[str, dict]:
+    async def _ws_authentication(self, address: str, options: dict) -> tuple[str, dict]:
         header = self.generate_token()
         symbols = []
         for channel in self.subscription:

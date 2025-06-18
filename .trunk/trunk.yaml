@@ -12,41 +12,41 @@ plugins:
 # Minimal runtimes for essential tools
 runtimes:
   enabled:
-    - python@3.10.8         # For ruff, bandit
-    - node@22.16.0          # For prettier
+    - python@3.10.8 # For ruff, bandit
+    - node@22.16.0 # For prettier
 
 # Essential CI tools (configs defined in pyproject.toml)
 lint:
   enabled:
     # Python tools (configured in pyproject.toml)
-    - ruff@0.12.0           # Uses [tool.ruff] config from pyproject.toml
-    - bandit@1.8.5          # Uses [tool.bandit] config from pyproject.toml
-    
+    - ruff@0.12.0 # Uses [tool.ruff] config from pyproject.toml
+    - bandit@1.8.5 # Uses [tool.bandit] config from pyproject.toml
+
     # File formatting tools
-    - prettier@3.5.3        # YAML, Markdown, JSON formatting
-    - yamllint@1.37.1       # Uses .trunk/configs/.yamllint.yaml
-    
+    - prettier@3.5.3 # YAML, Markdown, JSON formatting
+    - yamllint@1.37.1 # Uses .trunk/configs/.yamllint.yaml
+
     # Basic Git checks
-    - git-diff-check        # No additional config needed
-    
+    - git-diff-check # No additional config needed
+
   disabled:
     # Performance optimization - disabled in CI
-    - mypy                  # Available in dev env via pyproject.toml
-    
+    - mypy # Available in dev env via pyproject.toml
+
     # Non-essential for core workflow
-    - actionlint            # GitHub Actions validation (optional)
-    - markdownlint          # Documentation linting (optional)
-    - osv-scanner           # Security scanning (use dedicated workflows)
-    - shellcheck            # Shell linting (minimal shell usage)
-    - shfmt                 # Shell formatting (minimal shell usage)
-    - taplo                 # TOML formatting (ruff handles most cases)
-    - trufflehog            # Secret scanning (use dedicated workflows)
-    
+    - actionlint # GitHub Actions validation (optional)
+    - markdownlint # Documentation linting (optional)
+    - osv-scanner # Security scanning (use dedicated workflows)
+    - shellcheck # Shell linting (minimal shell usage)
+    - shfmt # Shell formatting (minimal shell usage)
+    - taplo # TOML formatting (ruff handles most cases)
+    - trufflehog # Secret scanning (use dedicated workflows)
+
     # Redundant with ruff
-    - black                 # Replaced by ruff format
-    - isort                 # Replaced by ruff isort
-    - flake8                # Replaced by ruff linting
-    - checkov               # Infrastructure scanning (not applicable)
+    - black # Replaced by ruff format
+    - isort # Replaced by ruff isort
+    - flake8 # Replaced by ruff linting
+    - checkov # Infrastructure scanning (not applicable)
 
 # Minimal trunk actions
 actions:

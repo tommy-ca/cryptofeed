@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -18,7 +18,7 @@ class RedisCallback(BackendQueue):
     ):
         """Setting key lets you override the prefix on the
         key used in redis. The defaults are related to the data
-        being stored, i.e. trade, funding, etc
+        being stored, i.e. trade, funding, etc.
         """
         prefix = "redis://"
         if socket:
@@ -48,15 +48,14 @@ class RedisZSetCallback(RedisCallback):
         conn = aioredis.from_url(self.redis)
 
         while self.running:
-            async with self.read_queue() as updates:
-                async with conn.pipeline(transaction=False) as pipe:
-                    for update in updates:
-                        pipe = pipe.zadd(
-                            f"{self.key}-{update['exchange']}-{update['symbol']}",
-                            {json.dumps(update): update[self.score_key]},
-                            nx=True,
-                        )
-                    await pipe.execute()
+            async with self.read_queue() as updates, conn.pipeline(transaction=False) as pipe:
+                for update in updates:
+                    pipe = pipe.zadd(
+                        f"{self.key}-{update['exchange']}-{update['symbol']}",
+                        {json.dumps(update): update[self.score_key]},
+                        nx=True,
+                    )
+                await pipe.execute()
 
         await conn.close()
         await conn.connection_pool.disconnect()
@@ -67,18 +66,17 @@ class RedisStreamCallback(RedisCallback):
         conn = aioredis.from_url(self.redis)
 
         while self.running:
-            async with self.read_queue() as updates:
-                async with conn.pipeline(transaction=False) as pipe:
-                    for update in updates:
-                        if "delta" in update:
-                            update["delta"] = json.dumps(update["delta"])
-                        elif "book" in update:
-                            update["book"] = json.dumps(update["book"])
-                        elif "closed" in update:
-                            update["closed"] = str(update["closed"])
+            async with self.read_queue() as updates, conn.pipeline(transaction=False) as pipe:
+                for update in updates:
+                    if "delta" in update:
+                        update["delta"] = json.dumps(update["delta"])
+                    elif "book" in update:
+                        update["book"] = json.dumps(update["book"])
+                    elif "closed" in update:
+                        update["closed"] = str(update["closed"])
 
-                        pipe = pipe.xadd(f"{self.key}-{update['exchange']}-{update['symbol']}", update)
-                    await pipe.execute()
+                    pipe = pipe.xadd(f"{self.key}-{update['exchange']}-{update['symbol']}", update)
+                await pipe.execute()
 
         await conn.close()
         await conn.connection_pool.disconnect()

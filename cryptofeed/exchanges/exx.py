@@ -1,4 +1,4 @@
-"""Copyright (C) 2019  Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2019  Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -32,7 +31,7 @@ class EXX(Feed):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
 
@@ -128,7 +127,7 @@ class EXX(Feed):
         await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, timestamp=ts, raw=msg, delta=delta)
 
     async def _trade(self, msg: dict, timestamp: float):
-        """Trade message
+        """Trade message.
 
         ['T', '1', '1547947390', 'BTC_USDT', 'bid', '3683.74440000', '0.082', '33732290']
         """

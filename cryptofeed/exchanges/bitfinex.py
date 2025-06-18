@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ from collections import defaultdict
 from decimal import Decimal
 from functools import partial
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -79,7 +78,7 @@ class Bitfinex(Feed, BitfinexRestMixin):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         # https://docs.bitfinex.com/docs/ws-general#supported-pairs
         ret = {}
         info = {"instrument_type": {}}
@@ -400,10 +399,7 @@ class Bitfinex(Feed, BitfinexRestMixin):
             else:
                 handler = partial(self._ticker, pair)
         elif msg["channel"] == "trades":
-            if is_funding:
-                handler = partial(self._funding, pair)
-            else:
-                handler = partial(self._trades, pair)
+            handler = partial(self._funding, pair) if is_funding else partial(self._trades, pair)
         elif msg["channel"] == "book":
             if msg["prec"] == "R0":
                 handler = partial(self._raw_book, pair)

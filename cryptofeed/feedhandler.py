@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -9,7 +9,6 @@ import logging
 import signal
 from signal import SIGABRT, SIGINT, SIGTERM
 import sys
-from typing import List
 
 from cryptofeed.connection import Connection
 
@@ -36,7 +35,7 @@ LOG = logging.getLogger("feedhandler")
 
 
 def setup_signal_handlers(loop):
-    """This must be run from the loop in the main thread"""
+    """This must be run from the loop in the main thread."""
 
     def handle_stop_signals(*args):
         raise SystemExit
@@ -88,7 +87,7 @@ class FeedHandler:
             the event loop to use for the feed (only when the feedhandler is running)
         kwargs: dict
             if a string is used for the feed, kwargs will be passed to the
-            newly instantiated object
+            newly instantiated object.
         """
         if isinstance(feed, str):
             if feed in EXCHANGE_MAP:
@@ -106,7 +105,7 @@ class FeedHandler:
 
             self.feeds[-1].start(loop)
 
-    def add_nbbo(self, feeds: List[Feed], symbols: List[str], callback, config=None):
+    def add_nbbo(self, feeds: list[Feed], symbols: list[str], callback, config=None):
         """feeds: list of feed classes
             list of feeds (exchanges) that comprises the NBBO
         symbols: list str
@@ -114,7 +113,7 @@ class FeedHandler:
         callback: function pointer
             the callback to be invoked when a new tick is calculated for the NBBO
         config: dict, str, or None
-            optional information to pass to each exchange that is part of the NBBO feed
+            optional information to pass to each exchange that is part of the NBBO feed.
         """
         cb = NBBO(callback, symbols)
         for feed in feeds:
@@ -129,12 +128,11 @@ class FeedHandler:
             a child thread, this must be set to false, and setup_signal_handlers must
             be called from the main/parent thread's event loop
         exception_handler: asyncio exception handler function pointer
-            a custom exception handler for asyncio
+            a custom exception handler for asyncio.
         """
         self.running = True
         loop = asyncio.get_event_loop()
         # Good to enable when debugging or without code change: export PYTHONASYNCIODEBUG=1)
-        # loop.set_debug(True)
 
         if install_signal_handlers:
             setup_signal_handlers(loop)

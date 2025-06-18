@@ -1,17 +1,17 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from cryptofeed.defines import ASK, BID
 
 
 def book_flatten(
     feed: str, symbol: str, book: dict, timestamp: float, delta: str
-) -> List[Dict[str, Union[Union[str, float], Any]]]:
+) -> list[dict[str, Union[Union[str, float], Any]]]:
     """Takes book and returns a list of dict, where each element in the list
     is a dictionary with a single row of book data.
 

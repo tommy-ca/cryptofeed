@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -12,7 +12,7 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from yapic import json
 
@@ -112,7 +112,7 @@ class CoinbaseRestMixin(RestExchange):
 
     def _generate_signature(self, endpoint: str, method: str, body=""):
         timestamp = str(time.time())
-        message = "".join([timestamp, method, endpoint, body])
+        message = f"{timestamp}{method}{endpoint}{body}"
         hmac_key = base64.b64decode(self.key_secret)
         signature = hmac.new(hmac_key, message.encode("ascii"), hashlib.sha256)
         signature_b64 = base64.b64encode(signature.digest()).decode("utf-8")
@@ -152,7 +152,7 @@ class CoinbaseRestMixin(RestExchange):
 
     async def _date_to_trade(self, symbol: str, timestamp: float) -> int:
         """Coinbase uses trade ids to query historical trades, so
-        need to search for the start date
+        need to search for the start date.
         """
         upper = await self._request("GET", f"/products/{symbol}/trades")
         upper = upper[0]["trade_id"]
@@ -210,7 +210,7 @@ class CoinbaseRestMixin(RestExchange):
                     )
                     data = list(reversed(data))
 
-                yield list(map(lambda x: self._trade_normalize(symbol, x), data))
+                yield [self._trade_normalize(symbol, x) for x in data]
                 if start_id >= end_id:
                     break
                 await asyncio.sleep(1 / self.request_limit)
@@ -251,7 +251,7 @@ class CoinbaseRestMixin(RestExchange):
                     ret.book[side][price] = {order_id: size}
         return ret
 
-    async def balances(self) -> List[Balance]:
+    async def balances(self) -> list[Balance]:
         data = await self._request("GET", "/accounts", auth=True)
         #    def __init__(self, exchange, currency, balance, reserved, raw=None):
 
@@ -356,7 +356,7 @@ class CoinbaseRestMixin(RestExchange):
             [ time, low, high, open, close, volume ],
             [ 1415398768, 0.32, 4.2, 0.35, 4.2, 12.3 ],
             ...
-        ]
+        ].
 
         symbol: str
             the symbol to query data for e.g. BTC-USD
@@ -388,7 +388,7 @@ class CoinbaseRestMixin(RestExchange):
                 url = f"/products/{symbol}/candles?granularity={valid_intervals[interval]}&start={self._to_isoformat(start_id)}&end={self._to_isoformat(end_id)}"
                 data = await self._request("GET", url, retry_count=retry_count, retry_delay=retry_delay)
                 data = list(reversed(data))
-                yield list(map(lambda x: self._candle_normalize(symbol, x, interval), data))
+                yield [self._candle_normalize(symbol, x, interval) for x in data]
                 await asyncio.sleep(1 / self.request_limit)
                 start_id = end_id + valid_intervals[interval]
         else:

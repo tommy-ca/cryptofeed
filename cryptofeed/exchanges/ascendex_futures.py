@@ -1,6 +1,5 @@
 from collections import defaultdict
 import re
-from typing import Dict, Tuple
 
 from cryptofeed.connection import RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import ASCENDEX_FUTURES, L2_BOOK, PERPETUAL, TRADES
@@ -10,7 +9,7 @@ from cryptofeed.symbols import Symbol
 
 # noinspection PyAbstractClass
 class AscendEXFutures(AscendEX):
-    """Docs, https://ascendex.github.io/ascendex-futures-pro-api-v2/#introducing-futures-pro-v2-apis"""
+    """Docs, https://ascendex.github.io/ascendex-futures-pro-api-v2/#introducing-futures-pro-v2-apis."""
 
     id = ASCENDEX_FUTURES
     websocket_channels = {
@@ -38,7 +37,7 @@ class AscendEXFutures(AscendEX):
     ]
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         # Docs, https://ascendex.github.io/ascendex-futures-pro-api-v2/#futures-contracts-info
         ret = {}
         info = defaultdict(dict)

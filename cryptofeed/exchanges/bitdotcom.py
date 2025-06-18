@@ -1,4 +1,4 @@
-"""Copyright (C) 2021 - STS Digital"""
+"""Copyright (C) 2021 - STS Digital."""
 
 from collections import defaultdict
 from decimal import Decimal
@@ -7,7 +7,6 @@ import hmac
 import itertools
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -104,7 +103,7 @@ class BitDotCom(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -196,12 +195,12 @@ class BitDotCom(Feed):
     async def authenticate(self, connection: AsyncConnection):
         if not self.key_id or not self.key_secret:
             return
-        if any([self.is_authenticated_channel(self.exchange_channel_to_std(c)) for c in connection.subscription]):
+        if any(self.is_authenticated_channel(self.exchange_channel_to_std(c)) for c in connection.subscription):
             symbols = list(set(itertools.chain(*connection.subscription.values())))
             sym = str_to_symbol(self.exchange_symbol_to_std_symbol(symbols[0]))
             for ep in self.rest_endpoints:
                 if sym.type in ep.instrument_filter[1]:
-                    ts = int(round(time.time() * 1000))
+                    ts = round(time.time() * 1000)
                     signature = self.get_signature(ep.routes.authentication, {"timestamp": ts})
                     params = {"timestamp": ts, "signature": signature}
                     ret = self.http_sync.read(
@@ -246,7 +245,7 @@ class BitDotCom(Feed):
                 'is_block_trade': False,
                 'created_at': 1639080717195
             }]
-        }
+        }.
         """
         for t in data["data"]:
             trade = Trade(
@@ -262,7 +261,7 @@ class BitDotCom(Feed):
             await self.callback(TRADES, trade, timestamp)
 
     async def _book(self, data: dict, timestamp: float):
-        """Snapshot
+        """Snapshot.
 
         {
             'channel': 'depth',
@@ -375,7 +374,7 @@ class BitDotCom(Feed):
                 'min_sell': '4030.50000000',
                 'max_buy': '4280.50000000'
             }
-        }
+        }.
         """
         if data["data"]["best_bid"] and data["data"]["best_ask"]:
             t = Ticker(
@@ -450,7 +449,7 @@ class BitDotCom(Feed):
                     "reorder_index": 1
                 }
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             oi = OrderInfo(
@@ -508,7 +507,7 @@ class BitDotCom(Feed):
                     "projected_total_delta": "3.89635553"
                 }
             }
-        }
+        }.
 
         Spot
         {
@@ -573,7 +572,7 @@ class BitDotCom(Feed):
                     "label": "hedge"
                 }
             ]
-        }
+        }.
         """
         for entry in msg["data"]:
             f = Fill(

@@ -121,7 +121,7 @@ def get_message_count(filenames: str):
         if ".ws." not in filename:
             continue
         with open(filename) as fp:
-            for line in fp.readlines():
+            for line in fp:
                 if line == "\n":
                     continue
                 start = line[:3]
@@ -131,7 +131,7 @@ def get_message_count(filenames: str):
     return counter
 
 
-@pytest.mark.parametrize("exchange", [e for e in EXCHANGE_MAP.keys() if e not in [EXX]])
+@pytest.mark.parametrize("exchange", [e for e in EXCHANGE_MAP if e not in [EXX]])
 def test_exchange_playback(exchange):
     from cryptofeed.exceptions import UnsupportedSymbol
 

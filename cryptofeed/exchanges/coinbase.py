@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -70,7 +69,7 @@ class Coinbase(Feed, CoinbaseRestMixin):
     request_limit = 10
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -104,7 +103,7 @@ class Coinbase(Feed, CoinbaseRestMixin):
             'price': '8506.26000000',
             'product_id': 'BTC-USD',
             'time': '2018-05-21T00:26:05.585000Z'
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["product_id"])
         ts = self.timestamp_normalize(msg["time"])

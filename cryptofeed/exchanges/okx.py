@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -11,7 +11,6 @@ from decimal import Decimal
 import hmac
 import logging
 import time
-from typing import Dict, Tuple
 
 import requests
 from yapic import json
@@ -130,7 +129,7 @@ class OKX(Feed, OKXRestMixin):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -200,9 +199,8 @@ class OKX(Feed, OKXRestMixin):
                     ):
                         continue
                     for entry in data["data"][0]["details"]:
-                        if pair in last_update:
-                            if entry == last_update[pair].get(status):
-                                break
+                        if pair in last_update and entry == last_update[pair].get(status):
+                            break
 
                         liq = Liquidation(
                             self.id,
@@ -244,7 +242,7 @@ class OKX(Feed, OKXRestMixin):
                     "529.5858061"        // currency, spot/margin -> amount of quote ccy, derivatives -> amount of base ccy
                 ]
             ]
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["arg"]["instId"])
         ts = int(msg["data"][0][0]) / 1_000
@@ -269,7 +267,7 @@ class OKX(Feed, OKXRestMixin):
             await self.callback(CANDLES, candle, timestamp)
 
     async def _ticker(self, msg: dict, timestamp: float):
-        """{"arg": {"channel": "tickers", "instId": "LTC-USD-200327"}, "data": [{"instType": "SWAP","instId": "LTC-USD-SWAP","last": "9999.99","lastSz": "0.1","askPx": "9999.99","askSz": "11","bidPx": "8888.88","bidSz": "5","open24h": "9000","high24h": "10000","low24h": "8888.88","volCcy24h": "2222","vol24h": "2222","sodUtc0": "2222","sodUtc8": "2222","ts": "1597026383085"}]}"""
+        """{"arg": {"channel": "tickers", "instId": "LTC-USD-200327"}, "data": [{"instType": "SWAP","instId": "LTC-USD-SWAP","last": "9999.99","lastSz": "0.1","askPx": "9999.99","askSz": "11","bidPx": "8888.88","bidSz": "5","open24h": "9000","high24h": "10000","low24h": "8888.88","volCcy24h": "2222","vol24h": "2222","sodUtc0": "2222","sodUtc8": "2222","ts": "1597026383085"}]}."""
         pair = self.exchange_symbol_to_std_symbol(msg["arg"]["instId"])
         for update in msg["data"]:
             update_timestamp = self.timestamp_normalize(int(update["ts"]))
@@ -298,7 +296,7 @@ class OKX(Feed, OKXRestMixin):
                     'ts': '1630338003010'
                 }
             ]
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["arg"]["instId"])
         for update in msg["data"]:
@@ -323,7 +321,7 @@ class OKX(Feed, OKXRestMixin):
                     "ts": "1597026383085"
                 }
             ]
-        }
+        }.
         """
         for trade in msg["data"]:
             t = Trade(
@@ -461,7 +459,7 @@ class OKX(Feed, OKXRestMixin):
               "msg": ""
             }
           ]
-        }
+        }.
         """
         status = msg["data"][0]["state"]
         if status == "canceled":
@@ -507,7 +505,6 @@ class OKX(Feed, OKXRestMixin):
 
     async def message_handler(self, msg: str, conn, timestamp: float):
         # DEFLATE compression, no header
-        # msg = zlib.decompress(msg, -15)
         # not required, as websocket now set to "Per-Message Deflate"
         msg = json.loads(msg, parse_float=Decimal)
 
@@ -552,7 +549,7 @@ class OKX(Feed, OKXRestMixin):
 
     async def authenticate(self, conn: AsyncConnection):
         if self.requires_authentication:
-            if any([self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in conn.subscription]):
+            if any(self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in conn.subscription):
                 auth = self._auth(self.key_id, self.key_secret)
                 LOG.debug(f"{conn.uuid}: Authenticating with message: {auth}")
                 await conn.write(json.dumps(auth))

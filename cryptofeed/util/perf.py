@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -26,18 +26,10 @@ def perf_end(exchange: str, key: str):
 
 def perf_log(exchange: str, key: str, stats=1000, stats_only=True):
     if not stats_only:
-        print(
-            "{}: {} - {:.2f} ms".format(
-                exchange, key, 1000 * (_perf_data[exchange][key]["end"] - _perf_data[exchange][key]["start"])
-            )
-        )
+        pass
     if stats and len(_perf_stats[f"{exchange}-{key}"]) > stats:
         stats_key = f"{exchange}-{key}"
-        print(f"For last {stats} executions:")
         _min = min(_perf_stats[stats_key]) * 1000
         _max = max(_perf_stats[stats_key]) * 1000
         _avg = sum(_perf_stats[stats_key]) / len(_perf_stats[stats_key]) * 1000
-        print(f"   Min: {_min} ms")
-        print(f"   Max: {_max} ms")
-        print(f"   Average: {_avg} ms")
         _perf_stats[stats_key] = []

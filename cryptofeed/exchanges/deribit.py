@@ -4,7 +4,6 @@ from decimal import Decimal
 import hashlib
 import hmac
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -104,7 +103,7 @@ class Deribit(Feed, DeribitRestMixin):
         return channel in (ORDER_INFO, FILLS, BALANCES, L2_BOOK, TRADES, TICKER)
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: list) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -170,7 +169,7 @@ class Deribit(Feed, DeribitRestMixin):
             },
             "method": "subscription",
             "jsonrpc": "2.0"
-        }
+        }.
         """
         for trade in msg["params"]["data"]:
             t = Trade(
@@ -228,7 +227,7 @@ class Deribit(Feed, DeribitRestMixin):
             "channel" : "ticker.BTC-PERPETUAL.raw"
         },
         "method" : "subscription",
-        "jsonrpc" : "2.0"}
+        "jsonrpc" : "2.0"}.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["params"]["data"]["instrument_name"])
         ts = self.timestamp_normalize(msg["params"]["data"]["timestamp"])
@@ -321,7 +320,7 @@ class Deribit(Feed, DeribitRestMixin):
                     'asks': [[ ....... ]]
                 }
             }
-        }
+        }.
         """
         ts = msg["params"]["data"]["timestamp"]
         pair = self.exchange_symbol_to_std_symbol(msg["params"]["data"]["instrument_name"])
@@ -383,7 +382,7 @@ class Deribit(Feed, DeribitRestMixin):
 
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg_dict = json.loads(msg, parse_float=Decimal)
-        if "error" in msg_dict.keys():
+        if "error" in msg_dict:
             LOG.error(
                 "%s: Received Error message: %s, Error code: %s",
                 conn.uuid,
@@ -429,9 +428,9 @@ class Deribit(Feed, DeribitRestMixin):
                 elif channel.split(".")[0] == "book":
                     # checking if we got full book or its update
                     # if it's update there is 'prev_change_id' field
-                    if "prev_change_id" not in msg_dict["params"]["data"].keys():
+                    if "prev_change_id" not in msg_dict["params"]["data"]:
                         await self._book_snapshot(msg_dict, timestamp)
-                    elif "prev_change_id" in msg_dict["params"]["data"].keys():
+                    elif "prev_change_id" in msg_dict["params"]["data"]:
                         await self._book_update(msg_dict, timestamp)
 
                 elif channel.split(".")[0] == "quote":

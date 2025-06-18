@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -60,7 +59,7 @@ class KrakenFutures(Feed):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         # Docs, https://support.kraken.com/hc/en-us/articles/360022835891-Ticker-symbols
         _kraken_futures_product_type = {
             "FI": "Inverse Futures",
@@ -119,7 +118,7 @@ class KrakenFutures(Feed):
             "time": 1565342712903,
             "qty": 1135.0,
             "price": 11735.0
-        }
+        }.
         """
         t = Trade(
             self.id,
@@ -146,7 +145,7 @@ class KrakenFutures(Feed):
             "pair": "XBT:USD",
             "dtm": -18117,
             "maturityTime": 0
-        }
+        }.
         """
         t = Ticker(self.id, pair, msg["bid"], msg["ask"], None, raw=msg)
         await self.callback(TICKER, t, timestamp)
@@ -172,7 +171,7 @@ class KrakenFutures(Feed):
                 ...
             ],
             "tickSize": null
-        }
+        }.
         """
         bids = {Decimal(update["price"]): Decimal(update["qty"]) for update in msg["bids"]}
         asks = {Decimal(update["price"]): Decimal(update["qty"]) for update in msg["asks"]}
@@ -196,7 +195,7 @@ class KrakenFutures(Feed):
             "price": 11741.5,
             "qty": 10000.0,
             "timestamp": 1565342713929
-        }
+        }.
         """
         if pair in self.seq_no and self.seq_no[pair] + 1 != msg["seq"]:
             raise MissingSequenceNumber

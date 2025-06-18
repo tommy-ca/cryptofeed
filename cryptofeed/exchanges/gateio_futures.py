@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ from collections import defaultdict
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -61,7 +60,7 @@ class GateioFutures(Gateio):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -91,7 +90,7 @@ class GateioFutures(Gateio):
             "a": "54696.7",         // Best ask price
             "A": 47061              // Best ask amount
         }
-        }
+        }.
         """
         t = Ticker(
             self.id,
@@ -131,7 +130,7 @@ class GateioFutures(Gateio):
                 "n": "1m_BTC_USD"
                 }
             ]
-        }
+        }.
         """
         for entry in msg["result"]:
             interval, symbol = entry["n"].split("_", 1)
@@ -178,7 +177,7 @@ class GateioFutures(Gateio):
                 "s": 203
                 }
             ]
-        }
+        }.
         """
         ret = await self.http_conn.read(self.rest_endpoints[0].route("l2book", self.sandbox).format(symbol))
         data = json.loads(ret, parse_float=Decimal)
@@ -189,7 +188,6 @@ class GateioFutures(Gateio):
 
         self._l2_book[symbol].book.bids = {Decimal(bid["p"]): Decimal(bid["s"]) for bid in data["bids"]}
         self._l2_book[symbol].book.asks = {Decimal(ask["p"]): Decimal(ask["s"]) for ask in data["asks"]}
-        # self._l2_book[symbol].book.asks = {Decimal(price): Decimal(amount) for price, amount in data['asks']}
         await self.book_callback(L2_BOOK, self._l2_book[symbol], time.time(), raw=data, sequence_number=data["id"])
 
     async def _process_l2_book(self, msg: dict, timestamp: float):
@@ -225,7 +223,7 @@ class GateioFutures(Gateio):
                 }
                 ]
             }
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["result"]["s"])
         if symbol not in self._l2_book:
@@ -269,7 +267,7 @@ class GateioFutures(Gateio):
                 "contract": "BTC_USD"
                 }
             ]
-        }
+        }.
         """
         for entry in msg["result"]:
             t = Trade(
@@ -312,7 +310,7 @@ class GateioFutures(Gateio):
                 "high_24h": "132.5"
                 }
             ]
-        }
+        }.
         """
         ts = msg["time_ms"] / 1000
         for entry in msg["result"]:

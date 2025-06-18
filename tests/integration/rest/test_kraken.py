@@ -33,7 +33,7 @@ class TestKrakenRest:
         assert len(book.book[BID]) > 0
 
     def test_get_recent_trades(self):
-        trades = list(kraken.trades_sync("BTC-USD"))[0]
+        trades = next(iter(kraken.trades_sync("BTC-USD")))
         assert len(trades) > 0
         assert trades[0]["feed"] == KRAKEN
         assert trades[0]["symbol"] == "BTC-USD"
@@ -61,7 +61,6 @@ class TestKrakenRest:
         trade_history = kraken.trade_history_sync()
         # for trade in trade_history:
         #     for k, v in trade.items():
-        #         print(f"{k} => {v}")
         assert len(trade_history) != 0
 
     @pytest.mark.skipif(not kraken.key_id or not kraken.key_secret, reason="No api key provided")
@@ -69,5 +68,4 @@ class TestKrakenRest:
         ledger = kraken.ledger_sync()
         # for trade in trade_history:
         #     for k, v in trade.items():
-        #         print(f"{k} => {v}")
         assert len(ledger) != 0

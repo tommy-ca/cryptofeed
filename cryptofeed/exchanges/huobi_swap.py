@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -9,7 +9,6 @@ from collections import defaultdict
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -48,7 +47,7 @@ class HuobiSwap(HuobiDM):
     websocket_channels = {**HuobiDM.websocket_channels, FUNDING: "funding"}
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
         for d in data:
@@ -79,7 +78,7 @@ class HuobiSwap(HuobiDM):
                 "next_funding_time": "1603900800000"
             },
             "ts": 1603866304635
-        }
+        }.
         """
         while True:
             for pair in pairs:

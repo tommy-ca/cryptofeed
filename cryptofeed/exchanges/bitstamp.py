@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ import asyncio
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -44,7 +43,7 @@ class Bitstamp(Feed, BitstampRestMixin):
         return ts / 1_000_000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
 
@@ -125,7 +124,7 @@ class Bitstamp(Feed, BitstampRestMixin):
          },
          'event': 'trade',
          'channel': 'live_trades_btcusd'
-        }
+        }.
         """
         data = msg["data"]
         chan = msg["channel"]

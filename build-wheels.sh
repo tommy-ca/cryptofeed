@@ -21,17 +21,21 @@ function repair_wheel {
     fi
 }
 
-
-# Install build dependencies for each Python version
+# Install uv for each Python version (uv is faster and more reliable than pip)
 for PYBIN in "${py_vers[@]}"; do
-    echo "Installing dependencies for ${PYBIN}"
-    "${PYBIN}/pip" install -U pip setuptools wheel
-    "${PYBIN}/pip" install cython>=3.0.0 build
+    echo "Installing uv for ${PYBIN}"
+    "${PYBIN}/python" -m pip install -U uv
 done
 
-# Build wheels using modern build backend
+# Install build dependencies using uv for each Python version
 for PYBIN in "${py_vers[@]}"; do
-    echo "Building wheel with ${PYBIN}"
+    echo "Installing dependencies with uv for ${PYBIN}"
+    "${PYBIN}/uv" pip install --system cython>=3.0.0 build setuptools wheel
+done
+
+# Build wheels using modern build backend with uv environment
+for PYBIN in "${py_vers[@]}"; do
+    echo "Building wheel with ${PYBIN} using uv"
     "${PYBIN}/python" -m build --wheel /io/ --outdir wheelhouse/
 done
 

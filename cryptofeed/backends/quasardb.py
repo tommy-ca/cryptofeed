@@ -41,7 +41,6 @@ class QuasarCallback(BackendCallback):
 
     def _set_table_name(self, data: dict):
         # setting table name
-        # {channel}/{exchange}/{symbol_1-symbol_2}
         # eg. ticker/coinbase/btc-usd
         self.table = f"{self.table_prefix.lower()}/{data['exchange'].lower()}/{data['symbol'].lower()}"
 

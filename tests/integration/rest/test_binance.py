@@ -126,7 +126,7 @@ class TestBinanceRest:
             "id": 8411339,
             "feed": BINANCE_DELIVERY,
             "side": SELL,
-            "amount": Decimal("13"),
+            "amount": Decimal(13),
             "price": Decimal("28950.4"),
         }
 

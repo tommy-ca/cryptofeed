@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -51,11 +51,10 @@ class ConnectionHandler:
 
     async def _watcher(self):
         while self.conn.is_open and self.running:
-            if self.conn.last_message:
-                if time.time() - self.conn.last_message > self.timeout:
-                    LOG.warning("%s: received no messages within timeout, restarting connection", self.conn.uuid)
-                    await self.conn.close()
-                    break
+            if self.conn.last_message and time.time() - self.conn.last_message > self.timeout:
+                LOG.warning("%s: received no messages within timeout, restarting connection", self.conn.uuid)
+                await self.conn.close()
+                break
             await asyncio.sleep(self.timeout_interval)
 
     async def _create_connection(self):
@@ -115,7 +114,7 @@ class ConnectionHandler:
             LOG.info("%s: terminate the connection handler because not running", self.conn.uuid)
         else:
             LOG.error("%s: failed to reconnect after %d retries - exiting", self.conn.uuid, retries)
-            raise ExhaustedRetries()
+            raise ExhaustedRetries
 
     async def _handler(self, connection, handler):
         try:
@@ -132,7 +131,7 @@ class ConnectionHandler:
                     message = zlib.decompress(message, 16 + zlib.MAX_WBITS)
                 elif connection.uuid in {OKCOIN, OKX}:
                     message = zlib.decompress(message, -15)
-                LOG.error("%s: error handling message %s", connection.uuid, message)
+                LOG.exception("%s: error handling message %s", connection.uuid, message)
             # exception will be logged with traceback when connection handler
             # retries the connection
             raise

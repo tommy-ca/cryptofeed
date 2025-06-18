@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -9,7 +9,7 @@ from collections import defaultdict
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, Tuple, Union
+from typing import Union
 from urllib.parse import urlencode
 
 import requests
@@ -100,7 +100,7 @@ class Binance(Feed, BinanceRestMixin):
         return ts / 1000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
         for symbol in data["symbols"]:
@@ -125,7 +125,7 @@ class Binance(Feed, BinanceRestMixin):
 
     def __init__(self, depth_interval="100ms", **kwargs):
         """depth_interval: str
-        time between l2_book/delta updates {'100ms', '1000ms'} (different from BINANCE_FUTURES & BINANCE_DELIVERY)
+        time between l2_book/delta updates {'100ms', '1000ms'} (different from BINANCE_FUTURES & BINANCE_DELIVERY).
         """
         if depth_interval is not None and depth_interval not in self.valid_depth_intervals:
             raise ValueError(f"Depth interval must be one of {self.valid_depth_intervals}")
@@ -135,7 +135,7 @@ class Binance(Feed, BinanceRestMixin):
         self._open_interest_cache = {}
         self._reset()
 
-    def _address(self) -> Union[str, Dict]:
+    def _address(self) -> Union[str, dict]:
         """Binance has a 200 pair/stream limit per connection, so we need to break the address
         down into multiple connections if necessary. Because the key is currently not used
         for the address dict, we can just set it to the last used stream, since this will be
@@ -230,7 +230,7 @@ class Binance(Feed, BinanceRestMixin):
             "T": 123456785,   // Trade time
             "m": true,        // Is the buyer the market maker?
             "M": true         // Ignore
-        }
+        }.
         """
         t = Trade(
             self.id,
@@ -252,17 +252,14 @@ class Binance(Feed, BinanceRestMixin):
             'B': '1500.00000000',
             'a': '0.36092000',
             'A': '176.40000000'
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["s"])
         bid = Decimal(msg["b"])
         ask = Decimal(msg["a"])
 
         # Binance does not have a timestamp in this update, but the two futures APIs do
-        if "E" in msg:
-            ts = self.timestamp_normalize(msg["E"])
-        else:
-            ts = timestamp
+        ts = self.timestamp_normalize(msg["E"]) if "E" in msg else timestamp
 
         t = Ticker(self.id, pair, bid, ask, ts, raw=msg)
         await self.callback(TICKER, t, timestamp)
@@ -284,7 +281,7 @@ class Binance(Feed, BinanceRestMixin):
             "z":"0.014",        // Order Filled Accumulated Quantity
             "T":1568014460893,  // Order Trade Time
             }
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["o"]["s"])
         liq = Liquidation(
@@ -365,7 +362,7 @@ class Binance(Feed, BinanceRestMixin):
                         "100"           // Quantity
                     ]
             ]
-        }
+        }.
         """
         exchange_pair = pair
         pair = self.exchange_symbol_to_std_symbol(pair)
@@ -409,7 +406,7 @@ class Binance(Feed, BinanceRestMixin):
             "p": "11185.87786614",   // Mark price
             "r": "0.00030000",       // Funding rate
             "T": 1562306400000       // Next funding time
-        }
+        }.
 
         BinanceFutures
         {
@@ -464,7 +461,7 @@ class Binance(Feed, BinanceRestMixin):
                 'Q': '404521.60814919',
                 'B': '0'
             }
-        }
+        }.
         """
         if self.candle_closed_only and not msg["k"]["x"]:
             return
@@ -498,7 +495,7 @@ class Binance(Feed, BinanceRestMixin):
                 "l": "0.000000"             //Locked
                 }
             ]
-        }
+        }.
         """
         for balance in msg["B"]:
             b = Balance(self.id, balance["a"], Decimal(balance["f"]), Decimal(balance["l"]), raw=msg)
@@ -538,7 +535,7 @@ class Binance(Feed, BinanceRestMixin):
             "Z": "0.00000000",             // Cumulative quote asset transacted quantity
             "Y": "0.00000000",             // Last quote asset transacted quantity (i.e. lastPrice * lastQty)
             "Q": "0.00000000"              // Quote Order Qty
-        }
+        }.
         """
         oi = OrderInfo(
             self.id,

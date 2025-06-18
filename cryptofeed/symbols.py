@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,7 @@ associated with this software.
 
 from datetime import datetime as dt
 from datetime import timezone
-from typing import Dict, Tuple, Union
+from typing import Union
 
 from cryptofeed.defines import CALL, CURRENCY, FUTURES, FX, OPTION, PERPETUAL, PUT, SPOT
 
@@ -80,10 +80,7 @@ class Symbol:
 
     @property
     def normalized(self) -> str:
-        if self.base == self.quote:
-            base = self.base
-        else:
-            base = f"{self.base}{self.symbol_sep}{self.quote}"
+        base = self.base if self.base == self.quote else f"{self.base}{self.symbol_sep}{self.quote}"
         if self.type == SPOT:
             return base
         if self.type == OPTION:
@@ -117,7 +114,7 @@ class _Symbols:
         self.data[exchange]["normalized"] = normalized
         self.data[exchange]["info"] = exchange_info
 
-    def get(self, exchange: str) -> Tuple[Dict, Dict]:
+    def get(self, exchange: str) -> tuple[dict, dict]:
         return self.data[exchange]["normalized"], self.data[exchange]["info"]
 
     def populated(self, exchange: str) -> bool:
@@ -139,7 +136,7 @@ Symbols = _Symbols()
 
 def str_to_symbol(symbol: str) -> Symbol:
     """symbol: str
-    the symbol string must already be in correctly normalized format or this will fail
+    the symbol string must already be in correctly normalized format or this will fail.
     """
     values = symbol.split(Symbol.symbol_sep)
     if len(values) == 1:

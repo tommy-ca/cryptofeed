@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -7,7 +7,6 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -57,7 +56,7 @@ class Delta(Feed):
         return ts / 1_000_000.0
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
 
@@ -103,7 +102,7 @@ class Delta(Feed):
             'symbol': 'BTC_USDT',
             'timestamp': 1638132618257226,
             'type': 'all_trades'
-        }
+        }.
         """
         if msg["type"] == "all_trades":
             t = Trade(
@@ -142,7 +141,7 @@ class Delta(Feed):
             'timestamp': 1638134708903082,
             'type': 'candlestick_1m',
             'volume': 0
-        }
+        }.
         """
         interval = self.normalize_candle_interval[msg["resolution"]]
         c = Candle(
@@ -187,7 +186,7 @@ class Delta(Feed):
             'symbol': 'BTC_USDT',
             'timestamp': 1638135705586546,
             'type': 'l2_orderbook'
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["symbol"])
         if symbol not in self._l2_book:

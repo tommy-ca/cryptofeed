@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -41,7 +41,7 @@ class UDPProtocol:
 
 class SocketCallback(BackendQueue):
     def __init__(self, addr: str, port=None, none_to=None, numeric_type=float, key=None, mtu=1400, **kwargs):
-        """Common parent class for all socket callbacks
+        """Common parent class for all socket callbacks.
 
         Parameters
         ----------

@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -6,7 +6,6 @@ associated with this software.
 
 from decimal import Decimal
 import logging
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -30,7 +29,7 @@ class Probit(Feed):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
         # doc: https://docs-en.probit.com/reference-link/market
@@ -67,7 +66,7 @@ class Probit(Feed):
                     "tick_direction":"down"
                 }
             ],"reset":true
-        }
+        }.
 
         {
             "channel":"marketdata",
@@ -136,7 +135,7 @@ class Probit(Feed):
                 "price":"0.0283",
                 "quantity":"0"
             }]
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["market_id"])
 

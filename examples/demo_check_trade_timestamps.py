@@ -66,7 +66,6 @@ async def trade(data, receipt):
     exchange = data.exchange
     if exchange not in trades:
         print(f"Added {exchange}.")
-        # exch_count += 1
         trades[exchange]["timestamp"] = data.timestamp
         trades[exchange]["id"] = data.id
         if exchanges == set(trades.keys()):

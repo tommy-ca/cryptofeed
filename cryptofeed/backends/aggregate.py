@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -21,7 +21,7 @@ class AggregateCallback:
 
 class Throttle(AggregateCallback):
     """Wraps a callback and throttles updates based on `window`. Will allow
-    1 update per `window` interval; all others are dropped
+    1 update per `window` interval; all others are dropped.
     """
 
     def __init__(self, handler, window=60):
@@ -81,7 +81,7 @@ class OHLCV(AggregateCallback):
 
 class RenkoFixed(AggregateCallback):
     """Aggregate trades into Renko bricks with fixed size
-    brick size is in points, default to 10 (change to ticks later?)
+    brick size is in points, default to 10 (change to ticks later?).
     """
 
     def __init__(self, *args, brick_size=10, **kwargs):

@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -8,7 +8,6 @@ from collections import defaultdict
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -44,7 +43,7 @@ class Gateio(Feed):
     }
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = {"instrument_type": {}}
 
@@ -77,7 +76,7 @@ class Gateio(Feed):
                 'high_24h': '63736.81',
                 'low_24h': '50986.18'
             }
-        }
+        }.
         """
         t = Ticker(
             self.id,
@@ -103,7 +102,7 @@ class Gateio(Feed):
                 "amount": "16.4700000000",
                 "price": "0.4705000000"
             }
-        }
+        }.
         """
         t = Trade(
             self.id,
@@ -122,7 +121,7 @@ class Gateio(Feed):
             "id": 2679059670,
             "asks": [[price, amount], [...], ...],
             "bids": [[price, amount], [...], ...]
-        }
+        }.
         """
         ret = await self.http_conn.read(self.rest_endpoints[0].route("l2book", self.sandbox).format(symbol))
         data = json.loads(ret, parse_float=Decimal)
@@ -134,7 +133,7 @@ class Gateio(Feed):
         self._l2_book[symbol].book.asks = {Decimal(price): Decimal(amount) for price, amount in data["asks"]}
         await self.book_callback(L2_BOOK, self._l2_book[symbol], time.time(), raw=data, sequence_number=data["id"])
 
-    def _check_update_id(self, pair: str, msg: dict) -> Tuple[bool, bool]:
+    def _check_update_id(self, pair: str, msg: dict) -> tuple[bool, bool]:
         skip_update = False
         forced = not self.forced[pair]
 
@@ -167,7 +166,7 @@ class Gateio(Feed):
                 'b': [['56444.4', '0.01'], ['56080.11', '0']],
                 'a': [['56447.57', '0.1252'], ['56448.44', '0'], ['56467.28', '0'], ['56470.74', '0']]
             }
-        }
+        }.
         """
         symbol = self.exchange_symbol_to_std_symbol(msg["result"]["s"])
         if symbol not in self._l2_book:
@@ -209,7 +208,7 @@ class Gateio(Feed):
                 'o': '54976.29',
                 'n': '1m_BTC_USDT'
             }
-        }
+        }.
         """
         interval, symbol = msg["result"]["n"].split("_", 1)
         if interval == "7d":

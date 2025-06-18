@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -10,7 +10,7 @@ from datetime import datetime as dt
 from datetime import timezone
 from decimal import Decimal
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 from cryptofeed.config import Config
 from cryptofeed.connection import HTTPSync, RestEndpoint
@@ -78,8 +78,8 @@ class Exchange:
         return cls.order_options[option]
 
     @classmethod
-    def info(cls) -> Dict:
-        """Return information about the Exchange for REST and Websocket data channels"""
+    def info(cls) -> dict:
+        """Return information about the Exchange for REST and Websocket data channels."""
         symbols = cls.symbol_mapping()
         data = Symbols.get(cls.id)[1]
         data["symbols"] = list(symbols.keys())
@@ -94,14 +94,14 @@ class Exchange:
         return list(cls.symbol_mapping(refresh=refresh).keys())
 
     @classmethod
-    def _symbol_endpoint_prepare(cls, ep: RestEndpoint) -> Union[List[str], str]:
+    def _symbol_endpoint_prepare(cls, ep: RestEndpoint) -> Union[list[str], str]:
         """Override if a specific exchange needs to do something first, like query an API
-        to get a list of currencies, that are then used to build the list of symbol endpoints
+        to get a list of currencies, that are then used to build the list of symbol endpoints.
         """
         return ep.route("instruments")
 
     @classmethod
-    def symbol_mapping(cls, refresh=False, headers: dict = None) -> Dict:
+    def symbol_mapping(cls, refresh=False, headers: dict = None) -> dict:
         if Symbols.populated(cls.id) and not refresh:
             return Symbols.get(cls.id)[0]
         try:
@@ -192,8 +192,9 @@ class RestExchange:
                 return dt.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc).timestamp()
             except ValueError:
                 return dt.strptime(timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+        return None
 
-    def _interval_normalize(self, start, end) -> Tuple[Optional[float], Optional[float]]:
+    def _interval_normalize(self, start, end) -> tuple[Optional[float], Optional[float]]:
         if start:
             start = self._datetime_normalize(start)
             if not end:
@@ -328,3 +329,4 @@ class RestExchange:
             return self.ticker
         if key == OPEN_INTEREST:
             return self.open_interest
+        return None

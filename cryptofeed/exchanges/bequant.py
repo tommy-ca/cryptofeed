@@ -1,4 +1,4 @@
-"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+"""Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com.
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -11,7 +11,6 @@ import hmac
 import logging
 import random
 import string
-from typing import Dict, Tuple
 
 from yapic import json
 
@@ -93,7 +92,7 @@ class Bequant(Feed):
     ]
 
     @classmethod
-    def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
+    def _parse_symbol_data(cls, data: dict) -> tuple[dict, dict]:
         ret = {}
         info = defaultdict(dict)
         normalized_currencies = {
@@ -140,7 +139,7 @@ class Bequant(Feed):
             "volumeQuote": "1832.687530809", <- total quote currency traded in past 24hrs
             "timestamp": "2017-10-19T15:45:44.941Z", <- last update or refresh ticker timestamp
             "symbol": "ETHBTC"
-        }
+        }.
         """
         t = Ticker(
             self.id,
@@ -201,7 +200,7 @@ class Bequant(Feed):
             }
             ],
             "symbol": "ETHBTC"
-        }
+        }.
         """
         pair = self.exchange_symbol_to_std_symbol(msg["symbol"])
         for update in msg["data"]:
@@ -236,7 +235,7 @@ class Bequant(Feed):
                 "symbol": "ETHBTC",
                 "period": "M30"
             }
-        }
+        }.
         """
         interval = str(self.normalize_candle_interval[msg["period"]])
 
@@ -368,7 +367,7 @@ class Bequant(Feed):
                     "reserved": "0"
                 }
             ]
-        }
+        }.
         """
         for entry in msg["params"]:
             b = Balance(self.id, entry["currency"], Decimal(entry["available"]), Decimal(entry["reserved"]), raw=entry)
@@ -379,12 +378,11 @@ class Bequant(Feed):
 
         if "params" in msg and "sequence" in msg["params"]:
             pair = msg["params"]["symbol"]
-            if pair in self.seq_no:
-                if self.seq_no[pair] + 1 != msg["params"]["sequence"]:
-                    if self.seq_no[pair] >= msg["params"]["sequence"]:
-                        return
-                    LOG.warning("%s: Missing sequence number detected for %s", self.id, pair)
-                    raise MissingSequenceNumber("Missing sequence number, restarting")
+            if pair in self.seq_no and self.seq_no[pair] + 1 != msg["params"]["sequence"]:
+                if self.seq_no[pair] >= msg["params"]["sequence"]:
+                    return
+                LOG.warning("%s: Missing sequence number detected for %s", self.id, pair)
+                raise MissingSequenceNumber("Missing sequence number, restarting")
             self.seq_no[pair] = msg["params"]["sequence"]
 
         if "method" in msg:
@@ -432,6 +430,7 @@ class Bequant(Feed):
             await conn.write(json.dumps(auth))
             LOG.debug(f"{conn.uuid}: Authenticating with message: {auth}")
             return conn
+        return None
 
     async def subscribe(self, conn: AsyncConnection):
         self.__reset()

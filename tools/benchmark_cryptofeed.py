@@ -103,11 +103,7 @@ class BenchmarkSuite:
         self.benchmark_memory_usage()
 
         for name, value in self.results.items():
-            if value == -1:
-                pass
-            elif "time" in name.lower() or name.endswith("_s"):
-                pass
-            elif "memory" in name.lower():
+            if value == -1 or "time" in name.lower() or name.endswith("_s") or "memory" in name.lower():
                 pass
             else:
                 pass
