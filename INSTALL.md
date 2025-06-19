@@ -125,18 +125,16 @@ git clone https://github.com/bmoscon/cryptofeed.git
 cd cryptofeed
 ```
 
-**2. Install with all development dependencies:**
+**2. Create virtual environment and install dependencies:**
 
 ```bash
-uv sync --frozen
-```
+uv venv                     # Create virtual environment  
+source .venv/bin/activate   # Activate it (Linux/macOS)
+uv pip install -e .        # Install core dependencies
 
-**3. Activate virtual environment:**
-
-```bash
-source .venv/bin/activate  # Linux/macOS
-# or
-.venv\Scripts\activate     # Windows
+# Optional: Install with specific backend dependencies
+uv pip install -e ".[arctic]"   # Arctic backend
+uv pip install -e ".[all]"      # All optional dependencies
 ```
 
 ### Development Dependency Groups

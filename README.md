@@ -189,9 +189,9 @@ pip install cryptofeed[all]  # With all optional dependencies
 2. **Install with uv (recommended):**
 
    ```bash
-   uv sync --frozen  # Installs all dependencies including dev tools
-   source .venv/bin/activate  # Linux/macOS
-   # or .venv\Scripts\activate  # Windows
+   uv venv                     # Create virtual environment
+   source .venv/bin/activate   # Activate it (Linux/macOS)
+   uv pip install -e .        # Install core dependencies
    ```
 
 3. **Alternative with pip:**
@@ -216,7 +216,7 @@ hatch build
 # Development setup with uv
 git clone https://github.com/bmoscon/cryptofeed.git
 cd cryptofeed
-uv sync --frozen
+uv venv && source .venv/bin/activate && uv pip install -e .
 ```
 
 **Cross-platform wheels** are automatically built via GitHub Actions on git tags (`v*`) and releases, supporting Linux x86_64, macOS x86_64/ARM64, and Python 3.9-3.12.
