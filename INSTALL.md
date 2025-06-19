@@ -139,15 +139,17 @@ uv pip install -e ".[all]"      # All optional dependencies
 
 ### Development Dependency Groups
 
-The project uses uv dependency groups for organized development:
+The project uses UV dependency groups for organized development:
 
 ```bash
-uv sync --group test        # Testing dependencies only
-uv sync --group lint        # Code quality tools
-uv sync --group build       # Build tools
-uv sync --group security    # Security scanning tools
-uv sync --group performance # Performance benchmarking
-uv sync --group quality     # Code complexity analysis
+uv sync --group dev         # Development tools (testing, linting, analysis)
+uv sync --group ci          # Minimal CI dependencies  
+uv sync --group build       # Build tools (hatch, cython, wheel)
+
+# Combine groups and optional dependencies
+uv sync --group dev --extra arctic      # Dev tools + arctic backend
+uv sync --group build --extra redis     # Build tools + redis backend
+uv sync --group dev --group build --extra all  # Everything
 ```
 
 ### Alternative Development Setup (pip)

@@ -153,7 +153,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Backend storage options  
-arctic = ["arctic>=1.82.2", "pandas"]  # Use newer arctic version compatible with modern numpy
+arctic = ["arctic>=1.82.2", "pandas>=1.5.0"]  # Use newer arctic version compatible with modern numpy
 mongo = ["motor"]
 postgres = ["asyncpg"]
 redis = ["hiredis", "redis>=4.5.1"]
@@ -175,7 +175,7 @@ dev = ["pytest>=7.0.0", "pytest-asyncio>=0.21.0", "pytest-cov>=4.0.0"]
 # All optional dependencies
 all = [
   "arctic>=1.82.2",
-  "pandas",
+  "pandas>=1.5.0",
   "motor",
   "asyncpg",
   "hiredis",
