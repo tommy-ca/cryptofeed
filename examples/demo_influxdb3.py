@@ -14,6 +14,10 @@ logging.basicConfig(
 )
 LOG = logging.getLogger('demo_influxdb3')
 
+# This backend uses the influxdb3-python library.
+# Ensure it's installed: pip install influxdb3-python cryptofeed
+
+
 # --- Configuration Section ---
 # IMPORTANT: Replace these placeholder values with your actual InfluxDB v3 connection details.
 #
@@ -35,6 +39,11 @@ INFLUXDB_ADDRESS = "http://localhost:8086"  # Replace! Example: "https://<your-r
 INFLUXDB_DATABASE = "cryptofeed_database"   # Replace! Example: "crypto_data"
 INFLUXDB_TOKEN = "your_influx_token"        # Replace! Example: "thisIsMySecretToken"
 INFLUXDB_ORG = "your_influx_org"            # Replace! Example: "my_organization" (can be None for some OSS setups)
+
+# Optional: InfluxDB v3 client batching parameters (defaults are usually fine)
+# These are passed via kwargs to the callback constructor.
+# INFLUXDB_BATCH_SIZE = 5000  # Number of data points to batch before writing
+# INFLUXDB_FLUSH_INTERVAL = 10000 # Milliseconds to wait before flushing the batch
 # --- End Configuration Section ---
 
 
@@ -59,7 +68,10 @@ def main():
         database=INFLUXDB_DATABASE,
         token=INFLUXDB_TOKEN,
         org=INFLUXDB_ORG,
-        # Example: snapshots_only=True, snapshot_interval=60 # To store only snapshots every 60s
+        snapshots_only=False, # Example: True to store only full snapshots
+        snapshot_interval=1000, # Example: if snapshots_only=False, snapshot every 1000 deltas. If True, every 1000 seconds.
+        # batch_size=INFLUXDB_BATCH_SIZE, # Uncomment to override default batch_size (5000)
+        # flush_interval=INFLUXDB_FLUSH_INTERVAL # Uncomment to override default flush_interval (10000ms)
     )
 
     # Default key for TradeInflux3 is 'trades'. It will be written to measurement 'trades-COINBASE'.
@@ -67,7 +79,9 @@ def main():
         addr=INFLUXDB_ADDRESS,
         database=INFLUXDB_DATABASE,
         token=INFLUXDB_TOKEN,
-        org=INFLUXDB_ORG
+        org=INFLUXDB_ORG,
+        # batch_size=INFLUXDB_BATCH_SIZE, # Uncomment to override default batch_size
+        # flush_interval=INFLUXDB_FLUSH_INTERVAL # Uncomment to override default flush_interval
     )
 
     # Add subscriptions using the InfluxDB v3 callbacks

@@ -55,25 +55,30 @@ Do not do anything computationally intensive in your callbacks, or this will gre
 
 ## InfluxDB v3
 
-The InfluxDB v3 backend allows you to stream real-time cryptocurrency data directly into an InfluxDB v3 instance (Cloud or OSS). It uses the InfluxDB v3 `/api/v2/write` endpoint with line protocol.
+This backend uses the official `influxdb3-python` client library. Ensure it is installed in your environment (`pip install influxdb3-python`).
+
+The InfluxDB v3 backend allows you to stream real-time cryptocurrency data directly into an InfluxDB v3 instance (Cloud or OSS). The integration with the `influxdb3-python` client means that batching of data points and retry mechanisms are handled efficiently by the client library itself.
 
 **Key Features:**
-- Writes data in InfluxDB line protocol.
+- Writes data using InfluxDB `Point` objects, converted from Cryptofeed data types.
 - Supports various data types (trades, order books, tickers, etc.) through specific callback classes.
 - Configurable InfluxDB v3 connection parameters.
 
 **Configuration Parameters:**
 
-When initializing an InfluxDB v3 callback (e.g., `TradeInflux3`, `BookInflux3`), the following parameters are used:
+When initializing an `InfluxDB3Callback` subclass (e.g., `TradeInflux3`, `BookInflux3`), the following parameters are used:
 
--   `addr` (str): The full HTTP(S) address of your InfluxDB v3 instance (e.g., `"http://localhost:8086"` for OSS, or `"https://<your-region>.cloud2.influxdata.com"` for Cloud).
--   `token` (str): Your InfluxDB API token. This token must have write permissions to the specified database.
+-   `addr` (str): The full HTTP(S) address of your InfluxDB v3 instance (e.g., `"http://localhost:8086"` for OSS, or `"https://<your-region>.cloud2.influxdata.com"` for Cloud). This is used as the `host` parameter for the `InfluxDBClient3`.
+-   `token` (str): Your InfluxDB API token. This token must have write permissions to the specified `database`.
 -   `database` (str): The name of the database (bucket in InfluxDB v3 terminology) where data will be written.
 -   `org` (str, optional): Your InfluxDB organization ID or name. This is typically required for InfluxDB Cloud and may be needed for InfluxDB OSS depending on your setup.
+-   `key` (str, optional): Advanced users can use this parameter to override the `default_key` set by specific subclasses (like `TradeInflux3`) or to provide a custom measurement prefix if using `InfluxDB3Callback` directly. Subclasses such as `TradeInflux3` automatically set this to their respective `default_key` (e.g., `'trades'`).
+-   `batch_size` (int, optional): The number of data points to collect in a batch before writing to InfluxDB. Defaults to `5000`. This is handled by the `influxdb3-python` client's `WriteOptions`.
+-   `flush_interval` (int, optional): The maximum time in milliseconds to wait before writing a batch, even if `batch_size` isn't reached. Defaults to `10000`. This is handled by the `influxdb3-python` client's `WriteOptions`.
 
 **Available Callback Classes:**
 
-A suite of callback classes is provided for different data types:
+A suite of callback classes is provided for different data types. These inherit from `InfluxDB3Callback` and automatically configure the appropriate `key` for measurements:
 -   `TradeInflux3`
 -   `FundingInflux3`
 -   `BookInflux3` (handles L2 order book data)
@@ -86,7 +91,7 @@ A suite of callback classes is provided for different data types:
 -   `BalancesInflux3`
 -   `FillsInflux3`
 
-Each class automatically sets a `default_key` (e.g., 'trades', 'book') which is used to construct the measurement name in InfluxDB (e.g., `trades-COINBASE`, `book-BINANCE`).
+Each class automatically sets a `default_key` (e.g., `'trades'`, `'book'`) which is used to construct the measurement name in InfluxDB (e.g., `trades-COINBASE`, `book-BINANCE`).
 
 **Example Usage:**
 
@@ -109,16 +114,24 @@ def main():
         addr=INFLUXDB_ADDRESS,
         database=INFLUXDB_DATABASE,
         token=INFLUXDB_TOKEN,
-        org=INFLUXDB_ORG
+        org=INFLUXDB_ORG,
+        # Optional: configure client-side batching (handled by influxdb3-python client)
+        # batch_size=5000,       # Default is 5000
+        # flush_interval=10000,  # Default is 10000ms
     )
 
     book_cb = BookInflux3(
         addr=INFLUXDB_ADDRESS,
         database=INFLUXDB_DATABASE,
         token=INFLUXDB_TOKEN,
-        org=INFLUXDB_ORG
-        # For BookInflux3, you can also pass:
-        # snapshots_only=False, snapshot_interval=1000
+        org=INFLUXDB_ORG,
+        # Optional: configure client-side batching
+        # batch_size=5000,
+        # flush_interval=10000, # in milliseconds
+        # Book-specific options:
+        snapshots_only=False,    # If True, send only snapshots. If False, send deltas and periodic snapshots.
+        snapshot_interval=1000   # If snapshots_only=False, send snapshot every 1000 deltas.
+                                 # If snapshots_only=True, send snapshot every 1000 seconds.
     )
 
     # Add subscriptions
