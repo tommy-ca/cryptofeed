@@ -4,7 +4,7 @@ PRs, bug reports, feature requests, documentation, and other enhancements and im
 
 ## Development Setup
 
-For the best development experience, please follow our [Development Setup Guide](README_DEVELOPMENT.md) which covers:
+For the best development experience, please follow our [Development Setup Guide](docs/README_DEVELOPMENT.md) which covers:
 
 ### Quick Setup with uv (Recommended)
 
@@ -61,4 +61,4 @@ uv run pytest tests/   # Run tests
 - [ ] Documentation is updated if needed
 - [ ] Commit messages follow conventional format (feat:, fix:, docs:, etc.)
 
-See [README_DEVELOPMENT.md](README_DEVELOPMENT.md) for detailed development workflow and coding standards.
+See [README_DEVELOPMENT.md](docs/README_DEVELOPMENT.md) for detailed development workflow and coding standards.

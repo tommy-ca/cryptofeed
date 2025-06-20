@@ -77,7 +77,7 @@ uv venv && source .venv/bin/activate
 - **`uv.lock`**: Auto-generated for reproducible builds
 - **`.trunk/trunk.yaml`**: Updated with stable runtime versions (Python 3.10.8, Node 22.16.0, Go 1.21.0)
 - **`.github/workflows/ci.yml`**: Full uv integration
-- **`MODERNIZATION.md`**: Complete developer guide
+- **`docs/MODERNIZATION.md`**: Complete developer guide
 
 ### Configuration Consolidation
 
@@ -200,7 +200,7 @@ indent-style = "space"    # Same as Black
 
 ## 📚 Further Reading
 
-- **Complete guide**: See `MODERNIZATION.md`
+- **Complete guide**: See `docs/MODERNIZATION.md`
 - **Tool documentation**: [uv docs](https://docs.astral.sh/uv/), [ruff docs](https://docs.astral.sh/ruff/)
 - **Migration help**: Ask team lead or check GitHub discussions
 

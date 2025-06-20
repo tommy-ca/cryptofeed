@@ -56,7 +56,7 @@ This document tracks the complete migration from traditional Python tooling to U
 - **Files Updated**:
   - `README.md`: Updated installation and development instructions
   - `INSTALL.md`: Modernized installation guide
-  - `README_DEVELOPMENT.md`: Updated development workflow
+  - `docs/README_DEVELOPMENT.md`: Updated development workflow
   - `CONTRIBUTING.md`: Added UV-based contribution guidelines
 
 ## ⚠️ Outstanding Issues
