@@ -73,7 +73,7 @@ class KafkaCallback(BackendQueue):
                     try:
                         await self.producer.start()
                     except KafkaConnectionError:
-                        LOG.exception(f"{self.__class__.__name__}: Unable to bootstrap from host(s)")
+                        LOG.exception("%s: Unable to bootstrap from host(s)", self.__class__.__name__)
                         await asyncio.sleep(10)
                     else:
                         LOG.info(
@@ -112,9 +112,9 @@ class KafkaCallback(BackendQueue):
                             f"{self.__class__.__name__}: No response received from server within {self.producer._request_timeout_ms} ms. Messages may not have been delivered"
                         )
                     except NodeNotReadyError:
-                        LOG.exception(f"{self.__class__.__name__}: Node not ready")
+                        LOG.exception("%s: Node not ready", self.__class__.__name__)
                     except Exception as e:
-                        LOG.info(f"{self.__class__.__name__}: Encountered an error:{chr(10)}{e}")
+                        LOG.info("%s: Encountered an error:%s%s", self.__class__.__name__, chr(10), e)
         LOG.info(
             f"{self.__class__.__name__}: sending last messages and closing connection '{self.producer.client._client_id}'"
         )

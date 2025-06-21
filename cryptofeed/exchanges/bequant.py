@@ -409,10 +409,10 @@ class Bequant(Feed):
             elif m == "balance":
                 await self._balances(msg, conn, ts)
             else:
-                LOG.warning(f"{self.id}: Invalid message received on {conn.uuid}: {msg}")
+                LOG.warning("%s: Invalid message received on %s: %s", self.id, conn.uuid, msg)
 
         elif "error" in msg:
-            LOG.error(f"{self.id}: Received error on {conn.uuid}: {msg['error']}")
+            LOG.error("%s: Received error on %s: %s", self.id, conn.uuid, msg['error'])
 
     async def authenticate(self, conn: AsyncConnection):
         if self.requires_authentication:
@@ -428,7 +428,7 @@ class Bequant(Feed):
             }
 
             await conn.write(json.dumps(auth))
-            LOG.debug(f"{conn.uuid}: Authenticating with message: {auth}")
+            LOG.debug("%s: Authenticating with message: %s", conn.uuid, auth)
             return conn
         return None
 
@@ -438,7 +438,7 @@ class Bequant(Feed):
         for chan, symbols in conn.subscription.items():
             # These channel subs fail if provided with symbol data. "params" must be blank.
             if chan in ["subscribeTransactions", "subscribeBalance", "subscribeReports"]:
-                LOG.debug(f"Subscribing to {chan} with no symbols")
+                LOG.debug("Subscribing to %s with no symbols", chan)
                 await conn.write(json.dumps({"method": chan, "params": {}, "id": conn.uuid}))
             else:
                 for symbol in symbols:

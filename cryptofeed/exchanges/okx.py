@@ -551,7 +551,7 @@ class OKX(Feed, OKXRestMixin):
         if self.requires_authentication:
             if any(self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in conn.subscription):
                 auth = self._auth(self.key_id, self.key_secret)
-                LOG.debug(f"{conn.uuid}: Authenticating with message: {auth}")
+                LOG.debug("%s: Authenticating with message: %s", conn.uuid, auth)
                 await conn.write(json.dumps(auth))
                 await asyncio.sleep(1)
 

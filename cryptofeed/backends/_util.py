@@ -4,6 +4,8 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 """
 
+from __future__ import annotations
+
 from typing import Any, Union
 
 from cryptofeed.defines import ASK, BID

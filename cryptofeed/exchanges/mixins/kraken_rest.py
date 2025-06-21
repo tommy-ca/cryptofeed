@@ -317,5 +317,5 @@ class KrakenRestMixin(RestExchange):
             elif symlen == 4:
                 cleansym = sym[1:]
         except Exception as ex:
-            LOG.exception(f"Couldnt convert private api symbol {sym} for {self.id}", ex)
+            LOG.exception("Couldnt convert private api symbol %s for %s", sym, self.id, exc_info=ex)
         return cleansym

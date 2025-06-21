@@ -681,7 +681,7 @@ class Bybit(Feed):
     async def authenticate(self, conn: AsyncConnection):
         if any(self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in conn.subscription):
             auth = self._auth(self.key_id, self.key_secret)
-            LOG.debug(f"{conn.uuid}: Sending authentication request with message {auth}")
+            LOG.debug("%s: Sending authentication request with message %s", conn.uuid, auth)
             await conn.write(auth)
 
     def _auth(self, key_id: str, key_secret: str) -> str:

@@ -378,7 +378,7 @@ class CoinbaseRestMixin(RestExchange):
             start_id = start
             end_id_max = end
 
-            LOG.debug(f"candles - stepping through {symbol} ({start}, {end})")
+            LOG.debug("candles - stepping through %s (%s, %s)", symbol, start, end)
             while True:
                 end_id = start_id + (limit - 1) * valid_intervals[interval]
                 end_id = min(end_id, end_id_max)

@@ -618,7 +618,7 @@ class Phemex(Feed):
             if not msg["error"]:
                 LOG.info("%s: Auth request result: %s", conn.uuid, msg["result"]["status"])
                 msg = json.dumps({"id": 101, "method": self.std_channel_to_exchange(BALANCES), "params": []})
-                LOG.debug(f"{conn.uuid}: Subscribing to authenticated channels: {msg}")
+                LOG.debug("%s: Subscribing to authenticated channels: %s", conn.uuid, msg)
                 await conn.write(msg)
             else:
                 LOG.warning("%s: Auth unsuccessful: %s", conn.uuid, msg)
@@ -626,7 +626,7 @@ class Phemex(Feed):
             if not msg["error"]:
                 LOG.info("%s: Subscribe to auth channels request result: %s", conn.uuid, msg["result"]["status"])
             else:
-                LOG.warning(f"{conn.uuid}: Subscription unsuccessful: {msg}")
+                LOG.warning("%s: Subscription unsuccessful: %s", conn.uuid, msg)
         elif "id" in msg and msg["id"] == 1 and not msg["error"]:
             pass
         elif "accounts" in msg:
@@ -654,13 +654,13 @@ class Phemex(Feed):
                     msg = {"id": 1, "method": chan, "params": [sym]}
                     if self.exchange_channel_to_std(chan) == CANDLES:
                         msg["params"] = [*[sym], self.candle_interval_map[self.candle_interval]]
-                    LOG.debug(f"{conn.uuid}: Sending subscribe request to public channel: {msg}")
+                    LOG.debug("%s: Sending subscribe request to public channel: %s", conn.uuid, msg)
                     await conn.write(json.dumps(msg))
 
     async def authenticate(self, conn: AsyncConnection):
         if any(self.is_authenticated_channel(self.exchange_channel_to_std(chan)) for chan in self.subscription):
             auth = json.dumps(self._auth(self.key_id, self.key_secret))
-            LOG.debug(f"{conn.uuid}: Sending authentication request with message {auth}")
+            LOG.debug("%s: Sending authentication request with message %s", conn.uuid, auth)
             await conn.write(auth)
 
     def _auth(self, key_id, key_secret, session_id=100):

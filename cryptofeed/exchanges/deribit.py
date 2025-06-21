@@ -293,7 +293,7 @@ class Deribit(Feed, DeribitRestMixin):
                         pub_channels.append(f"{chan}.{pair}.raw")
         if pub_channels:
             msg = {"jsonrpc": "2.0", "id": "101", "method": "public/subscribe", "params": {"channels": pub_channels}}
-            LOG.debug(f"{conn.uuid}: Subscribing to public channels with message {msg}")
+            LOG.debug("%s: Subscribing to public channels with message %s", conn.uuid, msg)
             await conn.write(json.dumps(msg))
 
         if pri_channels:
@@ -303,7 +303,7 @@ class Deribit(Feed, DeribitRestMixin):
                 "method": "private/subscribe",
                 "params": {"scope": f"session:{conn.uuid}", "channels": pri_channels},
             }
-            LOG.debug(f"{conn.uuid}: Subscribing to private channels with message {msg}")
+            LOG.debug("%s: Subscribing to private channels with message %s", conn.uuid, msg)
             await conn.write(json.dumps(msg))
 
     async def _book_snapshot(self, msg: dict, timestamp: float):
@@ -407,7 +407,7 @@ class Deribit(Feed, DeribitRestMixin):
                     Access token is another way to be authenticated while sending messages to Deribit.
                     In this implementation 'scope session' method is used instead of 'acces token' method.
                     """
-                    LOG.debug(f"{conn.uuid}: Access token received")
+                    LOG.debug("%s: Access token received", conn.uuid)
                 else:
                     LOG.warning("%s: Unknown id in message %s", conn.uuid, msg_dict)
             else:
@@ -449,7 +449,7 @@ class Deribit(Feed, DeribitRestMixin):
     async def authenticate(self, conn: AsyncConnection):
         if self.requires_authentication:
             auth = self._auth(self.key_id, self.key_secret, conn.uuid)
-            LOG.debug(f"{conn.uuid}: Authenticating with message: {auth}")
+            LOG.debug("%s: Authenticating with message: %s", conn.uuid, auth)
             await conn.write(json.dumps(auth))
 
     def _auth(self, key_id, key_secret, session_id: str) -> str:
