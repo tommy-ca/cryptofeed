@@ -170,7 +170,16 @@ gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
 quasardb = ["quasardb", "numpy"]
 
 # Development tools
-dev = ["pytest>=7.0.0", "pytest-asyncio>=0.21.0", "pytest-cov>=4.0.0"]
+dev = [
+    "pytest>=7.0.0", 
+    "pytest-asyncio>=0.21.0", 
+    "pytest-cov>=4.0.0",
+    # Security tools
+    "safety>=3.0.0",
+    "pip-audit>=2.6.0", 
+    "bandit>=1.7.0",
+    "pip-licenses>=4.0.0"
+]
 
 # All optional dependencies
 all = [
