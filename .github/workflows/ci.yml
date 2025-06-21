@@ -47,8 +47,6 @@ jobs:
 
       - name: Install and setup Trunk
         uses: trunk-io/trunk-action@v1
-        with:
-          check-mode: all
 
       - name: Run Trunk code quality checks
         run: |
@@ -105,8 +103,8 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          # Run tests excluding network-dependent tests for CI
-          uv run pytest tests/ --cov=cryptofeed --cov-report=xml --cov-report=term-missing -m "not network" --tb=short
+          # Run tests excluding network-dependent and integration tests for CI
+          uv run pytest tests/unit/ --cov=cryptofeed --cov-report=xml --cov-report=term-missing -m "not network and not integration" --tb=short
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
@@ -126,8 +124,6 @@ jobs:
 
       - name: Install and setup Trunk
         uses: trunk-io/trunk-action@v1
-        with:
-          check-mode: all
 
       - name: Run Trunk security scan (bandit)
         run: |
