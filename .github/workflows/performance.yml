@@ -1,10 +1,6 @@
-name: Performance Benchmarks
+name: Performance - Weekly Benchmarks
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
   schedule:
     - cron: "0 4 * * 1" # Weekly on Mondays at 4 AM
   workflow_dispatch:

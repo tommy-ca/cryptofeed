@@ -1,10 +1,22 @@
-name: Security Scanning
+name: Security - Comprehensive Scanning
 
 on:
   push:
     branches: [main, master, develop]
+    paths:
+      - '.github/workflows/security.yml'
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
   pull_request:
     branches: [main, master, develop]
+    paths:
+      - '.github/workflows/security.yml'
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
   schedule:
     - cron: "0 6 * * 1" # Weekly on Mondays at 6 AM
   workflow_dispatch:
