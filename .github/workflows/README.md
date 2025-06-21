@@ -1,4 +1,6 @@
-# GitHub Workflows Documentation
+# GitHub Workflows
+
+**Quick Links**: [📖 Complete Documentation](./WORKFLOWS_DOCUMENTATION.md) | [⚡ Quick Reference](./QUICK_REFERENCE.md) | [🔧 Troubleshooting](./TROUBLESHOOTING.md)
 
 This directory contains the **optimized and consolidated** CI/CD workflows for the cryptofeed project, modernized with **uv** and **Trunk** integration for optimal performance and reliability.
 
@@ -349,23 +351,15 @@ When updating workflows:
 - **Artifact Management**: Clean up old artifacts regularly
 - **Resource Allocation**: Match runner specs to job requirements
 
-## 📚 Additional Resources
+## 📚 Documentation Structure
 
-- [uv Documentation](https://docs.astral.sh/uv/)
-- [Trunk Documentation](https://docs.trunk.io/)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Dependabot Configuration](https://docs.github.com/en/code-security/dependabot)
-
-## 🤝 Contributing
-
-When contributing to workflow improvements:
-
-1. **Follow conventions**: Use established patterns and naming
-2. **Test thoroughly**: Validate changes in feature branches
-3. **Document changes**: Update this README and commit messages
-4. **Consider impact**: Assess effects on build times and reliability
-5. **Maintain compatibility**: Ensure backward compatibility when possible
+| Document | Purpose | Best For |
+|----------|---------|----------|
+| **[README.md](./README.md)** | Overview & architecture | Understanding the system |
+| **[WORKFLOWS_DOCUMENTATION.md](./WORKFLOWS_DOCUMENTATION.md)** | Complete consolidated guide | Comprehensive reference |
+| **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** | Commands & shortcuts | Daily development |
+| **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** | Problem solving | When things go wrong |
 
 ---
 
-> 🤖 This documentation is maintained alongside the workflows and reflects the current state of the CI/CD pipeline. For questions or improvements, please open an issue or pull request.
+> 📖 **For complete details**, see [WORKFLOWS_DOCUMENTATION.md](./WORKFLOWS_DOCUMENTATION.md) - the consolidated guide containing all workflow information, troubleshooting, and implementation details.
