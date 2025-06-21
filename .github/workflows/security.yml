@@ -113,8 +113,6 @@ jobs:
 
       - name: Install and setup Trunk
         uses: trunk-io/trunk-action@v1
-        with:
-          check-mode: all
 
       - name: Run Bandit via Trunk (preferred)
         run: |
