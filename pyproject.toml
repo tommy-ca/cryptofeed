@@ -169,19 +169,19 @@ gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
 # Time series databases
 quasardb = ["quasardb", "numpy"]
 
-# Development tools
-dev = [
+# Development tools (legacy - use dependency-groups instead)
+# Kept for backward compatibility only
+dev-legacy = [
     "pytest>=7.0.0", 
     "pytest-asyncio>=0.21.0", 
     "pytest-cov>=4.0.0",
-    # Security tools
     "safety>=3.0.0",
     "pip-audit>=2.6.0", 
     "bandit>=1.7.0",
     "pip-licenses>=4.0.0"
 ]
 
-# All optional dependencies
+# All optional dependencies (excluding dev tools)
 all = [
   "arctic>=1.82.2",
   "pandas>=1.5.0",
@@ -437,18 +437,27 @@ skips = [
 skips = ["**/tests/**", "**/test_*.py"]
 
 [dependency-groups]
+# Modern PEP 735 dependency groups (primary dependency definition)
 # Essential development dependencies (matches trunk tools)
 dev = [
   # Core linting/formatting (managed by trunk)
-  "ruff>=0.11.13",          # Python linting & formatting
+  "ruff>=0.12.0",           # Python linting & formatting
   "bandit>=1.8.5",          # Security linting
-  # Testing
+  
+  # Testing framework
   "pytest>=8.4.0",
   "pytest-asyncio>=1.0.0",
   "pytest-cov>=6.2.1",
+  
+  # Security tools (required for CI workflows)
+  "safety>=3.0.0",          # Vulnerability scanning
+  "pip-audit>=2.6.0",       # Dependency security audit
+  "pip-licenses>=4.0.0",    # License compliance
+  
   # Build tools
   "build",
   "wheel",
+  
   # Optional: Advanced analysis (when trunk is unavailable)
   "mypy>=1.16.1",           # Type checking (disabled in CI)
   "radon",                  # Complexity analysis
@@ -461,8 +470,21 @@ dev = [
 ci = [
   "pytest>=8.4.0",
   "pytest-cov>=6.2.1",
-  # Note: ruff, bandit managed by trunk in CI
+  # Security tools required for security workflow
+  "safety>=3.0.0",
+  "pip-audit>=2.6.0", 
+  "bandit>=1.8.5",
+  "pip-licenses>=4.0.0",
+  # Note: ruff also managed by trunk in CI
 ]
 
 # Build-only dependencies
 build = ["build", "wheel", "hatch", "hatch-cython", "cython"]
+
+# Security-focused dependency group
+security = [
+  "bandit>=1.8.5",          # Python security linter
+  "safety>=3.0.0",          # Known security vulnerabilities
+  "pip-audit>=2.6.0",       # PyPI package security audit
+  "pip-licenses>=4.0.0",    # License compliance checking
+]
