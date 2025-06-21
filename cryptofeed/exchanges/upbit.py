@@ -47,7 +47,7 @@ class Upbit(Feed, UpbitRestMixin):
         return ret, info
 
     async def _trade(self, msg: dict, timestamp: float):
-        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-ì.²´�.�²°-ì¡°í
+        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-ì.²´.²°-ì¡°í
 
         {
             'ty': 'trade'             // Event type
@@ -81,7 +81,7 @@ class Upbit(Feed, UpbitRestMixin):
         await self.callback(TRADES, t, timestamp)
 
     async def _book(self, msg: dict, timestamp: float):
-        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-í¸ê°-ì ë³�.�.orderbook-ì¡°í
+        """Doc : https://docs.upbit.com/v1.0.7/reference#ìì¸-í¸ê°-ì ë³..orderbook-ì¡°í
 
         Currently, Upbit orderbook api only provides 15 depth book state and does not support delta
 
