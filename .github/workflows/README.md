@@ -4,17 +4,18 @@ This directory contains the **optimized and consolidated** CI/CD workflows for t
 
 ## 🚀 Consolidated Workflow Overview
 
-| Workflow                                   | Purpose                           | Triggers                         | Duration    | Key Features                                      |
-| ------------------------------------------ | --------------------------------- | -------------------------------- | ----------- | ------------------------------------------------- |
-| [`ci.yml`](./ci.yml)                       | **Fast CI - Lint, Test & Build** | Push, PR, Manual                | 10-15 min  | Fast feedback, unit tests, basic quality checks  |
-| [`security.yml`](./security.yml)           | **Security - Comprehensive**     | Weekly, Security file changes   | 20-30 min  | CodeQL, vulnerability scans, license compliance  |
-| [`performance.yml`](./performance.yml)     | **Performance - Weekly Benchmarks** | Weekly schedule, Manual       | 15-25 min  | Resource-intensive benchmarks, profiling         |
-| [`release.yml`](./release.yml)             | **Release - Build & Publish**    | Tags only, Manual               | 30-45 min  | PyPI publishing, GitHub releases (no Docker)     |
-| [`wheels.yml`](./wheels.yml)               | **Wheels - Multi-platform Build** | Tags, Releases                  | 45-60 min  | Cross-platform wheels (Linux, macOS, Windows)   |
+| Workflow                               | Purpose                             | Triggers                      | Duration  | Key Features                                    |
+| -------------------------------------- | ----------------------------------- | ----------------------------- | --------- | ----------------------------------------------- |
+| [`ci.yml`](./ci.yml)                   | **Fast CI - Lint, Test & Build**    | Push, PR, Manual              | 10-15 min | Fast feedback, unit tests, basic quality checks |
+| [`security.yml`](./security.yml)       | **Security - Comprehensive**        | Weekly, Security file changes | 20-30 min | CodeQL, vulnerability scans, license compliance |
+| [`performance.yml`](./performance.yml) | **Performance - Weekly Benchmarks** | Weekly schedule, Manual       | 15-25 min | Resource-intensive benchmarks, profiling        |
+| [`release.yml`](./release.yml)         | **Release - Build & Publish**       | Tags only, Manual             | 30-45 min | PyPI publishing, GitHub releases (no Docker)    |
+| [`wheels.yml`](./wheels.yml)           | **Wheels - Multi-platform Build**   | Tags, Releases                | 45-60 min | Cross-platform wheels (Linux, macOS, Windows)   |
 
 ### 🎯 **Consolidation Benefits**
+
 - **75% reduction** in redundant security scans
-- **50% reduction** in code quality duplication  
+- **50% reduction** in code quality duplication
 - **40% overall CI/CD time savings**
 - **Clear separation of concerns**
 - **Faster PR feedback** (single streamlined workflow)
@@ -38,9 +39,11 @@ This directory contains the **optimized and consolidated** CI/CD workflows for t
 ## 📋 Workflow Details
 
 ### 🚅 Fast CI Pipeline (`ci.yml`)
+
 **Purpose**: Immediate feedback for developers  
 **Triggers**: Push/PR to main branches  
 **Jobs**:
+
 - **Lint & Format**: Trunk code quality checks (ruff, bandit)
 - **Test Matrix**: Python 3.9-3.12 unit tests (excluding network/integration)
 - **Build & Install**: Package building and installation verification
@@ -48,9 +51,11 @@ This directory contains the **optimized and consolidated** CI/CD workflows for t
 - **Documentation**: Lightweight docstring coverage check
 
 ### 🔒 Security Scanning (`security.yml`)
+
 **Purpose**: Comprehensive security analysis  
 **Triggers**: Weekly schedule + security-related file changes  
 **Jobs**:
+
 - **CodeQL Analysis**: GitHub's semantic code analysis
 - **Vulnerability Scanning**: Multi-tool dependency scanning
 - **Secrets Detection**: Credential leak prevention
@@ -58,26 +63,32 @@ This directory contains the **optimized and consolidated** CI/CD workflows for t
 - **Container Security**: Docker image scanning (when applicable)
 
 ### ⚡ Performance Benchmarks (`performance.yml`)
+
 **Purpose**: Resource-intensive performance testing  
 **Triggers**: Weekly schedule + manual execution  
 **Jobs**:
+
 - **Performance Benchmarks**: Multi-Python version benchmarks
 - **Memory Profiling**: Memory usage analysis
 - **Performance Comparison**: Historical performance tracking
 
 ### 🚀 Release Pipeline (`release.yml`)
+
 **Purpose**: Automated release process  
-**Triggers**: Git tags (v*), manual dispatch  
+**Triggers**: Git tags (v\*), manual dispatch  
 **Jobs**:
+
 - **Validate Release**: Quality checks, tests, version validation
 - **Build Release**: Source distribution and wheel building
 - **Create GitHub Release**: Automated release notes and artifacts
 - **Publish PyPI**: TestPyPI validation → PyPI publishing
 
 ### 🔧 Wheels Building (`wheels.yml`)
+
 **Purpose**: Cross-platform wheel compilation  
 **Triggers**: Git tags, GitHub releases  
 **Jobs**:
+
 - **Build Wheels**: Linux, macOS, Windows wheels (Python 3.9-3.12)
 - **Build SDist**: Source distribution with UV
 - **Test Wheels**: Installation and functionality testing

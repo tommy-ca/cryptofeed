@@ -128,7 +128,7 @@ cd cryptofeed
 **2. Create virtual environment and install dependencies:**
 
 ```bash
-uv venv                     # Create virtual environment  
+uv venv                     # Create virtual environment
 source .venv/bin/activate   # Activate it (Linux/macOS)
 uv pip install -e .        # Install core dependencies
 
@@ -143,7 +143,7 @@ The project uses UV dependency groups for organized development:
 
 ```bash
 uv sync --group dev         # Development tools (testing, linting, analysis)
-uv sync --group ci          # Minimal CI dependencies  
+uv sync --group ci          # Minimal CI dependencies
 uv sync --group build       # Build tools (hatch, cython, wheel)
 
 # Combine groups and optional dependencies
@@ -184,7 +184,7 @@ hatch build
 # Build wheel only
 hatch build --target wheel
 
-# Build source distribution only  
+# Build source distribution only
 hatch build --target sdist
 
 # Clean previous builds
@@ -231,6 +231,7 @@ uv run python -m build
 The project uses GitHub Actions with UV-accelerated cibuildwheel for automated cross-platform wheel building:
 
 **Supported platforms:**
+
 - Linux x86_64 (Ubuntu latest)
 - macOS x86_64 (Intel)
 - macOS ARM64 (Apple Silicon)
@@ -238,12 +239,14 @@ The project uses GitHub Actions with UV-accelerated cibuildwheel for automated c
 **Trigger wheel builds:**
 
 1. **Tag-based release (recommended):**
+
    ```bash
    git tag v2.4.2
    git push origin v2.4.2
    ```
 
 2. **Manual trigger:**
+
    - Go to GitHub Actions → "Build Wheels" workflow
    - Click "Run workflow"
 
@@ -252,14 +255,17 @@ The project uses GitHub Actions with UV-accelerated cibuildwheel for automated c
    - Wheels are automatically built and uploaded
 
 **Performance optimizations:**
+
 - Uses `uvx cibuildwheel` for tool isolation and speed
 - UV build frontend (`build[uv]`) for 10-100x faster dependency resolution
 - UV pip for rapid build dependency installation
 
 **Python versions supported:**
+
 - Python 3.9, 3.10, 3.11, 3.12
 
 **Build configuration:**
+
 - Uses hatch as build backend with UV frontend for maximum speed
 - Cython extensions optimized with `-O3 -ffast-math`
 - Object pooling with `@cython.freelist(128)`
@@ -267,6 +273,7 @@ The project uses GitHub Actions with UV-accelerated cibuildwheel for automated c
 - UV-accelerated dependency resolution and installation
 
 **Artifacts:**
+
 - Wheels: `cryptofeed-{version}-{python}-{abi}-{platform}.whl`
 - Source: `cryptofeed-{version}.tar.gz`
 - Automatically uploaded to PyPI on releases

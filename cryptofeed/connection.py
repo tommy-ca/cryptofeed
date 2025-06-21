@@ -382,7 +382,7 @@ class WebsocketEndpoint:
                 continue
             ret[chan] = []
             if not self.instrument_filter:
-                ret[chan].extend(sub[chan])
+                ret[chan].extend(syms)
             elif self.instrument_filter[0] == "TYPE":
                 ret[chan].extend([s for s in syms if str_to_symbol(s).type in self.instrument_filter[1]])
             elif self.instrument_filter[0] == "QUOTE":

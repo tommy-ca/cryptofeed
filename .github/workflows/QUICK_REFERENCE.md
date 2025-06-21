@@ -2,16 +2,17 @@
 
 ## 🚀 Consolidated Overview (Post-Optimization)
 
-| Workflow             | When it Runs              | What it Does                    | Time     |
-| -------------------- | ------------------------- | ------------------------------- | -------- |
-| **Fast CI**          | Every push/PR             | Lint + Test + Build + Docs      | ~10 min  |
-| **Security**         | Weekly + Security changes | Comprehensive security scanning | ~25 min  |
-| **Performance**      | Weekly + Manual           | Benchmarks + Profiling          | ~20 min  |
-| **Release**          | Git tags + Manual         | Validate + Publish to PyPI      | ~30 min  |
-| **Wheels**           | Git tags + Releases       | Cross-platform wheel building   | ~45 min  |
+| Workflow        | When it Runs              | What it Does                    | Time    |
+| --------------- | ------------------------- | ------------------------------- | ------- |
+| **Fast CI**     | Every push/PR             | Lint + Test + Build + Docs      | ~10 min |
+| **Security**    | Weekly + Security changes | Comprehensive security scanning | ~25 min |
+| **Performance** | Weekly + Manual           | Benchmarks + Profiling          | ~20 min |
+| **Release**     | Git tags + Manual         | Validate + Publish to PyPI      | ~30 min |
+| **Wheels**      | Git tags + Releases       | Cross-platform wheel building   | ~45 min |
 
 ### 🎯 **Consolidation Results**
-- **Eliminated redundant workflows**: `code-quality.yml`, `codeql-analysis.yml`  
+
+- **Eliminated redundant workflows**: `code-quality.yml`, `codeql-analysis.yml`
 - **75% reduction** in duplicate security scans
 - **50% reduction** in code quality duplication
 - **Faster PR feedback** (single optimized CI pipeline)

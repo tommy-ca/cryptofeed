@@ -13,7 +13,7 @@ Use 'hatch build' or 'python -m build' instead of 'python setup.py build'.
 # For backward compatibility, redirect to build backend
 try:
     from setuptools import setup
-    
+
     # Empty setup() call - all configuration is now in pyproject.toml
     setup()
 except ImportError:

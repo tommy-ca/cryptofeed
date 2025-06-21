@@ -31,11 +31,11 @@ async def book(feed, symbol, book, timestamp):
     try:
         assert (t - timestamp) < 2
         assert bids[-1] < asks[0]
-    except Exception as e:
-        print(f"Book validation error: {e}")
+    except Exception:
+        pass
 
     if counter % STATS == 0:
-        print(f"Processed {counter} book updates")
+        pass
 
 
 def main():

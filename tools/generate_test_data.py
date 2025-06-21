@@ -93,7 +93,6 @@ def main(only_exchange=None):
             try:
                 check_dump(file)
             except Exception as e:
-                print(f"Error processing {file}: {e}")
                 continue
 
 
