@@ -155,7 +155,7 @@ dependencies = [
 # Backend storage options  
 arctic = ["arctic>=1.82.2", "pandas>=1.5.0"]  # Use newer arctic version compatible with modern numpy
 mongo = ["motor"]
-postgres = ["asyncpg"]
+postgres = ["asyncpg>=0.30.0"]
 redis = ["hiredis", "redis>=4.5.1"]
 
 # Message queue options

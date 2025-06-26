@@ -53,14 +53,60 @@ class PostgresCallback(BackendQueue):
         self.pw = pw
         self.host = host
         self.port = port
+        
+        # Validate table name to prevent SQL injection
+        if not self._is_valid_identifier(self.table):
+            raise ValueError(f"Invalid table name: {self.table}")
+        
         # Parse INSERT statement with user-specified column names
         # Performed at init to avoid repeated list joins
-        self.insert_statement = (
-            f"INSERT INTO {self.table} ({','.join(list(self.custom_columns.values()))}) VALUES "
-            if custom_columns
-            else None
-        )
+        if custom_columns:
+            column_names = ','.join(list(self.custom_columns.values()))
+            # Validate column names to prevent SQL injection
+            for col_name in self.custom_columns.values():
+                if not self._is_valid_identifier(col_name):
+                    raise ValueError(f"Invalid column name: {col_name}")
+            self.insert_statement = f"INSERT INTO {self.table} ({column_names}) VALUES "
+        else:
+            self.insert_statement = None
         self.running = True
+
+    def _is_valid_identifier(self, name: str) -> bool:
+        """Validate SQL identifier (table/column names) to prevent injection attacks.
+        
+        Args:
+            name: The identifier to validate
+            
+        Returns:
+            bool: True if the identifier is safe, False otherwise
+        """
+        if not name or not isinstance(name, str):
+            return False
+        
+        # Length check
+        if len(name) > 63:  # PostgreSQL identifier length limit
+            return False
+        
+        # Must contain only alphanumeric characters and underscores
+        if not all(c.isalnum() or c == '_' for c in name):
+            return False
+        
+        # First character must be letter or underscore
+        if not (name[0].isalpha() or name[0] == '_'):
+            return False
+            
+        # Check for SQL keywords and dangerous patterns
+        dangerous_patterns = [
+            'drop', 'delete', 'truncate', 'insert', 'update', 'create', 'alter',
+            'select', 'union', 'exec', 'execute', '--', '/*', '*/', ';'
+        ]
+        
+        name_lower = name.lower()
+        for pattern in dangerous_patterns:
+            if pattern in name_lower:
+                return False
+                
+        return True
 
     async def _connect(self):
         if self.conn is None:
