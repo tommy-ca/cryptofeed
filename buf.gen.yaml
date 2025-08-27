@@ -3,7 +3,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/your-org/cryptofeed-schemas/gen/go
+      value: github.com/tommyk-ca/cryptofeed-schemas/gen/go
 plugins:
   # Python
   - remote: buf.build/protocolbuffers/python:v28.3

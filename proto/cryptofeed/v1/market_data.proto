@@ -1,0 +1,272 @@
+syntax = "proto3";
+
+package cryptofeed.v1;
+
+import "google/protobuf/timestamp.proto";
+import "cryptofeed/v1/common.proto";
+
+// Trade message represents a single trade execution
+message Trade {
+  // Exchange where the trade occurred
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Trade side (buy/sell from taker's perspective)
+  Side side = 3;
+  // Trade amount/size
+  Decimal amount = 4;
+  // Trade price
+  Decimal price = 5;
+  // Unique trade ID
+  string id = 6;
+  // Trade type (optional)
+  string type = 7;
+  // Timestamp when the trade occurred
+  google.protobuf.Timestamp timestamp = 8;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 9;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 10;
+}
+
+// Ticker message represents best bid/offer information
+message Ticker {
+  // Exchange providing the ticker
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Best bid price
+  Decimal bid = 3;
+  // Best ask price
+  Decimal ask = 4;
+  // Timestamp of the ticker update
+  google.protobuf.Timestamp timestamp = 5;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 6;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 7;
+}
+
+// L1 Book represents top of book information
+message L1Book {
+  // Exchange providing the book data
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Best bid price
+  Decimal bid_price = 3;
+  // Best bid size
+  Decimal bid_size = 4;
+  // Best ask price
+  Decimal ask_price = 5;
+  // Best ask size
+  Decimal ask_size = 6;
+  // Timestamp of the book update
+  google.protobuf.Timestamp timestamp = 7;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 8;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 9;
+}
+
+// Price level for order books
+message PriceLevel {
+  // Price
+  Decimal price = 1;
+  // Size at this price level
+  Decimal size = 2;
+}
+
+// Individual order for L3 books
+message Order {
+  // Order ID
+  string order_id = 1;
+  // Order size
+  Decimal size = 2;
+}
+
+// L3 Price level containing individual orders
+message L3PriceLevel {
+  // Price
+  Decimal price = 1;
+  // Individual orders at this price
+  repeated Order orders = 2;
+}
+
+// L2 Order Book (price aggregated)
+message L2Book {
+  // Exchange providing the book data
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Bid levels (price aggregated)
+  repeated PriceLevel bids = 3;
+  // Ask levels (price aggregated)
+  repeated PriceLevel asks = 4;
+  // Sequence number (optional)
+  int64 sequence_number = 5;
+  // Checksum (optional)
+  string checksum = 6;
+  // Timestamp of the book update
+  google.protobuf.Timestamp timestamp = 7;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 8;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 9;
+}
+
+// L3 Order Book (individual orders)
+message L3Book {
+  // Exchange providing the book data
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Bid levels with individual orders
+  repeated L3PriceLevel bids = 3;
+  // Ask levels with individual orders
+  repeated L3PriceLevel asks = 4;
+  // Sequence number (optional)
+  int64 sequence_number = 5;
+  // Checksum (optional)
+  string checksum = 6;
+  // Timestamp of the book update
+  google.protobuf.Timestamp timestamp = 7;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 8;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 9;
+}
+
+// Book delta update
+message BookDelta {
+  // Exchange providing the delta
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Bid changes [(price, size), ...] - size 0 means delete
+  repeated PriceLevel bid_changes = 3;
+  // Ask changes [(price, size), ...] - size 0 means delete
+  repeated PriceLevel ask_changes = 4;
+  // Sequence number (optional)
+  int64 sequence_number = 5;
+  // Checksum (optional)
+  string checksum = 6;
+  // Timestamp of the delta update
+  google.protobuf.Timestamp timestamp = 7;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 8;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 9;
+}
+
+// Funding rate information
+message Funding {
+  // Exchange providing the funding data
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Mark price (optional)
+  optional Decimal mark_price = 3;
+  // Current funding rate
+  optional Decimal rate = 4;
+  // Next funding time
+  optional google.protobuf.Timestamp next_funding_time = 5;
+  // Predicted funding rate (optional)
+  optional Decimal predicted_rate = 6;
+  // Timestamp of the funding update
+  google.protobuf.Timestamp timestamp = 7;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 8;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 9;
+}
+
+// Open interest information
+message OpenInterest {
+  // Exchange providing the data
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Open interest value
+  Decimal open_interest = 3;
+  // Timestamp of the update
+  google.protobuf.Timestamp timestamp = 4;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 5;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 6;
+}
+
+// Liquidation information
+message Liquidation {
+  // Exchange where liquidation occurred
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Side of the liquidation
+  Side side = 3;
+  // Quantity liquidated
+  Decimal quantity = 4;
+  // Liquidation price
+  Decimal price = 5;
+  // Liquidation ID
+  string id = 6;
+  // Liquidation status
+  string status = 7;
+  // Timestamp of the liquidation
+  google.protobuf.Timestamp timestamp = 8;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 9;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 10;
+}
+
+// Index price information
+message Index {
+  // Exchange providing the index
+  Exchange exchange = 1;
+  // Index symbol
+  Symbol symbol = 2;
+  // Index price
+  Decimal price = 3;
+  // Timestamp of the index update
+  google.protobuf.Timestamp timestamp = 4;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 5;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 6;
+}
+
+// Candle/OHLCV data
+message Candle {
+  // Exchange providing the candle
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Start time of the candle
+  google.protobuf.Timestamp start_time = 3;
+  // End time of the candle
+  google.protobuf.Timestamp end_time = 4;
+  // Interval string (e.g., "1m", "5m", "1h")
+  string interval = 5;
+  // Number of trades (optional)
+  optional int32 trades = 6;
+  // Opening price
+  Decimal open = 7;
+  // Closing price
+  Decimal close = 8;
+  // Highest price
+  Decimal high = 9;
+  // Lowest price
+  Decimal low = 10;
+  // Volume
+  Decimal volume = 11;
+  // Whether the candle is closed
+  bool closed = 12;
+  // Timestamp when the candle data was received
+  google.protobuf.Timestamp timestamp = 13;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 14;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 15;
+}

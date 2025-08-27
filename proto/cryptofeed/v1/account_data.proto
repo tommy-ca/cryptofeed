@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package cryptofeed.v1;
+
+import "google/protobuf/timestamp.proto";
+import "cryptofeed/v1/common.proto";
+
+// Order placement request
+message OrderRequest {
+  // Exchange to place the order on
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Client order ID
+  string client_order_id = 3;
+  // Order side
+  Side side = 4;
+  // Order type
+  OrderType type = 5;
+  // Order price
+  Decimal price = 6;
+  // Order amount/quantity
+  Decimal amount = 7;
+  // Account identifier (optional)
+  optional string account = 8;
+  // Timestamp when order was created
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+// Order information/status
+message OrderInfo {
+  // Exchange hosting the order
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Exchange order ID
+  string id = 3;
+  // Client order ID (optional)
+  optional string client_order_id = 4;
+  // Order side
+  Side side = 5;
+  // Order status
+  OrderStatus status = 6;
+  // Order type
+  OrderType type = 7;
+  // Order price
+  Decimal price = 8;
+  // Original order amount
+  Decimal amount = 9;
+  // Remaining unfilled amount (optional)
+  optional Decimal remaining = 10;
+  // Account identifier (optional)
+  optional string account = 11;
+  // Timestamp of the order update
+  google.protobuf.Timestamp timestamp = 12;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 13;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 14;
+}
+
+// Account balance information
+message Balance {
+  // Exchange holding the balance
+  Exchange exchange = 1;
+  // Currency/asset
+  string currency = 2;
+  // Total balance
+  Decimal balance = 3;
+  // Reserved/locked balance (optional)
+  optional Decimal reserved = 4;
+  // Timestamp of the balance update
+  google.protobuf.Timestamp timestamp = 5;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 6;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 7;
+}
+
+// Transaction (deposit/withdrawal) information
+message Transaction {
+  // Exchange where transaction occurred
+  Exchange exchange = 1;
+  // Currency/asset
+  string currency = 2;
+  // Transaction type
+  TransactionType type = 3;
+  // Transaction status
+  TransactionStatus status = 4;
+  // Transaction amount
+  Decimal amount = 5;
+  // Transaction ID (optional)
+  optional string id = 6;
+  // Transaction fee (optional)
+  optional Decimal fee = 7;
+  // Destination address (optional)
+  optional string address = 8;
+  // Transaction hash (optional)
+  optional string tx_hash = 9;
+  // Timestamp of the transaction
+  google.protobuf.Timestamp timestamp = 10;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 11;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 12;
+}
+
+// Fill/execution information
+message Fill {
+  // Exchange where fill occurred
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Fill side
+  Side side = 3;
+  // Fill amount
+  Decimal amount = 4;
+  // Fill price
+  Decimal price = 5;
+  // Fee charged (optional)
+  optional Decimal fee = 6;
+  // Fee currency (optional)
+  optional string fee_currency = 7;
+  // Fill ID
+  string id = 8;
+  // Related order ID
+  string order_id = 9;
+  // Liquidity type
+  Liquidity liquidity = 10;
+  // Order type
+  OrderType type = 11;
+  // Account identifier (optional)
+  optional string account = 12;
+  // Timestamp of the fill
+  google.protobuf.Timestamp timestamp = 13;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 14;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 15;
+}
+
+// Position information
+message Position {
+  // Exchange holding the position
+  Exchange exchange = 1;
+  // Trading symbol
+  Symbol symbol = 2;
+  // Position size (positive for long, negative for short)
+  Decimal position = 3;
+  // Entry price
+  Decimal entry_price = 4;
+  // Position side
+  PositionSide side = 5;
+  // Unrealized PnL (optional)
+  optional Decimal unrealized_pnl = 6;
+  // Margin requirement (optional)
+  optional Decimal margin = 7;
+  // Leverage (optional)
+  optional Decimal leverage = 8;
+  // Account identifier (optional)
+  optional string account = 9;
+  // Timestamp of the position update
+  google.protobuf.Timestamp timestamp = 10;
+  // Receipt timestamp when processed
+  google.protobuf.Timestamp receipt_timestamp = 11;
+  // Raw data from the exchange (optional)
+  bytes raw_data = 12;
+}
