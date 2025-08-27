@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package cryptofeed.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "cryptofeed/v1/market_data.proto";
+import "cryptofeed/v1/account_data.proto";
+import "cryptofeed/v1/events.proto";
+
+// Kafka header key/value pair
+message KafkaHeader {
+  // Header key
+  string key = 1;
+  // Header value as raw bytes
+  bytes value = 2;
+}
+
+// Kafka record metadata commonly used by producers/consumers
+message KafkaMetadata {
+  // Topic name
+  string topic = 1;
+  // Partition number
+  int32 partition = 2;
+  // Record offset
+  int64 offset = 3;
+  // Record key as raw bytes (if present)
+  bytes key_bytes = 4;
+  // Kafka headers
+  repeated KafkaHeader headers = 5;
+  // Record timestamp (create time or log append time)
+  google.protobuf.Timestamp timestamp = 6;
+  // Additional attributes (e.g., cluster id, client id)
+  map<string, string> attributes = 7;
+}
+
+// A Kafka-wrapped event using the normalized DataFeedEvent envelope
+message KafkaDataFeedEvent {
+  // Normalized data feed event payload
+  DataFeedEvent event = 1;
+  // Kafka record metadata
+  KafkaMetadata metadata = 2;
+}
+
+// Generic Kafka record carrying any supported payload plus metadata
+message KafkaRecord {
+  // Kafka record metadata
+  KafkaMetadata metadata = 1;
+  // The payload carried in this record
+  oneof payload {
+    // Event envelope
+    DataFeedEvent event = 10;
+
+    // Market data payloads
+    // Trade execution payload
+    Trade trade = 11;
+    // Ticker/BBO payload
+    Ticker ticker = 12;
+    // L1 top-of-book payload
+    L1Book l1_book = 13;
+    // L2 order book snapshot/update payload
+    L2Book l2_book = 14;
+    // L3 order book snapshot/update payload
+    L3Book l3_book = 15;
+    // Order book delta payload
+    BookDelta book_delta = 16;
+    // Funding rate payload
+    Funding funding = 17;
+    // Open interest payload
+    OpenInterest open_interest = 18;
+    // Liquidation payload
+    Liquidation liquidation = 19;
+    // Index price payload
+    Index index = 20;
+    // Candle/OHLCV payload
+    Candle candle = 21;
+
+    // Account data payloads
+    // Order state update payload
+    OrderInfo order_info = 30;
+    // Balance update payload
+    Balance balance = 31;
+    // Account transaction payload
+    Transaction transaction = 32;
+    // Trade fill/execution payload
+    Fill fill = 33;
+    // Position update payload
+    Position position = 34;
+
+    // Extensibility hook
+    google.protobuf.Any custom_event = 99;
+  }
+}
+
