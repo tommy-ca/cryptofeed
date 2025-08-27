@@ -4,8 +4,6 @@ managed:
   override:
     - file_option: go_package_prefix
       value: github.com/your-org/cryptofeed-schemas/gen/go
-    - file_option: java_package_prefix
-      value: com.yourorg.cryptofeed.schemas
 plugins:
   # Python
   - remote: buf.build/protocolbuffers/python:v28.3
@@ -13,11 +11,8 @@ plugins:
   - remote: buf.build/protocolbuffers/pyi:v28.3
     out: gen/python
 
-  # Go
+  # Go (messages only)
   - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: gen/go
-    opt: paths=source_relative
-  - remote: buf.build/grpc/go:v1.3.0
     out: gen/go
     opt: paths=source_relative
 
@@ -26,14 +21,6 @@ plugins:
     out: gen/typescript
     opt: target=ts
 
-  # Java
-  - remote: buf.build/protocolbuffers/java:v28.3
-    out: gen/java
-
-  # C++
-  - remote: buf.build/protocolbuffers/cpp:v28.3
-    out: gen/cpp
-
-  # C#
-  - remote: buf.build/protocolbuffers/csharp:v28.3
-    out: gen/csharp
+  # Rust (prost)
+  - remote: buf.build/community/neoeinstein-prost:v0.4.0
+    out: gen/rust
