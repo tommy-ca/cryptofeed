@@ -1,0 +1,292 @@
+syntax = "proto3";
+
+package cryptofeed.v1;
+
+
+// Common enums and types used across all messages
+
+// Exchange identifiers
+enum Exchange {
+  // Unknown or unspecified exchange
+  EXCHANGE_UNSPECIFIED = 0;
+  // AscendEX spot exchange
+  EXCHANGE_ASCENDEX = 1;
+  // AscendEX futures exchange
+  EXCHANGE_ASCENDEX_FUTURES = 2;
+  // Bequant exchange
+  EXCHANGE_BEQUANT = 3;
+  // Bitfinex exchange
+  EXCHANGE_BITFINEX = 4;
+  // Bithumb exchange
+  EXCHANGE_BITHUMB = 5;
+  // BitMEX exchange
+  EXCHANGE_BITMEX = 6;
+  // Binance spot exchange
+  EXCHANGE_BINANCE = 7;
+  // Binance US spot exchange
+  EXCHANGE_BINANCE_US = 8;
+  // Binance TR spot exchange
+  EXCHANGE_BINANCE_TR = 9;
+  // Binance USDT-margined futures
+  EXCHANGE_BINANCE_FUTURES = 10;
+  // Binance coin-margined delivery
+  EXCHANGE_BINANCE_DELIVERY = 11;
+  // Bit.com exchange
+  EXCHANGE_BITDOTCOM = 12;
+  // bitFlyer exchange
+  EXCHANGE_BITFLYER = 13;
+  // Bitget exchange
+  EXCHANGE_BITGET = 14;
+  // Bitstamp exchange
+  EXCHANGE_BITSTAMP = 15;
+  // Blockchain.com exchange
+  EXCHANGE_BLOCKCHAIN = 16;
+  // Bybit exchange
+  EXCHANGE_BYBIT = 17;
+  // Coinbase exchange
+  EXCHANGE_COINBASE = 18;
+  // Crypto.com exchange
+  EXCHANGE_CRYPTODOTCOM = 19;
+  // Delta exchange
+  EXCHANGE_DELTA = 20;
+  // Deribit exchange
+  EXCHANGE_DERIBIT = 21;
+  // dYdX exchange
+  EXCHANGE_DYDX = 22;
+  // EXX exchange
+  EXCHANGE_EXX = 23;
+  // FMFW.io exchange
+  EXCHANGE_FMFW = 24;
+  // Gate.io exchange
+  EXCHANGE_GATEIO = 25;
+  // Gate.io futures
+  EXCHANGE_GATEIO_FUTURES = 26;
+  // Gemini exchange
+  EXCHANGE_GEMINI = 27;
+  // HitBTC exchange
+  EXCHANGE_HITBTC = 28;
+  // Huobi spot exchange
+  EXCHANGE_HUOBI = 29;
+  // Huobi DM derivatives
+  EXCHANGE_HUOBI_DM = 30;
+  // Huobi swap derivatives
+  EXCHANGE_HUOBI_SWAP = 31;
+  // Independent Reserve exchange
+  EXCHANGE_INDEPENDENT_RESERVE = 32;
+  // Kraken spot exchange
+  EXCHANGE_KRAKEN = 33;
+  // Kraken futures exchange
+  EXCHANGE_KRAKEN_FUTURES = 34;
+  // KuCoin exchange
+  EXCHANGE_KUCOIN = 35;
+  // OKCoin exchange
+  EXCHANGE_OKCOIN = 36;
+  // OKX exchange
+  EXCHANGE_OKX = 37;
+  // Phemex exchange
+  EXCHANGE_PHEMEX = 38;
+  // Poloniex exchange
+  EXCHANGE_POLONIEX = 39;
+  // ProBit exchange
+  EXCHANGE_PROBIT = 40;
+  // Upbit exchange
+  EXCHANGE_UPBIT = 41;
+}
+
+// Trading side
+enum Side {
+  // Unknown or unspecified side
+  SIDE_UNSPECIFIED = 0;
+  // Buy side
+  SIDE_BUY = 1;
+  // Sell side
+  SIDE_SELL = 2;
+  // Bid side (for book context)
+  SIDE_BID = 3;
+  // Ask side (for book context)
+  SIDE_ASK = 4;
+}
+
+// Order types
+enum OrderType {
+  // Unknown or unspecified order type
+  ORDER_TYPE_UNSPECIFIED = 0;
+  // Limit order (price-specified)
+  ORDER_TYPE_LIMIT = 1;
+  // Market order (immediate execution)
+  ORDER_TYPE_MARKET = 2;
+  // Stop-limit order
+  ORDER_TYPE_STOP_LIMIT = 3;
+  // Stop-market order
+  ORDER_TYPE_STOP_MARKET = 4;
+  // Maker-or-cancel (post-only)
+  ORDER_TYPE_MAKER_OR_CANCEL = 5;
+  // Fill-or-kill
+  ORDER_TYPE_FILL_OR_KILL = 6;
+  // Immediate-or-cancel
+  ORDER_TYPE_IMMEDIATE_OR_CANCEL = 7;
+  // Good-til-canceled (GTC)
+  ORDER_TYPE_GOOD_TIL_CANCELED = 8;
+  // Trigger-limit order
+  ORDER_TYPE_TRIGGER_LIMIT = 9;
+  // Trigger-market order
+  ORDER_TYPE_TRIGGER_MARKET = 10;
+  // Margin limit order
+  ORDER_TYPE_MARGIN_LIMIT = 11;
+  // Margin market order
+  ORDER_TYPE_MARGIN_MARKET = 12;
+}
+
+// Order status
+enum OrderStatus {
+  // Unknown or unspecified status
+  ORDER_STATUS_UNSPECIFIED = 0;
+  // Order is open/active
+  ORDER_STATUS_OPEN = 1;
+  // Order is pending/awaiting placement
+  ORDER_STATUS_PENDING = 2;
+  // Order fully filled
+  ORDER_STATUS_FILLED = 3;
+  // Order partially filled
+  ORDER_STATUS_PARTIAL = 4;
+  // Order cancelled
+  ORDER_STATUS_CANCELLED = 5;
+  // Order unfilled
+  ORDER_STATUS_UNFILLED = 6;
+  // Order expired
+  ORDER_STATUS_EXPIRED = 7;
+  // Order suspended
+  ORDER_STATUS_SUSPENDED = 8;
+  // Order failed
+  ORDER_STATUS_FAILED = 9;
+  // Order is being submitted
+  ORDER_STATUS_SUBMITTING = 10;
+  // Order is being cancelled
+  ORDER_STATUS_CANCELLING = 11;
+  // Order closed (terminal)
+  ORDER_STATUS_CLOSED = 12;
+}
+
+// Instrument types
+enum InstrumentType {
+  // Unknown or unspecified instrument type
+  INSTRUMENT_TYPE_UNSPECIFIED = 0;
+  // Currency (single-asset)
+  INSTRUMENT_TYPE_CURRENCY = 1;
+  // Futures contract
+  INSTRUMENT_TYPE_FUTURES = 2;
+  // Perpetual swap
+  INSTRUMENT_TYPE_PERPETUAL = 3;
+  // Option contract
+  INSTRUMENT_TYPE_OPTION = 4;
+  // Option combo/strategy
+  INSTRUMENT_TYPE_OPTION_COMBO = 5;
+  // Future combo/strategy
+  INSTRUMENT_TYPE_FUTURE_COMBO = 6;
+  // Spot instrument
+  INSTRUMENT_TYPE_SPOT = 7;
+  // Call option
+  INSTRUMENT_TYPE_CALL = 8;
+  // Put option
+  INSTRUMENT_TYPE_PUT = 9;
+  // Foreign exchange (FX)
+  INSTRUMENT_TYPE_FX = 10;
+}
+
+// Liquidity type
+enum Liquidity {
+  // Unknown or unspecified liquidity
+  LIQUIDITY_UNSPECIFIED = 0;
+  // Maker liquidity (adds to order book)
+  LIQUIDITY_MAKER = 1;
+  // Taker liquidity (removes from order book)
+  LIQUIDITY_TAKER = 2;
+}
+
+// Position side
+enum PositionSide {
+  // Unknown or unspecified position side
+  POSITION_SIDE_UNSPECIFIED = 0;
+  // Long position
+  POSITION_SIDE_LONG = 1;
+  // Short position
+  POSITION_SIDE_SHORT = 2;
+  // Both/hedged position
+  POSITION_SIDE_BOTH = 3;
+}
+
+// Transaction type
+enum TransactionType {
+  // Unknown or unspecified transaction type
+  TRANSACTION_TYPE_UNSPECIFIED = 0;
+  // Deposit transaction
+  TRANSACTION_TYPE_DEPOSIT = 1;
+  // Withdrawal transaction
+  TRANSACTION_TYPE_WITHDRAWAL = 2;
+}
+
+// Transaction status
+enum TransactionStatus {
+  // Unknown or unspecified transaction status
+  TRANSACTION_STATUS_UNSPECIFIED = 0;
+  // Transaction pending confirmation
+  TRANSACTION_STATUS_PENDING = 1;
+  // Transaction confirmed
+  TRANSACTION_STATUS_CONFIRMED = 2;
+  // Transaction failed
+  TRANSACTION_STATUS_FAILED = 3;
+}
+
+// Decimal representation for high precision numbers
+message Decimal {
+  // The decimal value as a string to preserve precision
+  string value = 1;
+}
+
+// Symbol representation
+message Symbol {
+  // Base currency (e.g., "BTC")
+  string base = 1;
+  // Quote currency (e.g., "USD")
+  string quote = 2;
+  // Full symbol string (e.g., "BTC-USD")
+  string symbol = 3;
+  // Instrument type
+  InstrumentType type = 4;
+}
+
+// Data channel types
+enum DataChannel {
+  // Unknown or unspecified channel
+  DATA_CHANNEL_UNSPECIFIED = 0;
+  // L1 top-of-book
+  DATA_CHANNEL_L1_BOOK = 1;
+  // L2 aggregated order book
+  DATA_CHANNEL_L2_BOOK = 2;
+  // L3 per-order order book
+  DATA_CHANNEL_L3_BOOK = 3;
+  // Trades (executions)
+  DATA_CHANNEL_TRADES = 4;
+  // Ticker/BBO updates
+  DATA_CHANNEL_TICKER = 5;
+  // Funding rate updates
+  DATA_CHANNEL_FUNDING = 6;
+  // Open interest updates
+  DATA_CHANNEL_OPEN_INTEREST = 7;
+  // Liquidation events
+  DATA_CHANNEL_LIQUIDATIONS = 8;
+  // Index price updates
+  DATA_CHANNEL_INDEX = 9;
+  // OHLCV candlesticks
+  DATA_CHANNEL_CANDLES = 10;
+  // Order status updates
+  DATA_CHANNEL_ORDER_INFO = 11;
+  // Account transactions (deposits/withdrawals)
+  DATA_CHANNEL_TRANSACTIONS = 12;
+  // Account balance updates
+  DATA_CHANNEL_BALANCES = 13;
+  // Order fills/executions
+  DATA_CHANNEL_FILLS = 14;
+  // Position updates
+  DATA_CHANNEL_POSITIONS = 15;
+}

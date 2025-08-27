@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package cryptofeed.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "cryptofeed/v1/common.proto";
+import "cryptofeed/v1/market_data.proto";
+import "cryptofeed/v1/account_data.proto";
+
+// Generic data feed event envelope
+message DataFeedEvent {
+  // Unique event ID
+  string event_id = 1;
+  // Data channel this event belongs to
+  DataChannel channel = 2;
+  // Exchange source
+  Exchange exchange = 3;
+  // Trading symbol (optional, may not apply to all events)
+  optional Symbol symbol = 4;
+  // Event timestamp from the exchange
+  google.protobuf.Timestamp event_timestamp = 5;
+  // Receipt timestamp when event was processed
+  google.protobuf.Timestamp receipt_timestamp = 6;
+  // Sequence number for ordering (optional)
+  optional int64 sequence_number = 7;
+  // The actual data payload
+  oneof data {
+    // Market data events
+    // Trade execution event
+    Trade trade = 10;
+    // Ticker/BBO update
+    Ticker ticker = 11;
+    // Best bid/ask snapshot (top of book)
+    L1Book l1_book = 12;
+    // Depth-of-book snapshot/update (price levels)
+    L2Book l2_book = 13;
+    // Full order book snapshot/update (per-order granularity)
+    L3Book l3_book = 14;
+    // Incremental order book delta update
+    BookDelta book_delta = 15;
+    // Funding rate update
+    Funding funding = 16;
+    // Open interest update
+    OpenInterest open_interest = 17;
+    // Liquidation event
+    Liquidation liquidation = 18;
+    // Index price update
+    Index index = 19;
+    // OHLCV candle
+    Candle candle = 20;
+    
+    // Account data events
+    // Order state change/update
+    OrderInfo order_info = 30;
+    // Account balance update
+    Balance balance = 31;
+    // Deposit/withdrawal or transfer event
+    Transaction transaction = 32;
+    // Trade fill/execution report
+    Fill fill = 33;
+    // Position state update
+    Position position = 34;
+    
+    // Extensibility hook for non-standard messages
+    google.protobuf.Any custom_event = 99;
+  }
+}
+
+// Batch of events for efficient streaming
+message DataFeedEventBatch {
+  // Batch ID
+  string batch_id = 1;
+  // Batch creation timestamp
+  google.protobuf.Timestamp batch_timestamp = 2;
+  // Events in this batch
+  repeated DataFeedEvent events = 3;
+  // Compression algorithm used (optional)
+  optional string compression = 4;
+}
+
+// Subscription request message
+message SubscriptionRequest {
+  // Subscription ID for tracking
+  string subscription_id = 1;
+  // Exchanges to subscribe to
+  repeated Exchange exchanges = 2;
+  // Symbols to subscribe to (empty means all)
+  repeated Symbol symbols = 3;
+  // Data channels to subscribe to
+  repeated DataChannel channels = 4;
+  // Start of requested time range (optional)
+  optional google.protobuf.Timestamp start_time = 5;
+  // End of requested time range (optional)
+  optional google.protobuf.Timestamp end_time = 6;
+  // Subscription options
+  map<string, string> options = 7;
+}
+
+// Subscription response message
+message SubscriptionResponse {
+  // Subscription ID
+  string subscription_id = 1;
+  // Success status
+  bool success = 2;
+  // Error message if not successful
+  optional string error_message = 3;
+  // Subscription details
+  optional SubscriptionRequest subscription_details = 4;
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// Heartbeat message for connection monitoring
+message Heartbeat {
+  // Heartbeat ID
+  string heartbeat_id = 1;
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 2;
+  // Connection status
+  bool healthy = 3;
+  // Additional status information
+  map<string, string> status = 4;
+}
+
+// Error message
+message ErrorMessage {
+  // Error code
+  string error_code = 1;
+  // Error description
+  string error_message = 2;
+  // Related subscription ID (if applicable)
+  optional string subscription_id = 3;
+  // Error timestamp
+  google.protobuf.Timestamp timestamp = 4;
+  // Additional error context
+  map<string, string> context = 5;
+}
