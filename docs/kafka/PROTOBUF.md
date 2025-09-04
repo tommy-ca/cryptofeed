@@ -80,7 +80,14 @@ def to_event(channel: common.DataChannel, d: dict) -> ev.DataFeedEvent:
     # set payload
     if channel == common.DATA_CHANNEL_TRADES:
         e.trade.CopyFrom(build_trade(d))
-    # TODO: add other channels as needed (ticker, l1_book, funding, etc.)
+    elif channel == common.DATA_CHANNEL_TICKER:
+        e.ticker.CopyFrom(build_ticker(d))
+    elif channel == common.DATA_CHANNEL_L1_BOOK:
+        e.l1_book.CopyFrom(build_l1_book(d))
+    elif channel == common.DATA_CHANNEL_L2_BOOK:
+        e.l2_book.CopyFrom(build_l2_book(d))
+    elif channel == common.DATA_CHANNEL_FUNDING:
+        e.funding.CopyFrom(build_funding(d))
     return e
 
 
@@ -119,7 +126,7 @@ fh.run()
 
 Notes
 - The Kafka backend already supports user-provided value_serializer. The example above converts backend dicts into protobuf DataFeedEvent bytes.
-- Extend to other channels by implementing builders similar to build_trade and setting the oneof field on DataFeedEvent.
+- Extended channels: Trade, Ticker, L1Book, L2Book, Funding are supported by builders and oneof assignment.
+- Headers: when wrapping in KafkaDataFeedEvent/KafkaRecord, include headers such as `schema.version` and `content.type=application/x-protobuf`.
 - For Buf Schema Registry, publish your proto module to BSR and pin versions. Consumers only need the generated code or the .proto with pinned version to decode.
 - For TypeScript/Go/Rust producers/consumers, use the generated code in gen/* from buf generate.
-

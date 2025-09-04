@@ -1,0 +1,42 @@
+name: Proto CI
+
+on:
+  push:
+    branches:
+      - feat/proto-**
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  proto-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install protobuf pytest
+
+      - name: Install Buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Buf lint and generate
+        run: |
+          buf lint
+          buf generate
+
+      - name: Run proto tests
+        env:
+          PYTHONPATH: gen/python
+        run: |
+          pytest -q tests/proto_native tests/proto_integration
+
