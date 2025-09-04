@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package cryptofeed.exchanges.bitget.v1;
+
+import "google/protobuf/timestamp.proto";
+import "cryptofeed/v1/common.proto";
+import "cryptofeed/v1/market_data.proto";
+
+// Market segment for Bitget
+enum MarketSegment {
+  // Unspecified segment; default or unknown
+  MARKET_SEGMENT_UNSPECIFIED = 0;
+  // Spot market
+  MARKET_SEGMENT_SPOT = 1;
+  // USDT-margined perpetual
+  MARKET_SEGMENT_USDT_PERP = 2;
+  // Coin-margined perpetual
+  MARKET_SEGMENT_COIN_PERP = 3;
+  // Options market
+  MARKET_SEGMENT_OPTIONS = 4;
+}
+
+// Bitget trade message
+message Trade {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1; // EXCHANGE_BITGET
+    // Market segment
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument identifier (e.g., BTCUSDT, BTCUSD)
+    // Instrument identifier
+    // Instrument identifier
+    // Instrument identifier
+  string inst_id = 3;
+    // Trade ID
+  string trade_id = 4;
+    // Trade price
+  cryptofeed.v1.Decimal price = 5;
+    // Trade size
+  cryptofeed.v1.Decimal size = 6;
+    // Side (buy/sell)
+  string side = 7;
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 8;
+    // Raw payload
+    // Raw payload
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bitget order book
+message OrderBook {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument identifier
+    // Instrument identifier
+    // Instrument identifier
+  string inst_id = 3;
+    // Bid price levels
+  repeated cryptofeed.v1.PriceLevel bids = 4;
+    // Ask price levels
+  repeated cryptofeed.v1.PriceLevel asks = 5;
+    // Sequence number (optional)
+  optional int64 seq = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bitget ticker
+message Ticker {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument identifier
+    // Instrument identifier
+    // Instrument identifier
+  string inst_id = 3;
+    // Best bid
+  cryptofeed.v1.Decimal best_bid = 4;
+    // Best ask
+  cryptofeed.v1.Decimal best_ask = 5;
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 6;
+    // Raw payload
+    // Raw payload
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bitget funding (for USDT/COIN swaps)
+message Funding {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument identifier
+    // Instrument identifier
+    // Instrument identifier
+  string inst_id = 3;
+    // Mark price (optional)
+  optional cryptofeed.v1.Decimal mark_price = 4;
+    // Funding rate (optional)
+  optional cryptofeed.v1.Decimal rate = 5;
+    // Next funding time (optional)
+  optional google.protobuf.Timestamp next_funding_time = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}

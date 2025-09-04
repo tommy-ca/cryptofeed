@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package cryptofeed.exchanges.bybit.v1;
+
+import "google/protobuf/timestamp.proto";
+import "cryptofeed/v1/common.proto";
+import "cryptofeed/v1/market_data.proto";
+
+// Market segment for Bybit
+enum MarketSegment {
+  // Unspecified segment; default or unknown
+  MARKET_SEGMENT_UNSPECIFIED = 0;
+  // Spot market
+  MARKET_SEGMENT_SPOT = 1;
+  // USDT perpetual market
+  MARKET_SEGMENT_LINEAR = 2;   // USDT perpetual
+  // Coin/inverse perpetual market
+  MARKET_SEGMENT_INVERSE = 3;  // Inverse perpetual/coin-margined
+  // Options market
+  MARKET_SEGMENT_OPTIONS = 4;
+}
+
+// Bybit public trade
+message Trade {
+    // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1; // EXCHANGE_BYBIT
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Symbol (e.g., BTCUSDT, BTCUSD, BTCUSDT.P)
+    // Symbol
+    // Symbol
+  string symbol = 3; // e.g., BTCUSDT, BTCUSD, BTCUSDT.P
+    // Trade ID
+  string trade_id = 4;
+    // Trade price
+  cryptofeed.v1.Decimal price = 5;
+    // Trade quantity
+  cryptofeed.v1.Decimal quantity = 6;
+  // Side as text (Buy/Sell) per Bybit
+  string side = 7;
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 8;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bybit order book delta/snapshot
+message OrderBook {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Symbol (e.g., BTCUSDT, BTCUSD, BTCUSDT.P)
+    // Symbol
+    // Symbol
+  string symbol = 3;
+    // Bid price levels
+  repeated cryptofeed.v1.PriceLevel bids = 4;
+    // Ask price levels
+  repeated cryptofeed.v1.PriceLevel asks = 5;
+    // Sequence number (optional)
+  optional int64 seq = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bybit ticker (BBO/24h)
+message Ticker {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Symbol (e.g., BTCUSDT, BTCUSD, BTCUSDT.P)
+    // Symbol
+    // Symbol
+  string symbol = 3;
+    // Best bid
+  cryptofeed.v1.Decimal best_bid = 4;
+    // Best ask
+  cryptofeed.v1.Decimal best_ask = 5;
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 6;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// Bybit funding (for linear/inverse swaps)
+message Funding {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Symbol (e.g., BTCUSDT, BTCUSD, BTCUSDT.P)
+    // Symbol
+    // Symbol
+  string symbol = 3;
+    // Mark price (optional)
+  optional cryptofeed.v1.Decimal mark_price = 4;
+    // Funding rate (optional)
+  optional cryptofeed.v1.Decimal rate = 5;
+    // Next funding time (optional)
+  optional google.protobuf.Timestamp next_funding_time = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}

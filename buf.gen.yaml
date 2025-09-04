@@ -20,6 +20,8 @@ plugins:
   - remote: buf.build/bufbuild/connect-es:v0.13.0
     out: gen/typescript
     opt: target=ts
+  - remote: buf.build/bufbuild/es:v2.7.0
+    out: gen
 
   # Rust (prost)
   - remote: buf.build/community/neoeinstein-prost:v0.4.0

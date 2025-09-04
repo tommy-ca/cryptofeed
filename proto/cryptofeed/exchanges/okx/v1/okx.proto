@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package cryptofeed.exchanges.okx.v1;
+
+import "google/protobuf/timestamp.proto";
+import "cryptofeed/v1/common.proto";
+import "cryptofeed/v1/market_data.proto";
+
+// Market segment for OKX
+enum MarketSegment {
+  // Unspecified segment; default or unknown
+  MARKET_SEGMENT_UNSPECIFIED = 0;
+  // Spot market
+  MARKET_SEGMENT_SPOT = 1;
+  // Futures (includes coin/USDT margined)
+  MARKET_SEGMENT_FUTURES = 2; // Includes coin/USDT margined per OKX categorization
+  // Perpetual swap
+  MARKET_SEGMENT_SWAP = 3;    // Perpetual swap
+  // Options market
+  MARKET_SEGMENT_OPTIONS = 4;
+}
+
+// OKX trade event (public trades channel)
+message Trade {
+    // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1; // EXCHANGE_OKX
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+  // Instrument ID (e.g., BTC-USDT, BTC-USD-SWAP, BTC-USD-240628-70000-C)
+    // Instrument ID (e.g., BTC-USDT, BTC-USD-SWAP)
+    // Instrument ID
+    // Instrument ID
+  string inst_id = 3;
+  // Trade ID
+  string trade_id = 4;
+  // Price and size (px, sz) as decimals
+  cryptofeed.v1.Decimal price = 5;
+    // Trade size
+  cryptofeed.v1.Decimal size = 6;
+  // Side: buy/sell as text from OKX
+  string side = 7;
+  // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 8;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// OKX tickers channel
+message Ticker {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument ID (e.g., BTC-USDT, BTC-USD-SWAP)
+    // Instrument ID
+    // Instrument ID
+  string inst_id = 3;
+    // Best bid
+  cryptofeed.v1.Decimal best_bid = 4;
+    // Best ask
+  cryptofeed.v1.Decimal best_ask = 5;
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 6;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// OKX order book (depth) snapshot/delta
+message OrderBook {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+  MarketSegment segment = 2;
+    // Instrument ID (e.g., BTC-USDT, BTC-USD-SWAP)
+    // Instrument ID
+    // Instrument ID
+  string inst_id = 3;
+    // Bid price levels
+  repeated cryptofeed.v1.PriceLevel bids = 4;
+    // Ask price levels
+  repeated cryptofeed.v1.PriceLevel asks = 5;
+    // Sequence ID (optional)
+  optional int64 seq_id = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}
+
+// OKX funding rate
+message Funding {
+  // Exchange identifier
+  cryptofeed.v1.Exchange exchange = 1;
+    // Market segment
+    // Market segment
+    // Market segment (SWAP only)
+  MarketSegment segment = 2; // SWAP only
+    // Instrument ID (e.g., BTC-USDT, BTC-USD-SWAP)
+    // Instrument ID
+    // Instrument ID
+  string inst_id = 3;
+    // Mark price (optional)
+  optional cryptofeed.v1.Decimal mark_price = 4;
+    // Funding rate (optional)
+  optional cryptofeed.v1.Decimal rate = 5;
+    // Next funding time (optional)
+  optional google.protobuf.Timestamp next_funding_time = 6;
+    // Event timestamp
+    // Event timestamp
+  google.protobuf.Timestamp event_timestamp = 7;
+    // Raw payload
+    // Raw payload
+  bytes raw_data = 20;
+}

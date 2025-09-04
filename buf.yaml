@@ -1,6 +1,7 @@
 version: v2
 modules:
   - path: proto
+    name: buf.build/tommyk/cryptofeed-schemas
 deps:
   - buf.build/googleapis/googleapis
 breaking:
