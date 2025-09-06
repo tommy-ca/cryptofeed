@@ -18,6 +18,8 @@ help:
 	@echo "  test        - Run adapter tests"
 	@echo "  build       - Lint and generate code"
 	@echo "  breaking    - Check for breaking changes"
+	@echo "  bsr-login   - Login to Buf Schema Registry"
+	@echo "  publish-tag - Publish to BSR with schema git tag"
 
 # Install Buf CLI
 install:
@@ -50,6 +52,15 @@ push:
 breaking:
 	@echo "Checking for breaking changes..."
 	@buf breaking --against '.git#branch=main'
+
+# Buf Registry login (interactive)
+bsr-login:
+	@buf registry login
+
+# Publish using CI-like tag naming (schema-vX.Y.Z)
+publish-tag:
+	@if [ -z "$(TAG)" ]; then echo "Usage: make publish-tag TAG=schema-v1.0.0"; exit 1; fi
+	@V=$${TAG#schema-}; echo "Publishing to BSR with version $$V"; buf push --tag $$V
 
 # Clean generated code
 clean:

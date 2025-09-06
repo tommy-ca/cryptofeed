@@ -43,10 +43,10 @@ Cycle D (Sprint 4) — BSR Integration
   - [ ] Ensure BSR repo exists (buf.build/tommyk/cryptofeed-schemas) and permissions set.
   - [ ] Add `BUF_TOKEN` secret in GitHub.
 - Process
-  - [ ] Document release tag policy (`schema-vMAJOR.MINOR.PATCH`).
+  - [x] Document release tag policy (`schema-vMAJOR.MINOR.PATCH`).
   - [ ] Dry-run first publish (`buf push` without tag), then tag `schema-vX.Y.Z` and verify CI publish.
 - Consumers
-  - [ ] Document consumer setup (`buf dep add buf.build/tommyk/cryptofeed-schemas`).
+  - [x] Document consumer setup (`buf dep add buf.build/tommyk/cryptofeed-schemas`).
   - [ ] Add example consumer snippet in Python/Go/TS.
   - [ ] Add size/headers regression check for Kafka wrappers (extend existing test with tighter thresholds per message type).
 - Kafka/Protobuf

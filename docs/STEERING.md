@@ -85,3 +85,9 @@ CI Additions:
 - [x] Breaking check against main
 - [x] Run lakehouse schema contract tests on proto/lakehouse changes
 - [x] Add BSR publish workflow on `schema-v*` tags with BUF_TOKEN auth
+
+Buf/BSR Status:
+- [x] Developer quickstart documented (BSR_QUICKSTART.md)
+- [x] Local + CI workflows documented (BSR_WORKFLOW.md)
+- [ ] BUF_TOKEN secret added to repo (ops)
+- [ ] First schema publish dry-run and tag release

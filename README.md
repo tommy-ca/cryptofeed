@@ -196,3 +196,5 @@ Support and donations are appreciated but not required. You can donate via [GitH
 For contributors and AI agents working in this repository, please see:
 - AGENTS.md — shared engineering principles, invariants, and TDD/spec workflows.
 - CLAUDE.md — a concise, Claude-oriented summary linked back to AGENTS.md.
+- BSR_QUICKSTART.md — how to authenticate, lint/build, generate, and publish to Buf Schema Registry.
+- BSR_WORKFLOW.md — local and CI workflows, versioning/tagging policy, and consumer guidance.
