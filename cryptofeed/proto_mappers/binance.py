@@ -33,6 +33,10 @@ def _instrument_type_from_segment(common, segment):
 def _symbol_from_native(common, cmn, native_symbol: str, segment):
     base, quote = util.split_base_quote_concat(native_symbol)
     sym = common.Symbol()
+    # For options on Binance, symbols do not follow base-quote concatenation.
+    # Avoid over-normalizing: leave base/quote empty when no quote can be parsed.
+    if int(segment) == 4 and not quote:
+        base, quote = "", ""
     sym.base = base
     sym.quote = quote
     sym.symbol = f"{base}-{quote}" if quote else native_symbol

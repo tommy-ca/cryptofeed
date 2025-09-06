@@ -23,6 +23,10 @@ Tagging Guidelines
 Release Steps
 1) Update protos/specs; run `buf lint` and `buf breaking`.
 2) Run `buf generate` and ensure language stubs compile where applicable.
-3) Create a new tag and push: `make push TAG=v1.0.x`.
+3) Tag and push to BSR:
+   - Local: `make push TAG=v1.0.0` (uses `buf push --tag v1.0.0`).
+   - CI: push a git tag (e.g., `schema-v1.0.0`) to trigger `bsr-publish.yml`.
 4) Update producers/consumers to pin the new version as needed.
 
+Quickstart
+- See `docs/BSR_QUICKSTART.md` for a concise step-by-step.

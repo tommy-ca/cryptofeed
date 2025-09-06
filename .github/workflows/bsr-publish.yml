@@ -1,0 +1,48 @@
+name: Publish Schemas to BSR
+
+on:
+  push:
+    tags:
+      - 'schema-v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Validate token
+        run: |
+          if [ -z "$BUF_TOKEN" ]; then echo "BUF_TOKEN not set; skipping publish." && exit 78; fi
+
+      - name: Lint & Build
+        run: |
+          buf lint
+          buf build
+
+      - name: Breaking check (against main)
+        run: |
+          git fetch --no-tags --prune origin +refs/heads/main:refs/heads/main
+          buf breaking --against '.git#branch=main'
+
+      - name: Generate and check drift
+        run: |
+          buf generate
+          git add -A
+          git diff --cached --exit-code || (echo "Generated code drift detected. Commit generated code before tagging." && exit 1)
+
+      - name: Push to BSR with tag
+        run: |
+          TAG=${GITHUB_REF_NAME#schema-}
+          echo "Pushing schemas with tag $TAG"
+          buf push --tag "$TAG"
+

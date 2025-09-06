@@ -72,3 +72,6 @@ def test_ticker_l2_param(ex, pb2_path, mapper_mod, ticker_ctor, book_ctor):
     l2 = getattr(mapper, 'to_common_l2_from_depth', None)
     l2 = l2(b_native, md) if l2 and b_native.__class__.__name__ == 'DepthUpdate' else mapper.to_common_l2_from_orderbook(b_native, md)
     assert l2.bids and l2.asks and l2.bids[0].price.value == '1' and l2.asks[0].size.value == '4'
+    # raw_data propagation if present on native book
+    if hasattr(b_native, 'raw_data'):
+        assert getattr(l2, 'raw_data', None) == b_native.raw_data

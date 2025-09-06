@@ -157,7 +157,10 @@ class Coinbase(Feed, CoinbaseRestMixin):
                         for trade in event['trades']:
                             await self._trade_update(trade, timestamp)
                     else:
-                        pass  # TODO: do we want to implement trades snapshots?
+                        # Handle trade snapshots by emitting each trade
+                        if 'trades' in event:
+                            for trade in event['trades']:
+                                await self._trade_update(trade, timestamp)
                 elif msg['channel'] == 'l2_data':
                     if event.get('type') == 'update':
                         await self._pair_level2_update(event, timestamp, msg['timestamp'])

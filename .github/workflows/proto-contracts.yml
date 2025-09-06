@@ -1,0 +1,49 @@
+name: Proto Schema Contracts
+
+on:
+  pull_request:
+    paths:
+      - 'proto/**'
+      - 'docs/lakehouse/**'
+      - 'lakehouse/**'
+      - 'tests/proto_integration/test_lakehouse_schema_contract.py'
+  push:
+    branches: [ main ]
+    paths:
+      - 'proto/**'
+      - 'docs/lakehouse/**'
+      - 'lakehouse/**'
+      - 'tests/proto_integration/test_lakehouse_schema_contract.py'
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest protobuf
+
+      - name: Install Buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Generate protos
+        run: |
+          buf generate
+
+      - name: Run schema contract tests
+        env:
+          PYTHONPATH: gen/python
+        run: |
+          pytest -q tests/proto_integration/test_lakehouse_schema_contract.py
+

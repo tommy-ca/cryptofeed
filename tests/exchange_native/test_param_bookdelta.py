@@ -53,12 +53,22 @@ def build_bitget(pb2, md):
     ob.asks.append(_build_pl(md,'101','0'))
     return ob
 
+def build_binance(pb2, md):
+    ob = pb2.DepthUpdate(symbol='BTCUSDT')
+    lvlb = md.PriceLevel(); lvlb.price.value='100'; lvlb.size.value='1.1'
+    lvla = md.PriceLevel(); lvla.price.value='101'; lvla.size.value='0'
+    ob.bids.append(lvlb); ob.asks.append(lvla)
+    ob.final_update_id = 42
+    return ob
+
+
 @pytest.mark.parametrize(
     'mapper_mod, pb2_path, builder, mapper_fn_name',
     [
         ('cryptofeed.proto_mappers.okx', 'gen/python/cryptofeed/exchanges/okx/v1/okx_pb2.py', build_okx, 'to_common_book_delta'),
         ('cryptofeed.proto_mappers.bybit', 'gen/python/cryptofeed/exchanges/bybit/v1/bybit_pb2.py', build_bybit, 'to_common_book_delta'),
         ('cryptofeed.proto_mappers.bitget', 'gen/python/cryptofeed/exchanges/bitget/v1/bitget_pb2.py', build_bitget, 'to_common_book_delta'),
+        ('cryptofeed.proto_mappers.binance', 'gen/python/cryptofeed/exchanges/binance/v1/binance_pb2.py', build_binance, 'to_common_book_delta_from_depth'),
     ],
 )
 def test_param_bookdelta(mapper_mod, pb2_path, builder, mapper_fn_name):

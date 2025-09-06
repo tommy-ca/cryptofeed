@@ -26,5 +26,7 @@ def test_bybit_funding():
 
     native = y.Funding(symbol='BTCUSDT'); native.segment = y.MARKET_SEGMENT_LINEAR
     native.rate.value = '0.0002'
+    native.raw_data = b'raw-bybit-funding'
     out = mapper.to_common_funding(native, md)
     assert out.rate.value == '0.0002'
+    assert out.raw_data == native.raw_data

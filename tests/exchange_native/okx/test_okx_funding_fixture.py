@@ -12,5 +12,7 @@ def test_okx_funding_fixture():
     data = json.load(open(os.path.join(ROOT,'tests/fixtures/exchange-native/okx/funding_swap.json')))
     native = o.Funding(inst_id=data['instId']); native.segment = o.MARKET_SEGMENT_SWAP
     native.rate.value = data['fundingRate']
+    native.raw_data = json.dumps(data).encode()
     out = mapper.to_common_funding(native, md)
     assert out.rate.value == data['fundingRate']
+    assert out.raw_data == native.raw_data

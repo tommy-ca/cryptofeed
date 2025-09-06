@@ -22,5 +22,7 @@ def test_bitget_funding():
 
     native = g.Funding(inst_id='BTCUSDT'); native.segment = g.MARKET_SEGMENT_USDT_PERP
     native.rate.value = '0.0003'
+    native.raw_data = b'raw-bitget-funding'
     out = mapper.to_common_funding(native, md)
     assert out.rate.value == '0.0003'
+    assert out.raw_data == native.raw_data

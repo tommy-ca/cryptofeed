@@ -190,3 +190,9 @@ Support and donations are appreciated but not required. You can donate via [GitH
 
 * Bitcoin: bc1qm0kxz8hqacaglku5fjhfe9a5hjnuyfwk02lsyr
 * Ethereum: 0x690709FEe13eEce9E7852089BB2D53Ae5D073154
+
+## Contributor Guides
+
+For contributors and AI agents working in this repository, please see:
+- AGENTS.md — shared engineering principles, invariants, and TDD/spec workflows.
+- CLAUDE.md — a concise, Claude-oriented summary linked back to AGENTS.md.

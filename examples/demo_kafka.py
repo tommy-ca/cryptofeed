@@ -4,6 +4,7 @@ Copyright (C) 2018-2025 Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import os
 from typing import Optional
 from cryptofeed import FeedHandler
 from cryptofeed.backends.kafka import BookKafka, TradeKafka
@@ -31,19 +32,38 @@ class CustomTradeKafka(TradeKafka):
     def partition_key(self, data: dict) -> Optional[bytes]:
         return f"{data['symbol']}".encode('utf-8')
 
-
-def main():
+def build_callbacks(use_protobuf_serializer: bool = False):
     common_kafka_config = {
         'bootstrap_servers': '127.0.0.1:9092',
         'acks': 1,
         'request_timeout_ms': 10000,
         'connections_max_idle_ms': 20000,
     }
+
+    if use_protobuf_serializer:
+        # Lazily import to avoid requiring generated modules unless requested.
+        # Fallback to a simple bytes serializer if protobuf modules are unavailable.
+        try:
+            from cryptofeed.v1 import common_pb2 as common  # type: ignore
+            from examples.kafka_protobuf_serializer import make_value_serializer
+            serializer = make_value_serializer(common.DATA_CHANNEL_TRADES)
+        except Exception:  # pragma: no cover - fallback path
+            def serializer(d: dict) -> bytes:
+                return repr(d).encode()
+        common_kafka_config = {**common_kafka_config, 'value_serializer': serializer}
+
+    callbacks = {
+        TRADES: CustomTradeKafka(client_id='Coinbase Trades', **common_kafka_config),
+        L2_BOOK: BookKafka(client_id='Coinbase Book', **{k: v for k, v in common_kafka_config.items() if k != 'value_serializer'}),
+    }
+    return callbacks
+
+
+def main():
+    use_proto = os.environ.get('KAFKA_PROTOBUF', '0') == '1'
     f = FeedHandler({'log': {'filename': 'feedhandler.log', 'level': 'INFO'}})
-    cbs = {TRADES: CustomTradeKafka(client_id='Coinbase Trades', **common_kafka_config), L2_BOOK: BookKafka(client_id='Coinbase Book', **common_kafka_config)}
-
+    cbs = build_callbacks(use_protobuf_serializer=use_proto)
     f.add_feed(Coinbase(max_depth=10, channels=[TRADES, L2_BOOK], symbols=['BTC-USD'], callbacks=cbs))
-
     f.run()
 
 
