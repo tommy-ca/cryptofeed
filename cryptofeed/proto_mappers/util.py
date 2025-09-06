@@ -2,7 +2,14 @@ from typing import Tuple, Any
 
 BASE_KNOWN_QUOTES = (
     "USDT", "USD", "USDC", "BUSD", "FDUSD", "TUSD",
-    "BTC", "ETH", "EUR", "GBP", "JPY", "AUD", "CAD"
+    "USDD", "USTC", "DAI",
+    "EUR", "GBP", "JPY", "AUD", "CAD",
+    "BRL", "TRY", "CHF", "HKD", "SGD", "ZAR", "PLN", "SEK", "NOK", "DKK",
+    "MXN", "ARS", "RUB", "CZK", "HUF",
+    # Binance local fiat tokens
+    "BIDR", "BVND", "BKRW",
+    # Some exchanges list BTC/ETH quoted markets; include to avoid mis-split when base is longer
+    "BTC", "ETH"
 )
 # Prefer longer matches first to avoid partial suffix collisions (e.g., FDUSD vs USD)
 KNOWN_QUOTES = tuple(sorted(BASE_KNOWN_QUOTES, key=len, reverse=True))

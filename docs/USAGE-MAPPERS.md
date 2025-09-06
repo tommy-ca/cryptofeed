@@ -25,6 +25,10 @@ common_trade = reg.map(native, md)
 - Book/L2/BookDelta/Funding are supported via per-exchange mapping functions.
 - `raw_data` on native messages is preserved in the normalized message where applicable.
 
+Notes:
+- The registry now matches on protobuf `DESCRIPTOR.full_name` (e.g., `cryptofeed.exchanges.binance.v1.Trade`), so it works whether your pb2 modules are imported normally or via file loaders in tests.
+- When using the test helper `load_pb2`, import `default_registry()` before the helper injects a shadow `cryptofeed` package to keep source mappers importable (see `tests/exchange_native/test_registry_fullname.py`).
+
 ## Notes
 - Options instruments are mapped to `InstrumentType.OPTION`. Strike/expiry parsing is intentionally out of scope for now.
 - Symbol parsing uses simple heuristics; consider metadata-driven parsing in upstream feeds for edge cases.

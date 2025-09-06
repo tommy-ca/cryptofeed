@@ -23,31 +23,22 @@ enum MarketSegment {
 // Bitget trade message
 message Trade {
   // Exchange identifier
-  cryptofeed.v1.Exchange exchange = 1; // EXCHANGE_BITGET
-    // Market segment
-    // Market segment
-    // Market segment
-    // Market segment
+  cryptofeed.v1.Exchange exchange = 1;
+  // Market segment
   MarketSegment segment = 2;
-    // Instrument identifier (e.g., BTCUSDT, BTCUSD)
-    // Instrument identifier
-    // Instrument identifier
-    // Instrument identifier
+  // Instrument identifier (e.g., BTCUSDT, BTCUSD)
   string inst_id = 3;
-    // Trade ID
+  // Trade ID
   string trade_id = 4;
-    // Trade price
+  // Trade price
   cryptofeed.v1.Decimal price = 5;
-    // Trade size
+  // Trade size
   cryptofeed.v1.Decimal size = 6;
-    // Side (buy/sell)
+  // Side (buy/sell)
   string side = 7;
-    // Event timestamp
+  // Event timestamp
   google.protobuf.Timestamp event_timestamp = 8;
-    // Raw payload
-    // Raw payload
-    // Raw payload
-    // Raw payload
+  // Raw payload
   bytes raw_data = 20;
 }
 
@@ -55,28 +46,19 @@ message Trade {
 message OrderBook {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment
-    // Market segment
-    // Market segment
-    // Market segment
+  // Market segment
   MarketSegment segment = 2;
-    // Instrument identifier
-    // Instrument identifier
-    // Instrument identifier
+  // Instrument identifier
   string inst_id = 3;
-    // Bid price levels
+  // Bid price levels
   repeated cryptofeed.v1.PriceLevel bids = 4;
-    // Ask price levels
+  // Ask price levels
   repeated cryptofeed.v1.PriceLevel asks = 5;
-    // Sequence number (optional)
+  // Sequence number (optional)
   optional int64 seq = 6;
-    // Event timestamp
-    // Event timestamp
+  // Event timestamp
   google.protobuf.Timestamp event_timestamp = 7;
-    // Raw payload
-    // Raw payload
-    // Raw payload
-    // Raw payload
+  // Raw payload
   bytes raw_data = 20;
 }
 
@@ -84,25 +66,17 @@ message OrderBook {
 message Ticker {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment
-    // Market segment
-    // Market segment
-    // Market segment
+  // Market segment
   MarketSegment segment = 2;
-    // Instrument identifier
-    // Instrument identifier
-    // Instrument identifier
+  // Instrument identifier
   string inst_id = 3;
-    // Best bid
+  // Best bid
   cryptofeed.v1.Decimal best_bid = 4;
-    // Best ask
+  // Best ask
   cryptofeed.v1.Decimal best_ask = 5;
-    // Event timestamp
+  // Event timestamp
   google.protobuf.Timestamp event_timestamp = 6;
-    // Raw payload
-    // Raw payload
-    // Raw payload
-    // Raw payload
+  // Raw payload
   bytes raw_data = 20;
 }
 
@@ -110,27 +84,18 @@ message Ticker {
 message Funding {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment
-    // Market segment
-    // Market segment
-    // Market segment
+  // Market segment
   MarketSegment segment = 2;
-    // Instrument identifier
-    // Instrument identifier
-    // Instrument identifier
+  // Instrument identifier
   string inst_id = 3;
-    // Mark price (optional)
+  // Mark price (optional)
   optional cryptofeed.v1.Decimal mark_price = 4;
-    // Funding rate (optional)
+  // Funding rate (optional)
   optional cryptofeed.v1.Decimal rate = 5;
-    // Next funding time (optional)
+  // Next funding time (optional)
   optional google.protobuf.Timestamp next_funding_time = 6;
-    // Event timestamp
-    // Event timestamp
+  // Event timestamp
   google.protobuf.Timestamp event_timestamp = 7;
-    // Raw payload
-    // Raw payload
-    // Raw payload
-    // Raw payload
+  // Raw payload
   bytes raw_data = 20;
 }

@@ -9,12 +9,15 @@ Two approaches
 Recommended
 - Use DataFeedEvent for maximum flexibility and consistency across channels.
 
-Topic conventions
-- Channel-specific: cryptofeed.<channel>
-- Multi-channel: cryptofeed.events
-
-Keys
-- Suggested: symbol or event_id depending on ordering needs. For per-symbol partitioning, use symbol.
+Topic & partitioning conventions
+- Channel-specific topics (recommended for downstream ACLs and retention): `cryptofeed.<channel>`
+  - Examples: `cryptofeed.trades`, `cryptofeed.ticker`, `cryptofeed.l1_book`, `cryptofeed.l2_book`, `cryptofeed.funding`
+- Multi-channel (single topic) for simple consumers: `cryptofeed.events`
+- Partition key strategy:
+  - Use `symbol` to maintain per-symbol ordering (e.g., BTC-USDT always goes to the same partition)
+  - Use `event_id` for globally unique events when symbol is not defined
+  - For high-throughput L2 streams, consider composite keys (e.g., `f"{exchange}:{symbol}"`)
+  - Configure producer `linger_ms` and `batch_size` to balance latency vs throughput
 
 Setup
 - Generate Python code from proto via `buf generate` (already configured to output to gen/python).
@@ -127,6 +130,6 @@ fh.run()
 Notes
 - The Kafka backend already supports user-provided value_serializer. The example above converts backend dicts into protobuf DataFeedEvent bytes.
 - Extended channels: Trade, Ticker, L1Book, L2Book, Funding are supported by builders and oneof assignment.
-- Headers: when wrapping in KafkaDataFeedEvent/KafkaRecord, include headers such as `schema.version` and `content.type=application/x-protobuf`.
+- Headers: when wrapping in KafkaDataFeedEvent/KafkaRecord, include headers such as `schema.version`, `content.type=application/x-protobuf`, and optionally `channel` and `exchange` for filtering.
 - For Buf Schema Registry, publish your proto module to BSR and pin versions. Consumers only need the generated code or the .proto with pinned version to decode.
 - For TypeScript/Go/Rust producers/consumers, use the generated code in gen/* from buf generate.

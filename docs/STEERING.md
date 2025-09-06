@@ -59,35 +59,15 @@ Validation:
 
 
 
-Priorities (Next 1–2 cycles):
-- Cycle A (Sprint 1)
-  - [x] Add raw_data asserts for remaining funding channels.
-  - [x] Binance: add CM aggTrade fixture + test; document options coverage status.
-  - [x] OKX: add BookDelta incremental fixture + test; confirm options trade side semantics (pending doc/test).
-  - [x] Parametrize cross-exchange tests for ticker + L2 + BookDelta; consolidate helpers (DRY).
-- Cycle B (Sprint 2)
-  - [x] Bybit inverse funding fixture + test; [x] Bitget coin-perp funding fixture + test.
-  - [x] Add sequence ordering checks across all four exchanges using fixtures.
-  - [x] Re-enable strict proto COMMENTS lint as annotations are added.
-
-Cycle C
-- CI: add `buf breaking --against .git#branch=main` gate; fail on breaking changes.
-- Options: Binance basic fixtures (Ticker/Trade) added; OKX side semantics covered with tests; docs note exchange-specific option symbol handling.
-
--Parametrized cross-exchange tests:
-- [x] Ticker/L2 basic mapping with raw_data
-- [x] BookDelta mapping across OKX/Bybit/Bitget
-- [x] Binance UM BookDelta + aggTrade fixture
-- [x] Binance CM aggTrade; incremental deltas from public docs
-
-CI Additions:
-- [x] Enforce buf lint + generate; fail on codegen drift
-- [x] Breaking check against main
-- [x] Run lakehouse schema contract tests on proto/lakehouse changes
-- [x] Add BSR publish workflow on `schema-v*` tags with BUF_TOKEN auth
-
-Buf/BSR Status:
-- [x] Developer quickstart documented (BSR_QUICKSTART.md)
-- [x] Local + CI workflows documented (BSR_WORKFLOW.md)
-- [ ] BUF_TOKEN secret added to repo (ops)
-- [ ] First schema publish dry-run and tag release
+Priorities (Next 1–2 cycles)
+- Cycle D (hardening/proto ops)
+  - [x] Enforce buf lint + generate; fail on codegen drift.
+  - [x] Breaking check against main; lakehouse schema contract tests in CI.
+  - [ ] BUF_TOKEN secret added; dry-run and first tagged publish.
+- Cycle E (registry & packaging)
+  - [x] Fix mapper registry packaging: avoid collision with runtime modules (cryptofeed.exchanges.*) and support generated pb2 discovery in monorepo tests via protobuf full_name matching.
+  - [x] Update usage docs with descriptor-based registry and test helper note.
+  - [x] Add pytest covering registry mapping across exchanges: `tests/exchange_native/test_registry_fullname.py`.
+- Cycle F (symbol parsing & docs)
+  - [x] Extend util.KNOWN_QUOTES set with common fiat/stable additions; add curated tests.
+  - [ ] Trim duplicated proto comments; gradually re‑enable strict COMMENTS lint.

@@ -48,10 +48,23 @@ Cycle D (Sprint 4) — BSR Integration
 - Consumers
   - [x] Document consumer setup (`buf dep add buf.build/tommyk/cryptofeed-schemas`).
   - [ ] Add example consumer snippet in Python/Go/TS.
-  - [ ] Add size/headers regression check for Kafka wrappers (extend existing test with tighter thresholds per message type).
+  - [x] Add size/headers regression check for Kafka wrappers (extend existing test with tighter thresholds per message type).
 - Kafka/Protobuf
-  - [ ] Example: show wiring `value_serializer` in `examples/demo_kafka.py` using `examples/kafka_protobuf_serializer.py`.
-  - [ ] Document topic/partitioning conventions and headers in Kafka guide (done for envelope; expand channel-specific usage).
+  - [x] Example: show wiring `value_serializer` in `examples/demo_kafka.py` using `examples/kafka_protobuf_serializer.py`.
+  - [x] Document topic/partitioning conventions and headers in Kafka guide (expanded per-channel usage).
+
+Cycle E (Sprint 5) — Registry & Packaging
+- Mapper Registry
+  - [x] Redesign `default_registry()` to avoid package-name conflicts with runtime modules (e.g., `cryptofeed.exchanges.binance` vs generated `cryptofeed.exchanges.binance.v1`).
+  - [x] Match on protobuf `DESCRIPTOR.full_name` so tests using file loaders (`_pb2`) resolve; avoid importing pb2s by package path.
+  - [x] Acceptance: Example in `docs/USAGE-MAPPERS.md` runs; pytest added: `tests/exchange_native/test_registry_fullname.py`.
+- Docs
+  - [x] Update `USAGE-MAPPERS.md` to document descriptor-based registry and test helper note.
+- Symbol Parsing
+  - [x] Extend known quote list (util.KNOWN_QUOTES) with common fiat/stable variants (TRY, BRL, DAI, BIDR, BVND, USDD, USTC, etc.).
+  - [x] Add extended test cases (no network): `tests/exchange_native/test_symbol_parsing_extended.py`.
+- CI/Release
+  - [ ] Add BUF_TOKEN secret and perform a publish dry-run, then a tagged release (`schema-vX.Y.Z`); document outcome in BSR_WORKFLOW.
 
 Acceptance
 - `raw_data` preserved on all channels and asserted in tests.

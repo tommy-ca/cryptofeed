@@ -24,12 +24,9 @@ enum MarketSegment {
 message Trade {
   // Exchange identifier (BINANCE, BINANCE_FUTURES, BINANCE_DELIVERY)
   cryptofeed.v1.Exchange exchange = 1;
-  // Market segment
-    // Market segment (spot/um/cm/options)
+  // Market segment (spot/um/cm/options)
   MarketSegment segment = 2;
-  // Symbol (as on Binance, e.g., BTCUSDT)
-    // Symbol as listed on Binance (e.g., BTCUSDT)
-    // Symbol as listed on Binance (e.g., BTCUSDT)
+  // Symbol as listed on Binance (e.g., BTCUSDT)
   string symbol = 3;
   // Trade ID (e.g., t or a for aggTrade)
   string trade_id = 4;
@@ -40,11 +37,8 @@ message Trade {
   // Is buyer the market maker (m)
   bool is_buyer_maker = 7;
   // Event timestamp from exchange (E/T)
-    // Event timestamp from exchange
-    // Event timestamp from exchange
   google.protobuf.Timestamp event_timestamp = 8;
   // Raw JSON payload from the exchange (optional)
-    // Raw JSON payload, if available
   bytes raw_data = 20;
 }
 
@@ -52,23 +46,21 @@ message Trade {
 message BookTicker {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment (spot/um/cm/options)
+  // Market segment (spot/um/cm/options)
   MarketSegment segment = 2;
-    // Symbol as listed on Binance (e.g., BTCUSDT)
-    // Symbol as listed on Binance (e.g., BTCUSDT)
+  // Symbol as listed on Binance (e.g., BTCUSDT)
   string symbol = 3;
   // Best bid price/qty
   cryptofeed.v1.Decimal bid_price = 4;
-    // Best bid quantity
+  // Best bid quantity
   cryptofeed.v1.Decimal bid_qty = 5;
   // Best ask price/qty
   cryptofeed.v1.Decimal ask_price = 6;
-    // Best ask quantity
+  // Best ask quantity
   cryptofeed.v1.Decimal ask_qty = 7;
-    // Event timestamp from exchange
-    // Event timestamp from exchange
+  // Event timestamp from exchange
   google.protobuf.Timestamp event_timestamp = 8;
-    // Raw JSON payload, if available
+  // Raw JSON payload, if available
   bytes raw_data = 20;
 }
 
@@ -76,23 +68,21 @@ message BookTicker {
 message DepthUpdate {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment (spot/um/cm/options)
+  // Market segment (spot/um/cm/options)
   MarketSegment segment = 2;
-    // Symbol as listed on Binance (e.g., BTCUSDT)
-    // Symbol as listed on Binance (e.g., BTCUSDT)
+  // Symbol as listed on Binance (e.g., BTCUSDT)
   string symbol = 3;
   // First and last update IDs (U/u) if provided
   optional int64 first_update_id = 4;
-    // Final update ID (u)
+  // Final update ID (u)
   optional int64 final_update_id = 5;
   // Bids/asks [price, qty]
   repeated cryptofeed.v1.PriceLevel bids = 6;
-    // Ask side levels
+  // Ask side levels
   repeated cryptofeed.v1.PriceLevel asks = 7;
-    // Event timestamp from exchange
-    // Event timestamp from exchange
+  // Event timestamp from exchange
   google.protobuf.Timestamp event_timestamp = 8;
-    // Raw JSON payload, if available
+  // Raw JSON payload, if available
   bytes raw_data = 20;
 }
 
@@ -100,21 +90,19 @@ message DepthUpdate {
 message Funding {
   // Exchange identifier
   cryptofeed.v1.Exchange exchange = 1;
-    // Market segment (spot/um/cm/options)
-    // Market segment (FUTURES_UM or FUTURES_CM)
-  MarketSegment segment = 2; // FUTURES_UM or FUTURES_CM
-    // Symbol as listed on Binance (e.g., BTCUSDT)
-    // Symbol as listed on Binance (e.g., BTCUSDT)
+  // Market segment (FUTURES_UM or FUTURES_CM)
+  MarketSegment segment = 2;
+  // Symbol as listed on Binance (e.g., BTCUSDT)
   string symbol = 3;
   // Current/next funding information
-    // Mark price used for funding calculations (optional)
+  // Mark price used for funding calculations (optional)
   optional cryptofeed.v1.Decimal mark_price = 4;
-    // Current funding rate (optional)
+  // Current funding rate (optional)
   optional cryptofeed.v1.Decimal rate = 5;
-    // Next funding timestamp (optional)
+  // Next funding timestamp (optional)
   optional google.protobuf.Timestamp next_funding_time = 6;
-    // Event timestamp from exchange
+  // Event timestamp from exchange
   google.protobuf.Timestamp event_timestamp = 7;
-    // Raw JSON payload, if available
+  // Raw JSON payload, if available
   bytes raw_data = 20;
 }
