@@ -26,6 +26,16 @@ CI Workflows (GitHub Actions)
 - Proto CI: lint, generate (fail on drift), breaking check, proto tests.
 - Lakehouse contracts CI: runs schema contract tests when proto/lakehouse change.
 - BSR publish: on `schema-v*` tags, runs lint, build, breaking, codegen drift gate, then `buf push --tag <version>`.
+  - Also supports `workflow_dispatch` with inputs: `version`, `dry_run`, `create`, and `visibility`.
+  - Dry-run mode executes all checks and skips push.
+  - `create=true` allows creating the module on first publish (default `private` visibility).
+
+BSR Smoke Test
+- Workflow: `BSR Smoke Test` (`.github/workflows/bsr-smoke.yml`)
+- Runs on `workflow_dispatch` and validates:
+  - BUF_TOKEN presence
+  - `buf registry whoami buf.build`
+  - `buf lint`, `buf build`, and `buf generate`
 
 Tagging Guidelines
 - Use semver-like tags per module lifecycle; do not reuse tags.
@@ -38,7 +48,9 @@ Release Steps
 2) Run `buf generate` and ensure language stubs compile where applicable (no drift).
 3) Tag and push:
    - Local BSR push (optional): `make push TAG=v1.0.0`.
-   - CI publish: create git tag `schema-v1.0.0` and push; `bsr-publish.yml` will publish.
+   - CI publish (preferred):
+     - Option A: create git tag `schema-v1.0.0` and push.
+     - Option B: run `Publish Schemas to BSR` workflow manually with inputs `version=v1.0.0`, `dry_run=false`, and (first-time) `create=true`.
 4) Update consumers to pin the new version.
 
 Quickstart

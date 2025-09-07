@@ -14,6 +14,14 @@ on:
         description: "If true, runs all checks but skips buf push"
         required: false
         default: "false"
+      create:
+        description: "Create BSR module if missing"
+        required: false
+        default: "true"
+      visibility:
+        description: "Module visibility when creating (public/private)"
+        required: false
+        default: "private"
 
 jobs:
   publish:
@@ -67,7 +75,9 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           echo "Pushing schemas with tag $TAG"
-          buf push --tag "$TAG"
+          CREATE_FLAG=""
+          if [ "${{ inputs.create }}" = "true" ]; then CREATE_FLAG="--create --create-visibility ${{ inputs.visibility }}"; fi
+          buf push --tag "$TAG" $CREATE_FLAG
       
       - name: Skip push (dry run)
         if: ${{ inputs.dry_run == 'true' }}

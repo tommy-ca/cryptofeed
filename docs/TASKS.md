@@ -41,10 +41,10 @@ Cycle C (Sprint 3)
 Cycle D (Sprint 4) — BSR Integration
 - Repo & Auth
   - [ ] Ensure BSR repo exists (buf.build/tommyk/cryptofeed-schemas) and permissions set.
-  - [ ] Add `BUF_TOKEN` secret in GitHub.
+  - [x] Add `BUF_TOKEN` secret in GitHub.
 - Process
   - [x] Document release tag policy (`schema-vMAJOR.MINOR.PATCH`).
-  - [ ] Dry-run first publish (`buf push` without tag), then tag `schema-vX.Y.Z` and verify CI publish.
+  - [ ] Dry-run first publish via workflow_dispatch (`dry_run=true`), then tag `schema-vX.Y.Z` and verify CI publish.
 - Consumers
   - [x] Document consumer setup (`buf dep add buf.build/tommyk/cryptofeed-schemas`).
   - [ ] Add example consumer snippet in Python/Go/TS.
@@ -52,6 +52,15 @@ Cycle D (Sprint 4) — BSR Integration
 - Kafka/Protobuf
   - [x] Example: show wiring `value_serializer` in `examples/demo_kafka.py` using `examples/kafka_protobuf_serializer.py`.
   - [x] Document topic/partitioning conventions and headers in Kafka guide (expanded per-channel usage).
+
+Cycle D.1 — BSR Workflows Hardening
+- Workflows
+  - [x] Add smoke workflow (`bsr-smoke.yml`) to validate BUF_TOKEN + whoami + lint/build/generate.
+  - [x] Enhance publish workflow with `workflow_dispatch` inputs: version/dry_run/create/visibility; add whoami step.
+  - [ ] Add caching for buf to speed CI (optional).
+- Tests
+  - [x] Add `tests/proto_integration/test_bsr_whoami.py` (skips without BUF_TOKEN).
+  - [x] Add `tests/proto_integration/test_bsr_workflow_config.py` static checks for workflow content.
 
 Cycle E (Sprint 5) — Registry & Packaging
 - Mapper Registry
