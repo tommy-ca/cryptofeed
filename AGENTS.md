@@ -103,3 +103,12 @@
 - Lint: `buf lint`
 - Generate: `buf generate`
 - Tests: `pytest -q tests/exchange_native/<area>/...`
+
+## Context Engineering & Agent Behavior
+- Preambles: before grouped tool calls, add a 1–2 sentence note stating the immediate next steps.
+- Plans: for multi-step work, maintain a live plan (update incrementally) with exactly one in_progress step.
+- Output discipline: keep messages concise (≤10 lines by default), using bullets; avoid heavy formatting.
+- File I/O: read files in ≤250 line chunks; use `rg` for repo search; avoid dumping large blobs.
+- Patches: submit minimal diffs focused on the task; don’t refactor broadly without tests driving it.
+- Safety: never leak secrets; avoid network access in unit tests; respect sandbox/approval.
+- Reasoning: don’t emit hidden chain-of-thought; surface decisions, invariants, and results succinctly.

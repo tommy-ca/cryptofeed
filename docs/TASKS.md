@@ -62,6 +62,13 @@ Cycle D.1 — BSR Workflows Hardening
   - [x] Add `tests/proto_integration/test_bsr_whoami.py` (skips without BUF_TOKEN).
   - [x] Add `tests/proto_integration/test_bsr_workflow_config.py` static checks for workflow content.
 
+Cycle G — Agentic Context Engineering (Claude)
+- Docs & Specs
+  - [x] Update CLAUDE.md with context engineering best practices (preambles, plans, chunked reads, minimal diffs, no CoT leakage).
+  - [x] Add Context Engineering section to AGENTS.md for cross-agent consistency.
+- Process
+  - [ ] Add periodic doc lint or checklist for agent responses (brevity, structure, plan usage) — manual for now.
+  - [ ] Gather feedback from PR reviews to refine agent guidance; fold back into CLAUDE.md.
 Cycle E (Sprint 5) — Registry & Packaging
 - Mapper Registry
   - [x] Redesign `default_registry()` to avoid package-name conflicts with runtime modules (e.g., `cryptofeed.exchanges.binance` vs generated `cryptofeed.exchanges.binance.v1`).

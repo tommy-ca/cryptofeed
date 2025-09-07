@@ -71,3 +71,9 @@ Priorities (Next 1–2 cycles)
 - Cycle F (symbol parsing & docs)
   - [x] Extend util.KNOWN_QUOTES set with common fiat/stable additions; add curated tests.
   - [ ] Trim duplicated proto comments; gradually re‑enable strict COMMENTS lint.
+
+Cycle G (Agentic Context Engineering)
+- Claude/Agents
+  - [x] Augment CLAUDE.md with context engineering guidance (preambles, plans, chunked reads, minimal patches).
+  - [x] Add Context Engineering section to AGENTS.md for shared agent behavior.
+  - [ ] Periodically audit agent outputs for brevity and structure; align messages with invariants and plans.

@@ -17,6 +17,16 @@ This project uses shared agent guidelines to keep work consistent across tools. 
 - Avoid breaking proto changes; prefer optional additions.
 - Preserve `raw_data`; avoid network in tests.
 
+## Context Engineering (Claude)
+- Keep responses concise and structured; prefer short bullets over prose.
+- Use a lightweight preamble before grouped tool calls to set immediate next actions.
+- Maintain a live plan for multi-step tasks; update it atomically between phases.
+- Read files in bounded chunks (≤250 lines); prefer `rg` for fast search.
+- Reference files by relative path; avoid pasting large file contents unless requested.
+- Make minimal, surgical patches; prefer narrow, verifiable diffs with tests.
+- Do not expose hidden chain-of-thought; surface only necessary rationale, invariants, and outcomes.
+- Respect sandbox/approval policies; avoid network calls in tests; never embed secrets.
+
 ## Core Invariants
 - raw_data propagates unchanged from native → common.
 - Instrument type derived from segment (see AGENTS.md for per-exchange rules).
@@ -30,6 +40,11 @@ This project uses shared agent guidelines to keep work consistent across tools. 
 4) Implement minimal mapper changes in `cryptofeed/proto_mappers/<exchange>.py`.
 5) Run targeted tests; iterate.
 6) Update `docs/STEERING.md` and `docs/TASKS.md`.
+
+Guidance for tool usage
+- Patches: use the provided apply_patch mechanism; avoid ad-hoc edits.
+- Shell: group related commands with a short preamble; keep output noise low.
+- Tests first: write the failing test that expresses the invariant, then fix.
 
 ## Testing & CI
 - Prefer targeted pytest runs locally; keep fixtures minimal.
