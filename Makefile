@@ -20,6 +20,7 @@ help:
 	@echo "  breaking    - Check for breaking changes"
 	@echo "  bsr-login   - Login to Buf Schema Registry"
 	@echo "  publish-tag - Publish to BSR with schema git tag"
+	@echo "  bsr-smoke   - Validate BUF auth + lint/build/generate"
 
 # Install Buf CLI
 install:
@@ -124,3 +125,13 @@ stats:
 	@find $(PROTO_DIR) -name "*.proto" -exec wc -l {} + | tail -1
 	@echo "Generated code size:"
 	@du -sh $(GEN_DIR)/ 2>/dev/null || echo "No generated code found"
+
+# BSR smoke: check BUF auth and basic CLI steps
+bsr-smoke:
+	@if [ -z "$$BUF_TOKEN" ]; then echo "BUF_TOKEN not set. Export BUF_TOKEN to run smoke." && exit 1; fi
+	@echo "== buf registry whoami =="
+	@buf registry whoami buf.build --format text
+	@echo "== buf lint/build/generate =="
+	@buf lint
+	@buf build
+	@buf generate

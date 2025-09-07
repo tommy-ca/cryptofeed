@@ -14,8 +14,10 @@ def test_publish_workflow_has_required_steps_and_inputs():
     # Auth and checks
     assert 'buf registry whoami' in data
     assert 'buf lint' in data and 'buf build' in data and 'buf breaking' in data
-    # Push with tag
-    assert 'buf push --tag' in data
+    # Resolve tag and push with tag including create flags
+    assert '${GITHUB_REF_NAME#schema-}' in data
+    assert 'steps.tag.outputs.tag' in data
+    assert 'buf push --tag' in data and '--create-visibility' in data
 
 def test_bsr_smoke_workflow_exists():
     path = os.path.join(ROOT, '.github', 'workflows', 'bsr-smoke.yml')
