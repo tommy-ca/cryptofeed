@@ -39,13 +39,20 @@ jobs:
           git add -A
           git diff --cached --exit-code || (echo "Generated code drift detected. Run 'buf generate' and commit changes." && exit 1)
 
-      - name: Fetch main for breaking check
+      - name: Fetch base branch for breaking check
         run: |
-          git fetch --no-tags --prune origin +refs/heads/main:refs/heads/main
+          set -e
+          if git ls-remote --exit-code --heads origin main >/dev/null 2>&1; then
+            git fetch --no-tags --prune origin +refs/heads/main:refs/heads/main
+            echo "BASE_BRANCH=main" >> $GITHUB_ENV
+          else
+            git fetch --no-tags --prune origin +refs/heads/master:refs/heads/master || true
+            echo "BASE_BRANCH=master" >> $GITHUB_ENV
+          fi
 
-      - name: Buf breaking check (against main)
+      - name: Buf breaking check (against base)
         run: |
-          buf breaking --against '.git#branch=main'
+          buf breaking --against ".git#branch=${BASE_BRANCH}"
 
       - name: Run proto tests
         env:

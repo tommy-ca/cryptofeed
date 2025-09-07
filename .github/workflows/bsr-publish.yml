@@ -51,10 +51,17 @@ jobs:
           buf lint
           buf build
 
-      - name: Breaking check (against main)
+      - name: Breaking check (against base)
         run: |
-          git fetch --no-tags --prune origin +refs/heads/main:refs/heads/main
-          buf breaking --against '.git#branch=main'
+          set -e
+          if git ls-remote --exit-code --heads origin main >/dev/null 2>&1; then
+            git fetch --no-tags --prune origin +refs/heads/main:refs/heads/main
+            BASE_BRANCH=main
+          else
+            git fetch --no-tags --prune origin +refs/heads/master:refs/heads/master || true
+            BASE_BRANCH=master
+          fi
+          buf breaking --against ".git#branch=${BASE_BRANCH}"
 
       - name: Generate and check drift
         run: |

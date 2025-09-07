@@ -11,9 +11,11 @@ def test_publish_workflow_has_required_steps_and_inputs():
     assert 'workflow_dispatch' in data
     assert 'version:' in data and 'dry_run:' in data
     assert 'create:' in data and 'visibility:' in data
-    # Auth and checks
+    # Auth and checks (with base branch fallback)
     assert 'buf registry whoami' in data
-    assert 'buf lint' in data and 'buf build' in data and 'buf breaking' in data
+    assert 'buf lint' in data and 'buf build' in data
+    assert 'breaking check' in data.lower() or 'buf breaking' in data
+    assert 'BASE_BRANCH' in data and 'master' in data and 'main' in data
     # Resolve tag and push with tag including create flags
     assert '${GITHUB_REF_NAME#schema-}' in data
     assert 'steps.tag.outputs.tag' in data
@@ -24,4 +26,3 @@ def test_bsr_smoke_workflow_exists():
     data = open(path, 'r', encoding='utf-8').read()
     assert 'buf registry whoami' in data
     assert 'buf lint' in data and 'buf build' in data
-
