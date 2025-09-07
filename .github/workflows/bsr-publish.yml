@@ -5,12 +5,22 @@ on:
     tags:
       - 'schema-v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., v1.0.0). Ignored on tag push."
+        required: false
+        default: ""
+      dry_run:
+        description: "If true, runs all checks but skips buf push"
+        required: false
+        default: "false"
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     env:
       BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,6 +33,10 @@ jobs:
       - name: Validate token
         run: |
           if [ -z "$BUF_TOKEN" ]; then echo "BUF_TOKEN not set; skipping publish." && exit 78; fi
+
+      - name: BSR whoami
+        run: |
+          buf registry whoami buf.build --format text
 
       - name: Lint & Build
         run: |
@@ -40,9 +54,22 @@ jobs:
           git add -A
           git diff --cached --exit-code || (echo "Generated code drift detected. Commit generated code before tagging." && exit 1)
 
-      - name: Push to BSR with tag
+      - name: Resolve tag to publish
+        id: tag
         run: |
-          TAG=${GITHUB_REF_NAME#schema-}
+          TAG="${GITHUB_REF_NAME#schema-}"
+          if [ -z "$TAG" ]; then TAG="${{ inputs.version }}"; fi
+          if [ -z "$TAG" ]; then echo "::error::Missing tag (schema-v*) or workflow input 'version'"; exit 1; fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+      
+      - name: Push to BSR with tag
+        if: ${{ !inputs.dry_run || inputs.dry_run == 'false' }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
           echo "Pushing schemas with tag $TAG"
           buf push --tag "$TAG"
-
+      
+      - name: Skip push (dry run)
+        if: ${{ inputs.dry_run == 'true' }}
+        run: |
+          echo "Dry run enabled; skipping buf push. Validated lint/build/breaking/generate checks."
