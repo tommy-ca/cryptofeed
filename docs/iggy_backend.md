@@ -10,6 +10,7 @@ Cryptofeed's Iggy backend mirrors the Kafka backend while respecting SOLID/KISS/
 - Default root credentials are `iggy` / `iggy`. Use them for provisioning automation or create scoped users via the server APIs once the backend is working. citeturn0view0
 - SDK quickstarts assume Rust toolchain for server/client samples; for Python producer/consumer flows reuse the example scripts in `examples/python` with the same connection details. citeturn0view0
 - Install the Python SDK and logging helpers (`pip install apache-iggy loguru`) before running `examples/verify_iggy_backend.py` or other tooling scripts. citeturn0view0
+- The backend now relies exclusively on the asynchronous `apache-iggy` client; ensure the version you install exposes the `IggyClient` async API (≥0.5.0) and provide credentials via the connection string (e.g., `iggy+tcp://user:pass@host:port`). citeturn0view0
 
 ## Functional Requirements
 

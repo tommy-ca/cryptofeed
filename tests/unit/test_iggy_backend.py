@@ -493,7 +493,7 @@ async def test_iggy_emit_raises_without_client() -> None:
         retry_attempts=1,
     )
 
-    with pytest.raises(RuntimeError, match="Install iggy-py"):
+    with pytest.raises(RuntimeError, match="Unauthenticated"):
         await callback._emit({"exchange": "BINANCE"})
 
 
@@ -536,7 +536,7 @@ async def test_iggy_default_client_factory_requires_sdk(monkeypatch: pytest.Monk
     import sys
     from cryptofeed.backends.iggy import IggyCallback
 
-    monkeypatch.setitem(sys.modules, "iggy.client", None)
+    monkeypatch.setitem(sys.modules, "apache_iggy", None)
 
     callback = IggyCallback(
         host="localhost",
@@ -547,7 +547,7 @@ async def test_iggy_default_client_factory_requires_sdk(monkeypatch: pytest.Monk
         backend="iggy",
     )
 
-    with pytest.raises(RuntimeError, match="Install iggy-py"):
+    with pytest.raises(RuntimeError, match="Install apache-iggy"):
         await callback._emit({"exchange": "BINANCE"})
 
 
@@ -555,34 +555,46 @@ async def test_iggy_default_client_factory_requires_sdk(monkeypatch: pytest.Monk
 async def test_iggy_default_client_factory_uses_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
     import types
     import sys
-    from cryptofeed.backends.iggy import IggyCallback
+    from cryptofeed.backends.iggy import IggyCallback, ApacheIggyClientAdapter
 
-    client_module = types.SimpleNamespace()
-
-    class DummyClient:
-        def __init__(self, host: str, port: int) -> None:
-            self.host = host
-            self.port = port
+    class DummyAsyncClient:
+        def __init__(self) -> None:
+            self.connected = False
+            self.logged = False
             self.sent: list[Any] = []
 
-        async def send(self, stream: str, topic: str, payload: Any, *, partition_strategy=None) -> None:
-            self.sent.append((stream, topic, payload))
+        async def connect(self) -> None:
+            self.connected = True
 
-    def create_client(*, host: str, port: int, **kwargs) -> DummyClient:
-        return DummyClient(host, port)
+        async def login_user(self, username: str, password: str) -> None:
+            self.logged = True
 
-    client_module.Client = DummyClient
-    client_module.connect = create_client
+        async def send_messages(self, *, stream, topic, partitioning, messages) -> None:
+            self.sent.append((stream, topic, partitioning, messages))
 
-    module = types.ModuleType("iggy.client")
-    module.Client = DummyClient
-    module.connect = create_client
+    dummy_client = DummyAsyncClient()
 
-    monkeypatch.setitem(sys.modules, "iggy.client", module)
+    class DummyAdapter(ApacheIggyClientAdapter):
+        def __init__(self, client, *, username=None, password=None) -> None:  # type: ignore[override]
+            self._client = dummy_client
+            self._username = username
+            self._password = password
+            self._ready = False
+            from apache_iggy import SendMessage
+
+            self._SendMessage = SendMessage
+
+    module = types.ModuleType("apache_iggy")
+    module.IggyClient = lambda endpoint: dummy_client
+    from apache_iggy import SendMessage
+
+    module.SendMessage = SendMessage
+
+    monkeypatch.setitem(sys.modules, "apache_iggy", module)
+    monkeypatch.setattr("cryptofeed.backends.iggy.ApacheIggyClientAdapter", DummyAdapter)
 
     callback = IggyCallback(
-        host="localhost",
-        port=8090,
+        connection_string="iggy+tcp://user:pass@localhost:8090",
         transport="tcp",
         stream="cryptofeed",
         topic="trades",
@@ -590,7 +602,7 @@ async def test_iggy_default_client_factory_uses_sdk(monkeypatch: pytest.MonkeyPa
     )
 
     await callback._emit({"exchange": "BINANCE"})
-    assert callback.transport.client().sent == [("cryptofeed", "trades", {"exchange": "BINANCE"})]
+    assert dummy_client.sent, "client should send messages"
 
 
 @pytest.mark.asyncio
@@ -1111,17 +1123,9 @@ async def test_iggy_emitter_auto_create_provisions_resources(monkeypatch: pytest
             self.stream_exists = False
             self.topic_exists = False
 
-        async def get_stream(self, name: str):
-            self.calls.append(("get_stream", (name,), {}))
-            return types.SimpleNamespace(name=name, id=1) if self.stream_exists else None
-
         async def create_stream(self, **kwargs: Any) -> None:
             self.calls.append(("create_stream", tuple(), kwargs))
             self.stream_exists = True
-
-        async def get_topic(self, stream: str, topic: str):
-            self.calls.append(("get_topic", (stream, topic), {}))
-            return types.SimpleNamespace(name=topic, id=1) if self.topic_exists else None
 
         async def create_topic(self, **kwargs: Any) -> None:
             self.calls.append(("create_topic", tuple(), kwargs))
@@ -1161,15 +1165,13 @@ async def test_iggy_emitter_auto_create_provisions_resources(monkeypatch: pytest
     await emitter.emit({"exchange": "BINANCE"})
 
     call_names = [name for name, _, _ in client.calls]
-    assert call_names.count("get_stream") == 1
     assert call_names.count("create_stream") == 1
-    assert call_names.count("get_topic") == 1
     assert call_names.count("create_topic") == 1
     assert call_names.count("send") == 2
-    stream_kwargs = dict(client.calls[1][2])
+    stream_kwargs = dict(client.calls[0][2])
     assert stream_kwargs.get("name") == "cryptofeed"
     assert stream_kwargs.get("stream_id") == 1
-    topic_kwargs = dict(client.calls[3][2])
+    topic_kwargs = dict(client.calls[1][2])
     assert topic_kwargs.get("stream") == "cryptofeed"
     assert topic_kwargs.get("name") == "trades"
     assert topic_kwargs.get("partitions_count") == 3

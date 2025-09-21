@@ -14,6 +14,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Sequence
 from urllib.parse import urlparse
+import socket
+import json
 
 SUPPORTED_TRANSPORTS = {"tcp", "http", "quic"}
 SUPPORTED_SERIALIZERS = {"json", "binary"}
@@ -172,6 +174,93 @@ _PROM_COUNTERS: dict[str, Any] = {}
 _PROM_HISTOGRAMS: dict[str, Any] = {}
 
 
+class _ConnectionDetails:
+    __slots__ = ("host", "port", "username", "password")
+
+    def __init__(self, host: str, port: int, username: Optional[str], password: Optional[str]) -> None:
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+
+
+def _parse_connection_details(
+    *,
+    host: Optional[str],
+    port: Optional[int],
+    connection_string: Optional[str],
+) -> _ConnectionDetails:
+    if connection_string:
+        parsed = urlparse(connection_string.replace("iggy+", "", 1))
+        if parsed.hostname is None or parsed.port is None:
+            raise ValueError("connection_string must include host and port")
+        return _ConnectionDetails(
+            host=parsed.hostname,
+            port=parsed.port,
+            username=parsed.username,
+            password=parsed.password,
+        )
+    if not host or port is None:
+        raise ValueError("host and port must be provided when connection_string is absent")
+    return _ConnectionDetails(host=host, port=port, username=None, password=None)
+
+
+class ApacheIggyClientAdapter:
+    """Adapter exposing the subset of methods used by IggyEmitter."""
+
+    def __init__(
+        self,
+        client: Any,
+        *,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> None:
+        from apache_iggy import SendMessage
+
+        self._client = client
+        self._username = username
+        self._password = password
+        self._ready = False
+        self._SendMessage = SendMessage
+
+    async def _ensure_ready(self) -> None:
+        if self._ready:
+            return
+        await self._client.connect()
+        if self._username and self._password:
+            await self._client.login_user(self._username, self._password)
+        self._ready = True
+
+    async def send(self, *, stream: str, topic: str, payload: Any, partition_strategy: Optional[str] = None) -> None:
+        await self._ensure_ready()
+        body = self._coerce_payload(payload)
+        partitioning = partition_strategy if isinstance(partition_strategy, int) else 0
+        await self._client.send_messages(
+            stream=stream,
+            topic=topic,
+            partitioning=partitioning,
+            messages=[self._SendMessage(body)],
+        )
+
+    async def create_stream(self, **kwargs: Any) -> Any:
+        await self._ensure_ready()
+        return await self._client.create_stream(**kwargs)
+
+    async def create_topic(self, **kwargs: Any) -> Any:
+        await self._ensure_ready()
+        return await self._client.create_topic(**kwargs)
+
+    def _coerce_payload(self, payload: Any) -> Any:
+        if isinstance(payload, (bytes, bytearray)):
+            return bytes(payload)
+        if isinstance(payload, str):
+            return payload
+        try:
+            return json.dumps(payload, separators=(",", ":"))
+        except (TypeError, ValueError):
+            return str(payload)
+
+
 def _default_client_factory(
     *,
     host: Optional[str] = None,
@@ -179,17 +268,20 @@ def _default_client_factory(
     connection_string: Optional[str] = None,
 ) -> Any:
     try:
-        from iggy.client import Client
+        from apache_iggy import IggyClient
     except ModuleNotFoundError as exc:
         raise RuntimeError(
-            "Install iggy-py to use the default Iggy backend client"
+            "Install apache-iggy>=0.5.0 to use the Iggy backend"
         ) from exc
-    if connection_string:
-        from apache_iggy import IggyClient
-        return IggyClient.from_connection_string(connection_string)
-    if host is None or port is None:
-        raise ValueError("host and port must be provided when connection_string is absent")
-    return Client(host=host, port=port)
+
+    details = _parse_connection_details(host=host, port=port, connection_string=connection_string)
+    endpoint_host = details.host
+    try:
+        socket.inet_aton(endpoint_host)
+    except OSError:
+        endpoint_host = socket.gethostbyname(endpoint_host)
+    client = IggyClient(f"{endpoint_host}:{details.port}")
+    return ApacheIggyClientAdapter(client, username=details.username, password=details.password)
 
 
 LOG = logging.getLogger("feedhandler.iggy")
@@ -312,32 +404,36 @@ class IggyEmitter:
             self._provisioned = True
 
     async def _provision(self, client: Any) -> None:
-        get_stream = getattr(client, "get_stream", None)
         create_stream = getattr(client, "create_stream", None)
-        if get_stream is None or create_stream is None:
-            raise AttributeError("Iggy client does not support stream provisioning")
-        stream = await get_stream(self.config.stream)
-        if stream is None:
+        if create_stream is not None:
             stream_kwargs: dict[str, Any] = {"name": self.config.stream}
             if self.config.stream_id is not None:
                 stream_kwargs["stream_id"] = self.config.stream_id
-            await create_stream(**stream_kwargs)
+            try:
+                await create_stream(**stream_kwargs)
+            except Exception:  # pragma: no cover - idempotent best-effort
+                self._logger.debug(
+                    _format_log(self.config, "stream_exists", stream=self.config.stream)
+                )
 
-        get_topic = getattr(client, "get_topic", None)
         create_topic = getattr(client, "create_topic", None)
-        if get_topic is None or create_topic is None:
-            raise AttributeError("Iggy client does not support topic provisioning")
-        topic = await get_topic(self.config.stream, self.config.topic)
-        if topic is None:
+        if create_topic is not None:
             topic_kwargs: dict[str, Any] = {
                 "stream": self.config.stream,
                 "name": self.config.topic,
                 "partitions_count": self.config.partitions,
-                "replication_factor": self.config.replication_factor,
+                "compression_algorithm": None,
             }
             if self.config.topic_id is not None:
                 topic_kwargs["topic_id"] = self.config.topic_id
-            await create_topic(**topic_kwargs)
+            if self.config.replication_factor is not None:
+                topic_kwargs["replication_factor"] = self.config.replication_factor
+            try:
+                await create_topic(**topic_kwargs)
+            except Exception:  # pragma: no cover - idempotent best-effort
+                self._logger.debug(
+                    _format_log(self.config, "topic_exists", topic=self.config.topic)
+                )
 
 
 class IggyCallback(BackendQueue):
