@@ -9,6 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
+        python-socks: ['with', 'without']
 
     steps:
       - name: Install uv
@@ -23,6 +24,7 @@ jobs:
           uv sync
           uv pip install pytest
           uv pip install -e .
+          if [ "${{ matrix.python-socks }}" = "with" ]; then uv pip install python-socks; fi
       - name: Test with pytest
         run: |
           uv run pytest tests/
