@@ -4,6 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional
 
+from cryptofeed.defines import L2_BOOK
+from cryptofeed.types import OrderBook
+
 from yapic import json
 
 from cryptofeed.connection import HTTPAsyncConn
@@ -36,7 +39,6 @@ class BackpackRestClient:
         self._closed = False
 
         if self._config.proxies and self._config.proxies.url:
-            # Ensure override proxy is respected for the entire session
             self._conn.proxy = self._config.proxies.url
 
     async def close(self) -> None:
@@ -76,6 +78,18 @@ class BackpackRestClient:
             sequence=data.get("sequence"),
             timestamp_ms=data.get("timestamp"),
         )
+
+    async def book_snapshot(self, symbol: str, depth: int = 50) -> OrderBook:
+        native_symbol = symbol.replace('-', '_')
+        snapshot = await self.fetch_order_book(native_symbol=native_symbol, depth=depth)
+        order_book = OrderBook(self._config.exchange_id, symbol)
+        for price, amount in snapshot.bids:
+            order_book.book[L2_BOOK]['bid'][float(price)] = float(amount)
+        for price, amount in snapshot.asks:
+            order_book.book[L2_BOOK]['ask'][float(price)] = float(amount)
+        order_book.sequence_number = snapshot.sequence
+        order_book.timestamp = snapshot.timestamp_ms / 1000.0 if snapshot.timestamp_ms else None
+        return order_book
 
     async def __aenter__(self) -> "BackpackRestClient":
         return self

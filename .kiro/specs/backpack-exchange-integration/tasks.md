@@ -1,10 +1,10 @@
 # Task Breakdown
 
-## Phase 0 · Foundations & Feature Flag
-- **T0.1 Audit ccxt Backpack Usage ✅** (`cryptofeed/exchanges/backpack_ccxt.py`, deployment configs)  
-  Catalogue current dependencies on the ccxt adapter, note behavioural gaps, and draft a toggle plan for migration.
-- **T0.2 Introduce Feature Flag ✅** (`cryptofeed/exchange/registry.py`, config loaders)  
-  Add `backpack.native_enabled` option controlling whether FeedHandler instantiates native or ccxt-backed feeds.
+## Phase 0 · Foundations
+- **T0.1 Remove ccxt Backpack Adapter** (`cryptofeed/exchanges/backpack_ccxt.py`, registry)  
+  Delete the ccxt-based `CcxtBackpackFeed`, registry wiring, and related docs/tests so the native implementation is the only Backpack path in this branch.
+- **T0.2 Audit & Cleanup ✅** (`cryptofeed/exchanges/backpack/`, deployment configs)  
+  Confirm no remaining runtime references rely on the ccxt adapter; document the native-only migration plan.
 
 ## Phase 1 · Configuration & Symbols
 - **T1.1 Implement BackpackConfig ✅** (`cryptofeed/config/backpack.py`)  
@@ -54,18 +54,16 @@
 - **T5.4 Credential Validator Tool** (`tools/backpack_auth_check.py`)  
   Provide CLI utility verifying ED25519 keys and timestamp drift for operators.
 
-## Phase 6 · Documentation & Migration
+## Phase 6 · Documentation & Rollout
 - **T6.1 Exchange Documentation Update** (`docs/exchanges/backpack.md`)  
   Document native feed configuration, auth setup, proxy examples, metrics, and observability story.
-- **T6.2 Migration Playbook** (`docs/runbooks/backpack_migration.md`)  
-  Outline phased rollout, monitoring checkpoints, success/failure criteria, and rollback triggers.
+- **T6.2 Rollout Playbook** (`docs/runbooks/backpack_native.md`)  
+  Outline rollout plan, monitoring checkpoints, success/failure criteria, and rollback triggers.
 - **T6.3 Example Script** (`examples/backpack_native_demo.py`)  
-  Demonstrate public + private subscriptions, logging, and error handling with feature flag enabled.
-- **T6.4 Deprecation Checklist** (`docs/migrations/backpack_ccxt.md`)  
-  Track clean-up tasks for ccxt scaffolding once native feed reaches GA.
+  Demonstrate public + private subscriptions, logging, and error handling for the native feed.
 
 ## Success Criteria
-- Native feed achieves parity with ccxt path for trades and order book data while adding private channel support.
+- Native feed delivers trades, order books, and private channels with parity to production expectations, replacing the deprecated ccxt adapter.
 - ED25519 authentication consistently succeeds with accurate error reporting for invalid keys.
 - Proxy-aware transports reuse existing infrastructure without regressing other exchanges.
 - Automated tests (unit + integration) cover critical flows with deterministic fixtures running in CI.

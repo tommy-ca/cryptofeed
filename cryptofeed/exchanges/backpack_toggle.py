@@ -4,7 +4,7 @@ import os
 from threading import RLock
 from typing import Callable, List
 
-_DEFAULT_ENV_VALUE = os.environ.get("CRYPTOFEED_BACKPACK_NATIVE", "false").lower() in {"1", "true", "yes", "on"}
+_DEFAULT_ENV_VALUE = os.environ.get("CRYPTOFEED_BACKPACK_NATIVE", "true").lower() in {"1", "true", "yes", "on"}
 
 _lock = RLock()
 _enabled = _DEFAULT_ENV_VALUE

@@ -121,6 +121,8 @@ class BackpackWsSession:
             self._connected = False
 
     async def _send_auth(self) -> None:
+        if not self._auth_helper:
+            return
         try:
             timestamp = self._auth_helper._current_timestamp_us()
             headers = self._auth_helper.build_headers(method="GET", path="/ws/auth", timestamp_us=timestamp)

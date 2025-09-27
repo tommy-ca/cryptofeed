@@ -97,13 +97,11 @@ EXCHANGE_MAP = {
 }
 
 
-def _configure_backpack_mapping(enabled: bool) -> None:
-    if enabled:
-        from .backpack.feed import BackpackFeed
-        EXCHANGE_MAP[BACKPACK] = BackpackFeed
-    else:
-        from .backpack_ccxt import CcxtBackpackFeed
-        EXCHANGE_MAP[BACKPACK] = CcxtBackpackFeed
+from .backpack.feed import BackpackFeed
+
+
+def _configure_backpack_mapping(_: bool) -> None:
+    EXCHANGE_MAP[BACKPACK] = BackpackFeed
 
 
 register_backpack_toggle_callback(_configure_backpack_mapping)

@@ -1,7 +1,7 @@
 # Requirements Document
 
 ## Introduction
-This spec covers Backpack exchange integration using the same native cryptofeed architecture employed by Binance (and other first-party exchanges). The goal is to deliver a complete Backpack feed that reuses the stock `Feed` subclass, `HTTPAsyncConn`/`WSAsyncConn`, and adapter patterns without relying on `ccxt` or the generic ccxt wrapper. The ccxt-based feed remains separate for backwards compatibility, but the native path stands alone and mirrors the Binance structure end-to-end.
+This spec covers Backpack exchange integration using the same native cryptofeed architecture employed by Binance (and other first-party exchanges). The goal is to deliver a complete Backpack feed that reuses the stock `Feed` subclass, `HTTPAsyncConn`/`WSAsyncConn`, and adapter patterns without relying on `ccxt` or the generic ccxt wrapper. The ccxt-based feed will be removed from this branch; the native path stands alone and mirrors the Binance structure end-to-end.
 
 ## Requirements
 

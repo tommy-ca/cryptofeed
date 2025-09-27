@@ -37,11 +37,9 @@ def test_maybe_enable_from_config_enables_native():
 
 
 def test_maybe_enable_from_config_disables_native():
-    set_backpack_native_enabled(True)
-    importlib.reload(__import__('cryptofeed.exchanges', fromlist=['EXCHANGE_MAP']))
     cfg = Config({'exchanges': {'backpack': {'native_enabled': False}}})
     maybe_enable_from_config(cfg)
     module = importlib.reload(__import__('cryptofeed.exchanges', fromlist=['EXCHANGE_MAP']))
-    from cryptofeed.exchanges.backpack_ccxt import CcxtBackpackFeed
+    from cryptofeed.exchanges.backpack.feed import BackpackFeed
     assert is_backpack_native_enabled() is False
-    assert module.EXCHANGE_MAP[BACKPACK] is CcxtBackpackFeed
+    assert module.EXCHANGE_MAP[BACKPACK] is BackpackFeed
