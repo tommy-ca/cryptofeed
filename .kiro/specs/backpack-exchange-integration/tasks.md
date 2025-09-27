@@ -1,7 +1,7 @@
 # Task Breakdown
 
 ## Phase 0 · Foundations
-- **T0.1 Remove ccxt Backpack Adapter** (`cryptofeed/exchanges/backpack_ccxt.py`, registry)  
+- **T0.1 Remove ccxt Backpack Adapter ✅** (`cryptofeed/exchanges/backpack_ccxt.py`, registry)  
   Delete the ccxt-based `CcxtBackpackFeed`, registry wiring, and related docs/tests so the native implementation is the only Backpack path in this branch.
 - **T0.2 Audit & Cleanup ✅** (`cryptofeed/exchanges/backpack/`, deployment configs)  
   Confirm no remaining runtime references rely on the ccxt adapter; document the native-only migration plan.
@@ -25,41 +25,41 @@
   Combine auth mixin with WebSocket connect sequence and retry policy for auth failures.
 
 ## Phase 3 · Message Routing & Adapters
-- **T3.1 Router Skeleton** (`cryptofeed/exchanges/backpack/router.py`)  
+- **T3.1 Router Skeleton ✅** (`cryptofeed/exchanges/backpack/router.py`)  
   Dispatch envelopes to adapters, surface errors, and emit metrics for dropped frames.
-- **T3.2 Trade Adapter** (`cryptofeed/exchanges/backpack/adapters.py`)  
+- **T3.2 Trade Adapter ✅** (`cryptofeed/exchanges/backpack/adapters.py`)  
   Convert trade payloads to `Trade` dataclasses with decimal precision and sequence management.
-- **T3.3 Order Book Adapter** (`.../adapters.py`)  
+- **T3.3 Order Book Adapter ✅** (`.../adapters.py`)  
   Manage snapshot + delta lifecycle, detect gaps, and trigger resync via REST snapshots.
-- **T3.4 Ancillary Channels** (`.../adapters.py`)  
+- **T3.4 Ancillary Channels ✅** (`.../adapters.py`)  
   Implement ticker, candle, and private order/position adapters as scoped in design.
 
 ## Phase 4 · Feed Integration & Observability
-- **T4.1 Implement BackpackFeed** (`cryptofeed/exchanges/backpack/feed.py`)  
+- **T4.1 Implement BackpackFeed ✅** (`cryptofeed/exchanges/backpack/feed.py`)  
   Subclass `Feed`, bootstrap snapshots, manage stream loops, and register callbacks under feature flag guard.
-- **T4.2 Metrics & Logging** (`feed.py`, `router.py`)  
+- **T4.2 Metrics & Logging ✅** (`feed.py`, `router.py`)  
   Emit structured logs and counters for reconnects, auth failures, parser errors, message throughput.
-- **T4.3 Health Endpoint** (`cryptofeed/health/backpack.py`)  
+- **T4.3 Health Endpoint ✅** (`cryptofeed/health/backpack.py`)  
   Report snapshot freshness, subscription status, and recent error counts for monitoring.
-- **T4.4 Exchange Registration** (`cryptofeed/defines.py`, `cryptofeed/exchanges/__init__.py`, docs)  
+- **T4.4 Exchange Registration ✅** (`cryptofeed/defines.py`, `cryptofeed/exchanges/__init__.py`, docs)  
   Register `BACKPACK`, update discovery tables, and document feature flag availability.
 
 ## Phase 5 · Testing & Tooling
-- **T5.1 Unit Tests** (`tests/unit/test_backpack_*`)  
+- **T5.1 Unit Tests ✅** (`tests/unit/test_backpack_*`)  
   Cover config validation, auth signatures (golden vectors), symbol normalization, router/adapters, and feed bootstrap.
-- **T5.2 Integration Tests** (`tests/integration/test_backpack_native.py`)  
+- **T5.2 Integration Tests ✅** (`tests/integration/test_backpack_native.py`)  
   Validate REST snapshot + WS delta flow, proxy wiring, private channel handshake using fixtures/sandbox.
-- **T5.3 Fixture Library** (`tests/fixtures/backpack/`)  
+- **T5.3 Fixture Library ✅** (`tests/fixtures/backpack/`)  
   Record public/private payload samples, edge cases, and error frames for deterministic tests.
 - **T5.4 Credential Validator Tool** (`tools/backpack_auth_check.py`)  
   Provide CLI utility verifying ED25519 keys and timestamp drift for operators.
 
 ## Phase 6 · Documentation & Rollout
-- **T6.1 Exchange Documentation Update** (`docs/exchanges/backpack.md`)  
+- **T6.1 Exchange Documentation Update ✅** (`docs/exchanges/backpack.md`)  
   Document native feed configuration, auth setup, proxy examples, metrics, and observability story.
-- **T6.2 Rollout Playbook** (`docs/runbooks/backpack_native.md`)  
+- **T6.2 Rollout Playbook ✅** (`docs/runbooks/backpack_native.md`)  
   Outline rollout plan, monitoring checkpoints, success/failure criteria, and rollback triggers.
-- **T6.3 Example Script** (`examples/backpack_native_demo.py`)  
+- **T6.3 Example Script ✅** (`examples/backpack_native_demo.py`)  
   Demonstrate public + private subscriptions, logging, and error handling for the native feed.
 
 ## Success Criteria

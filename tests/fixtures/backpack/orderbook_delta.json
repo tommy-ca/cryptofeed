@@ -1,0 +1,8 @@
+{
+  "type": "l2_update",
+  "symbol": "BTC_USDT",
+  "bids": [["29990", "1.25"]],
+  "asks": [["30005", "0"]],
+  "timestamp": 1700000000500,
+  "sequence": 101
+}

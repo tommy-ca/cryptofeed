@@ -41,7 +41,11 @@ def main():
     )
 
     fh.add_feed(feed)
-    fh.run(start_loop=True)
+    try:
+        fh.run(start_loop=True)
+    finally:
+        logging.info("final health: %s", feed.health())
+        logging.info("metrics snapshot: %s", feed.metrics_snapshot())
 
 
 if __name__ == "__main__":

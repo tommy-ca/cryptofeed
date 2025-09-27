@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import json
 import asyncio
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from cryptofeed.defines import L2_BOOK, TRADES
 from cryptofeed.exchanges.backpack import BackpackConfig, BackpackFeed
+from cryptofeed.exchanges.backpack.rest import BackpackOrderBookSnapshot
 
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "backpack"
 
 
 class FixtureRestClient:
+    def __init__(self):
+        self.snapshot_calls = []
+
     async def fetch_markets(self):
         return [
             {
@@ -22,6 +27,16 @@ class FixtureRestClient:
                 "status": "TRADING",
             }
         ]
+
+    async def fetch_order_book(self, *, native_symbol: str, depth: int = 50):
+        self.snapshot_calls.append((native_symbol, depth))
+        return BackpackOrderBookSnapshot(
+            symbol=native_symbol,
+            bids=[["30000", "1"]],
+            asks=[["30010", "2"]],
+            sequence=50,
+            timestamp_ms=1_700_000_000_000,
+        )
 
     async def close(self):
         return None
@@ -77,15 +92,18 @@ async def test_backpack_feed_processes_fixtures(monkeypatch):
     await feed.subscribe(connection)
 
     snapshot_payload = json.loads((FIXTURES / "orderbook_snapshot.json").read_text())
+    delta_payload = json.loads((FIXTURES / "orderbook_delta.json").read_text())
     trade_payload = json.loads((FIXTURES / "trade.json").read_text())
     ticker_payload = json.loads((FIXTURES / "ticker.json").read_text())
 
     await feed.message_handler(json.dumps(snapshot_payload), connection, 0)
+    await feed.message_handler(json.dumps(delta_payload), connection, 0)
     await feed.message_handler(json.dumps(trade_payload), connection, 0)
     await feed.message_handler(json.dumps(ticker_payload), connection, 0)
 
     assert books and trades
     assert books[0][0].symbol == "BTC-USDT"
+    assert books[-1][0].book.bids[Decimal("29990")] == Decimal("1.25")
     assert trades[0][0].price
 
     metrics = feed.metrics_snapshot()

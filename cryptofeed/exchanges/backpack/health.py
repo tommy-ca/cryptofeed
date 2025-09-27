@@ -28,6 +28,10 @@ def evaluate_health(metrics: BackpackMetrics, *, max_snapshot_age: float = 60.0)
         healthy = False
         reasons.append("websocket errors observed")
 
+    if snapshot.get("parser_errors"):
+        healthy = False
+        reasons.append("parser errors encountered")
+
     last_snapshot = snapshot.get("last_snapshot_timestamp")
     if last_snapshot is not None:
         age = time.time() - last_snapshot

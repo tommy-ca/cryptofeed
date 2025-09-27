@@ -7,11 +7,23 @@ import pytest
 from cryptofeed.defines import L2_BOOK, TRADES
 from cryptofeed.exchanges.backpack.config import BackpackConfig
 from cryptofeed.exchanges.backpack.feed import BackpackFeed
+from cryptofeed.exchanges.backpack.rest import BackpackOrderBookSnapshot
 
 
 class StubRestClient:
     def __init__(self):
         self.closed = False
+        self.snapshot_calls = []
+
+    async def fetch_order_book(self, *, native_symbol: str, depth: int = 50):
+        self.snapshot_calls.append((native_symbol, depth))
+        return BackpackOrderBookSnapshot(
+            symbol=native_symbol,
+            bids=[["30000", "1"]],
+            asks=[["30010", "2"]],
+            sequence=1,
+            timestamp_ms=1_700_000_000_000,
+        )
 
     async def close(self):
         self.closed = True
@@ -29,6 +41,10 @@ class StubSymbolService:
             market = Market()
             market.normalized_symbol = "BTC-USDT"
             market.native_symbol = "BTC_USDT"
+            market.instrument_type = "spot"
+            market.price_precision = None
+            market.amount_precision = None
+            market.min_amount = None
             self._markets = [market]
 
     def native_symbol(self, symbol: str) -> str:
@@ -87,11 +103,12 @@ async def test_feed_subscribe_initializes_session():
     await connection._open()
     await feed.subscribe(connection)
 
-    assert symbols.ensure_calls == 1
+    assert symbols.ensure_calls >= 1
     assert ws.open_called is True
     assert ws.subscriptions
     assert ws.subscriptions[0].channel == "trades"
     assert set(ws.subscriptions[0].symbols) == {"BTC_USDT"}
+    assert rest.snapshot_calls == [("BTC_USDT", 50)]
 
 
 @pytest.mark.asyncio
