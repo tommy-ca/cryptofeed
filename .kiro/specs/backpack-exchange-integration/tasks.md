@@ -1,9 +1,9 @@
 # Task Breakdown
 
 ## Phase 0 · Foundations & Feature Flag
-- **T0.1 Audit ccxt Backpack Usage** (`cryptofeed/exchanges/backpack_ccxt.py`, deployment configs)  
+- **T0.1 Audit ccxt Backpack Usage ✅** (`cryptofeed/exchanges/backpack_ccxt.py`, deployment configs)  
   Catalogue current dependencies on the ccxt adapter, note behavioural gaps, and draft a toggle plan for migration.
-- **T0.2 Introduce Feature Flag** (`cryptofeed/exchange/registry.py`, config loaders)  
+- **T0.2 Introduce Feature Flag ✅** (`cryptofeed/exchange/registry.py`, config loaders)  
   Add `backpack.native_enabled` option controlling whether FeedHandler instantiates native or ccxt-backed feeds.
 
 ## Phase 1 · Configuration & Symbols
