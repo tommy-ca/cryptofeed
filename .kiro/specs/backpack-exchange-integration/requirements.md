@@ -1,7 +1,7 @@
 # Requirements Document
 
 ## Introduction
-This spec covers Backpack exchange integration using native cryptofeed patterns, following established implementations like Binance and Coinbase. The goal is to deliver a complete Backpack integration that leverages existing cryptofeed infrastructure including proxy support, connection handling, and data normalization.
+This spec covers Backpack exchange integration using the same native cryptofeed architecture employed by Binance (and other first-party exchanges). The goal is to deliver a complete Backpack feed that reuses the stock `Feed` subclass, `HTTPAsyncConn`/`WSAsyncConn`, and adapter patterns without relying on `ccxt` or the generic ccxt wrapper. The ccxt-based feed remains separate for backwards compatibility, but the native path stands alone and mirrors the Binance structure end-to-end.
 
 ## Requirements
 
@@ -17,9 +17,9 @@ This spec covers Backpack exchange integration using native cryptofeed patterns,
 **Objective:** As an operator, I want Backpack HTTP and WebSocket transports to leverage existing cryptofeed infrastructure and proxy support, so that infrastructure remains consistent.
 
 #### Acceptance Criteria
-1. WHEN Backpack REST requests execute THEN they SHALL use `HTTPAsyncConn` with Backpack endpoints (`https://api.backpack.exchange/`) and proxy support.
-2. WHEN Backpack WebSocket sessions connect THEN they SHALL use `WSAsyncConn` with Backpack WebSocket endpoint (`wss://ws.backpack.exchange/`) and proxy support.
-3. IF Backpack requires subscription mapping or ED25519 authentication THEN the integration SHALL provide methods without modifying core transport classes.
+1. WHEN Backpack REST requests execute THEN they SHALL use the same `HTTPAsyncConn` scaffolding as Binance, pointing to Backpack endpoints (`https://api.backpack.exchange/`) with proxy support.
+2. WHEN Backpack WebSocket sessions connect THEN they SHALL reuse the Binance-style `WSAsyncConn` integration (`wss://ws.backpack.exchange/`) with proxy support and identical lifecycle hooks.
+3. IF Backpack requires subscription mapping or ED25519 authentication THEN the integration SHALL implement helpers in the native module without modifying generic ccxt classes.
 
 ### Requirement 3: Data Normalization
 **Objective:** As a downstream consumer, I want Backpack trade/book data normalized like other exchanges, so pipelines remain uniform.

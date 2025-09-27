@@ -5,7 +5,7 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from cryptofeed.exchanges.backpack.config import BackpackConfig, BackpackAuthSettings
+from cryptofeed.exchanges.backpack.config import BackpackConfig, BackpackAuthSettings, default_backpack_config
 
 
 def _hex_key() -> str:
@@ -67,3 +67,22 @@ def test_public_only_config_defaults():
     assert config.auth is None
     assert config.rest_endpoint == "https://api.backpack.exchange"
     assert config.ws_endpoint == "wss://ws.backpack.exchange"
+
+
+def test_default_config_helper():
+    cfg = default_backpack_config()
+    assert isinstance(cfg, BackpackConfig)
+    cfg2 = default_backpack_config(enable_private_channels=False)
+    assert cfg2.enable_private_channels is False
+
+
+def test_coerce_from_dict_and_instance():
+    cfg = BackpackConfig.coerce({
+        "enable_private_channels": False,
+        "use_sandbox": True,
+    })
+    assert cfg.use_sandbox is True
+
+    updated = BackpackConfig.coerce(cfg, use_sandbox=False)
+    assert updated.use_sandbox is False
+    assert cfg.use_sandbox is True

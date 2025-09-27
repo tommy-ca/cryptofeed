@@ -12,6 +12,8 @@ from cryptofeed.symbols import Symbol, Symbols
 
 from .adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
 from .auth import BackpackAuthHelper
+from collections.abc import Mapping
+
 from .config import BackpackConfig
 from .health import BackpackHealthReport, evaluate_health
 from .metrics import BackpackMetrics
@@ -39,7 +41,7 @@ class BackpackFeed(Feed):
     def __init__(
         self,
         *,
-        config: Optional[BackpackConfig] = None,
+        config: BackpackConfig | Mapping[str, object] | None = None,
         feature_flag_enabled: bool = True,
         rest_client_factory=None,
         ws_session_factory=None,
@@ -47,9 +49,9 @@ class BackpackFeed(Feed):
         **kwargs,
     ) -> None:
         if not feature_flag_enabled:
-            raise RuntimeError("Native Backpack feed is disabled. Set feature_flag_enabled=True to opt-in.")
+            raise RuntimeError("Native Backpack feed is disabled. Enable the feature flag to opt-in.")
 
-        self.config = config or BackpackConfig()
+        self.config = BackpackConfig.coerce(config)
         Symbols.set(self.id, {}, {})
         self.metrics = BackpackMetrics()
         self._rest_client_factory = rest_client_factory or (lambda cfg: BackpackRestClient(cfg))
@@ -112,10 +114,15 @@ class BackpackFeed(Feed):
 
     async def _ensure_symbol_metadata(self) -> None:
         await self._symbol_service.ensure()
-        mapping = {market.normalized_symbol: market.native_symbol for market in self._symbol_service.all_markets()}
+        markets = list(self._symbol_service.all_markets())
+        mapping = {market.normalized_symbol: market.native_symbol for market in markets}
         if mapping:
             info = {
                 "symbols": list(mapping.keys()),
+                "instrument_type": {market.normalized_symbol: market.instrument_type for market in markets},
+                "price_precision": {market.normalized_symbol: market.price_precision for market in markets if market.price_precision is not None},
+                "amount_precision": {market.normalized_symbol: market.amount_precision for market in markets if market.amount_precision is not None},
+                "minimum_order_size": {market.normalized_symbol: str(market.min_amount) for market in markets if market.min_amount is not None},
             }
             Symbols.set(self.id, mapping, info)
             self.normalized_symbol_mapping = mapping

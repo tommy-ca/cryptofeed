@@ -5,6 +5,8 @@ import binascii
 from dataclasses import dataclass
 from typing import Literal, Optional
 
+from typing import Any, Mapping
+
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from cryptofeed.proxy import ProxyConfig
@@ -94,3 +96,34 @@ class BackpackConfig(BaseModel):
     @property
     def requires_auth(self) -> bool:
         return self.enable_private_channels
+
+    @classmethod
+    def coerce(
+        cls,
+        value: "BackpackConfig" | Mapping[str, Any] | None = None,
+        **overrides: Any,
+    ) -> "BackpackConfig":
+        if isinstance(value, cls):
+            if not overrides:
+                return value
+            data = value.model_dump()
+        else:
+            data = dict(value or {})
+        data.update(overrides)
+        return cls(**data)
+
+
+def default_backpack_config(**overrides: Any) -> BackpackConfig:
+    """Return a BackpackConfig using Binance-style helper signature."""
+    return BackpackConfig.coerce(overrides)
+
+
+__all__ = [
+    "BACKPACK_REST_PROD",
+    "BACKPACK_WS_PROD",
+    "BACKPACK_REST_SANDBOX",
+    "BACKPACK_WS_SANDBOX",
+    "BackpackAuthSettings",
+    "BackpackConfig",
+    "default_backpack_config",
+]

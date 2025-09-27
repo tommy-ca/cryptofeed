@@ -54,8 +54,11 @@ async def test_symbol_service_caches_results():
     assert rest.calls == 1
     market = service.get_market("BTC-USDT")
     assert isinstance(market, BackpackMarket)
-    assert market.instrument_type == "SPOT"
+    assert market.instrument_type == "spot"
     assert market.native_symbol == "BTC_USDT"
+    assert market.base_asset == "BTC"
+    assert market.quote_asset == "USDT"
+    assert str(market.min_amount) == "0.0001"
 
 
 @pytest.mark.asyncio
@@ -78,3 +81,17 @@ async def test_symbol_lookup_missing_symbol():
 
     with pytest.raises(KeyError):
         service.get_market("ETH-USDT")
+
+
+@pytest.mark.asyncio
+async def test_native_symbol_mapping():
+    rest = DummyRestClient(MOCK_MARKETS)
+    service = BackpackSymbolService(rest_client=rest)
+
+    await service.ensure()
+
+    assert service.native_symbol("BTC-USDT") == "BTC_USDT"
+    assert service.native_symbol("BTC-USDT") == "BTC_USDT"
+    assert service.native_symbol("BTC-USD-PERP") == "BTC_USD_PERP"
+    markets = list(service.all_markets())
+    assert {m.normalized_symbol for m in markets} == {"BTC-USDT", "BTC-USD-PERP"}

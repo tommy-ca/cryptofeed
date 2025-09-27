@@ -7,11 +7,11 @@
   Add `backpack.native_enabled` option controlling whether FeedHandler instantiates native or ccxt-backed feeds.
 
 ## Phase 1 · Configuration & Symbols
-- **T1.1 Implement BackpackConfig** (`cryptofeed/config/backpack.py`)  
+- **T1.1 Implement BackpackConfig ✅** (`cryptofeed/config/backpack.py`)  
   Build Pydantic model enforcing ED25519 credential structure, sandbox endpoints, proxy overrides, and window bounds.
-- **T1.2 Build Symbol Service** (`cryptofeed/exchanges/backpack/symbols.py`)  
+- **T1.2 Build Symbol Service ✅** (`cryptofeed/exchanges/backpack/symbols.py`)  
   Fetch `/api/v1/markets`, normalize symbols, detect instrument types, and cache results with TTL invalidation.
-- **T1.3 Wire Feed Bootstrap** (`cryptofeed/exchanges/backpack/feed.py`)  
+- **T1.3 Wire Feed Bootstrap ✅** (`cryptofeed/exchanges/backpack/feed.py`)  
   Integrate config + symbol service; expose helpers translating between normalized and native symbols.
 
 ## Phase 2 · Transports & Authentication

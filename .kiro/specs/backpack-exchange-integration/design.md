@@ -17,12 +17,12 @@ Backpack exchange integration will reuse the **Binance native integration patter
 ## Requirements Traceability
 | Requirement | Implementation Surfaces | Verification |
 | --- | --- | --- |
-| R1 Exchange Configuration | `BackpackFeed.__init__`, `BackpackConfig` dataclass, validation in `config/backpack.py` | Unit tests covering config validation, integration smoke configuring exchange via YAML/JSON |
-| R2 Transport Behavior | `BackpackRestClient` (wrapping `HTTPAsyncConn`), `BackpackWsSession` (wrapping `WSAsyncConn`), proxy injection hooks | Integration tests using proxy fixtures, transport unit tests asserting endpoint usage |
-| R3 Data Normalization | `BackpackMessageRouter`, `BackpackTradeAdapter`, `BackpackOrderBookAdapter`, logging strategy | Parser unit tests with fixtures, FeedHandler integration assertions, log capture tests |
-| R4 Symbol Management | `BackpackSymbolService` cache, symbol discovery REST call, mapping helpers | Symbol unit tests, snapshot fixture validation, CLI smoke verifying normalized/exchange symbol APIs |
-| R5 ED25519 Authentication | `BackpackAuthMixin`, key validation module, signing utilities, private channel handshake | Crypto unit tests for signing, WebSocket auth sequence tests, negative-case tests for invalid keys |
-| R6 Testing & Documentation | New unit/integration suites, `docs/exchanges/backpack.md`, developer runbooks | CI coverage thresholds, doc review checklist, manual QA runbook |
+| R1 Exchange Configuration | `BackpackFeed.__init__`, `BackpackConfig` (Binance-style dataclass) | Unit tests matching Binance config coverage, integration smoke configuring feed via YAML/JSON |
+| R2 Transport Behavior | `BackpackREST`, `BackpackWS` wrapping `HTTPAsyncConn`/`WSAsyncConn` | Integration tests with proxy fixtures, ensuring endpoint usage and reconnect behaviour |
+| R3 Data Normalization | `_trade_update`, `_book_update`, adapters under `backpack/adapters.py` | Parser unit tests using fixtures, FeedHandler smoke tests asserting callbacks |
+| R4 Symbol Management | `Backpack.symbol_mapping()` REST loader | Unit tests validating normalization/refresh semantics |
+| R5 ED25519 Authentication | `BackpackAuthHelper`, REST/WS integration points | Signing unit tests, WS auth sequence tests, negative credential cases |
+| R6 Testing & Documentation | `tests/unit/exchange/test_backpack_*`, `tests/integration/test_backpack_native.py`, `docs/exchanges/backpack.md` | CI suites, doc linting, migration checklist |
 
 ## Architecture Overview
 
