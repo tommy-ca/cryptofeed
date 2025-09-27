@@ -49,10 +49,7 @@ from .okcoin import OKCoin
 from .poloniex import Poloniex
 from .probit import Probit
 from .upbit import Upbit
-
-_ENABLE_BACKPACK_NATIVE = os.environ.get("CRYPTOFEED_BACKPACK_NATIVE", "false").lower() in {"1", "true", "yes", "on"}
-if _ENABLE_BACKPACK_NATIVE:
-    from .backpack.feed import BackpackFeed
+from .backpack_toggle import is_backpack_native_enabled, register_backpack_toggle_callback
 
 # Maps string name to class name for use with config
 EXCHANGE_MAP = {
@@ -99,5 +96,14 @@ EXCHANGE_MAP = {
     UPBIT: Upbit,
 }
 
-if _ENABLE_BACKPACK_NATIVE:
-    EXCHANGE_MAP[BACKPACK] = BackpackFeed
+
+def _configure_backpack_mapping(enabled: bool) -> None:
+    if enabled:
+        from .backpack.feed import BackpackFeed
+        EXCHANGE_MAP[BACKPACK] = BackpackFeed
+    else:
+        from .backpack_ccxt import CcxtBackpackFeed
+        EXCHANGE_MAP[BACKPACK] = CcxtBackpackFeed
+
+
+register_backpack_toggle_callback(_configure_backpack_mapping)

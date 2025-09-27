@@ -1,7 +1,7 @@
 # Design Document
 
 ## Overview
-Backpack exchange integration will deliver a native cryptofeed `Feed` implementation that mirrors mature exchanges (Binance, Coinbase) while satisfying Backpack-specific requirements such as ED25519 authentication, symbol normalization, and proxy-aware transports. The solution removes reliance on ccxt/ccxt.pro wrappers, enabling first-class alignment with cryptofeed engineering principles defined in `CLAUDE.md` (SOLID, KISS, DRY, NO LEGACY) and the approved requirements.
+Backpack exchange integration will reuse the **Binance native integration pattern** already present in cryptofeed: a single `Backpack` feed class living beside other exchanges, a thin REST helper for snapshots, a thin WS helper for streaming, and direct use of `HTTPAsyncConn`/`WSAsyncConn`. Only Backpack-specific concerns (ED25519 signing, payload shapes) are isolated in small helpers. This keeps the design congruent with Binance while meeting Backpack requirements (auth, symbol normalization, proxy support) without introducing new architectural concepts.
 
 ## Feature Classification
 - **Type:** Complex integration of an external exchange with bespoke authentication
@@ -47,67 +47,37 @@ graph TD
 ```
 
 ### Data Flow Summary
-1. `FeedHandler` instantiates `BackpackFeed` with config validated by `BackpackConfig`.
-2. `BackpackFeed` loads market metadata through `BackpackSymbolService`, caching normalized and native identifiers.
-3. Public flows: `BackpackRestClient` fetches snapshots over `HTTPAsyncConn`; `BackpackWsSession` streams deltas via `WSAsyncConn`.
-4. Private flows: `BackpackAuthMixin` injects ED25519 headers and signing payloads before REST calls and WebSocket subscriptions.
-5. `BackpackMessageRouter` dispatches channel-specific payloads to adapters that emit cryptofeed data classes and callbacks.
+1. `FeedHandler` instantiates `Backpack` (mirroring Binance’s constructor) and config validation happens inline.
+2. `Backpack.symbol_mapping()` fetches/caches REST metadata just like `Binance.symbol_mapping()`.
+3. `_rest_request()` uses `HTTPAsyncConn` with proxy settings pulled from the global injector for depth snapshots.
+4. `_ws_subscribe()` spins up `WSAsyncConn`, performs optional ED25519 authentication, then subscribes to topics using Binance-style message handlers.
+5. `_book_update()` / `_trade_update()` parse payloads and emit cryptofeed types via `self.callback`, identical in shape to Binance handlers with Backpack field mapping tweaks.
 
 ## Component Design
 
 ### `BackpackConfig`
-- **Purpose:** Strongly typed configuration entry point; enforces Backpack-specific options (API key, secret seed, public key, sandbox toggle, optional proxy overrides).
-- **Structure:** Pydantic model with fields `exchange_id: Literal["backpack"]`, `api_key: SecretStr`, `public_key: HexString`, `private_key: HexString`, `passphrase: str | None`, `use_sandbox: bool`, `proxies: ProxySettings`, `channels: list[Channel]`, `symbols: list[SymbolCode]`.
-- **Validation Rules:**
-  - ED25519 keys must be 32-byte seeds encoded as hex or Base64 (auto-detected and normalized).
-  - When `enable_private_channels` is true, `api_key`, `public_key`, and `private_key` become mandatory.
-  - Sandbox flag switches endpoints to `https://api.backpack.exchange/sandbox` and `wss://ws.backpack.exchange/sandbox`.
-- **Outputs:** Provides `rest_endpoint`, `ws_endpoint`, `headers`, and `auth_window` configuration consumed by feed and transports.
+- clone of Binance’s config dataclass in structure/usage, enriched with Backpack-only ED25519 fields.
+- exposed via module-level helper `Backpack.default_config()` so YAML/env usage matches Binance.
+- enforces ED25519 key length/encoding, toggles sandbox endpoints, and returns dicts that the feed/REST helpers consume (same pattern as Binance’s `_setup()` phase).
 
-### `BackpackSymbolService`
-- **Purpose:** Market metadata loader with normalization logic.
-- **Responsibilities:**
-  - Fetch `/api/v1/markets` once per session, caching by environment.
-  - Produce dataclass `BackpackMarket(symbol: SymbolCode, native_symbol: str, instrument_type: InstrumentType, precision: DecimalPrecision)`.
-  - Expose `normalize(symbol: str) -> SymbolCode` and `native(symbol: SymbolCode) -> str` methods.
-- **Implementation Notes:**
-  - Uses `BackpackRestClient` in read-only mode for discovery.
-  - Instrument typing derived from market payload fields (`type`, `perpetual`, etc.).
-  - Cache invalidation triggered when feed refresh requested or after 15 minutes.
+### Symbol loading (`Backpack.symbol_mapping`)
+- replicates Binance’s `_parse_symbol_data` pattern: single REST call, cached via `Symbols.set`, returning normalized ↔ native mapping.
+- shares the same `refresh` flag and fallback behaviour, just mapping Backpack’s payload keys to Binance’s expected fields.
 
-### `BackpackRestClient`
-- **Purpose:** REST snapshot and auxiliary API wrapper leveraging `HTTPAsyncConn`.
-- **Key Methods:**
-  - `async fetch_order_book(symbol: SymbolCode, depth: int) -> BackpackOrderBookSnapshot`
-  - `async fetch_symbols() -> list[BackpackMarket]`
-  - `async sign_and_request(method: HttpMethod, path: str, body: Mapping[str, Any]) -> JsonPayload`
-- **Behavior:**
-  - Applies exponential backoff, HTTP 429 handling, and circuit breaking aligned with proxy system.
-  - Injects ED25519 headers for private requests through `BackpackAuthMixin`.
-  - Emits structured logs on error (status, request id, symbol).
+### REST helper (`BackpackREST`)
+- identical in shape to Binance’s `_get`/`_post` wrappers, including proxy handling and retry/backoff semantics.
+- adds ED25519 signing inside `_request_private` while keeping public endpoints unchanged.
+- exposes `book_snapshot`, `recent_trades`, `account_info` with same signatures as Binance for parity.
 
-### `BackpackWsSession`
-- **Purpose:** WebSocket lifecycle management with proxy support and reconnection semantics.
-- **Key Methods:**
-  - `async connect(subscriptions: list[BackpackSubscription])`
-  - `async receive() -> BackpackWsMessage`
-  - `async send(payload: JsonPayload)`
-  - `async close(reason: str | None = None)`
-- **Features:**
-  - Maintains heartbeat watchdog; triggers reconnect when heartbeat gap exceeds 15 seconds.
-  - On reconnect, resends authentication payload signed via `BackpackAuthMixin` and replays subscriptions.
-  - Supports multiplexed channels (TRADES, L2_BOOK, TICKER, private topics) with message tagging.
+### WebSocket helper (`BackpackWS`)
+- extends Binance’s WS helper class: `_connect`, `_subscribe`, `_message` follow same structure and reuse heartbeat/reconnect logic.
+- authentication simply bolts onto `_connect` by calling the ED25519 signer before sending `login` frame.
+- message decoding returns channel/topic identifiers matching Binance so router logic stays familiar.
 
-### `BackpackAuthMixin`
-- **Purpose:** Centralize ED25519 signing for REST and WebSocket flows.
-- **Interfaces:**
-  - `build_auth_headers(method: str, path: str, body: str | None, timestamp: int) -> dict[str, str]`
-  - `sign_message(message: bytes) -> str` returning Base64 signature.
-  - `validate_keys() -> None` raising `BackpackAuthError` when formatting fails.
-- **Algorithm:**
-  - Timestamp in microseconds (UTC) concatenated with method, path, body JSON per Backpack spec.
-  - Signature uses libsodium-backed ED25519 (via `nacl.signing.SigningKey`).
-  - `X-Window` default 5000 ms; configurable through config.
+### Authentication helper (`BackpackAuthHelper`)
+- mirrors Binance’s `_generate_signature` helper but swaps HMAC for ED25519 using `nacl.signing.SigningKey`.
+- returns headers (`X-API-Key`, `X-Signature`, `X-Timestamp`, `X-Window`) matching Backpack spec.
+- shared by REST/WS helpers; cached key object to avoid repeated construction.
 - **Security Controls:**
   - Secrets stored as `SecretStr`; conversions to bytes occur only in-memory.
   - Error messages avoid echoing raw keys.
@@ -196,21 +166,18 @@ sequenceDiagram
 - Health Checks: expose feed status via existing health subsystem, reporting snapshot age and subscription freshness.
 
 ## Testing Strategy
-- **Unit Tests:**
-  - `test_backpack_config_validation` for credential requirements and sandbox endpoints.
-  - `test_backpack_auth_signatures` verifying Base64 signatures against known vectors.
-  - `test_backpack_symbol_service` covering normalization, cache invalidation, instrument typing.
-  - `test_backpack_adapters` using JSON fixtures for trades, order books, tickers, private updates.
-- **Integration Tests:**
-  - WebSocket proxy integration using simulated proxy server and recorded Backpack frames.
-  - Parallel public + private subscription flow verifying callbacks and reconnection.
-  - REST-WS bootstrap synchronization ensuring snapshot + delta coherence.
-- **Performance/Load:**
-  - Stress test WebSocket adapter with bursty updates to validate queue/backpressure logic.
-- **Security Tests:**
-  - Negative tests for invalid ED25519 keys, expired timestamps, replayed signatures.
-- **Documentation Validation:**
-  - Lint docs, run example script against sandbox using mocked credentials.
+- **Unit (mirrors Binance):**
+  - `tests/unit/exchange/test_backpack_config.py` (config + sandbox toggles).
+  - `tests/unit/exchange/test_backpack_auth.py` (ED25519 signing vectors).
+  - `tests/unit/exchange/test_backpack_symbols.py` (normalization, refresh).
+  - `tests/unit/exchange/test_backpack_stream.py` (trade/book parsing/gap handling).
+- **Integration:**
+  - Proxy-aware snapshot + stream tests using patched async clients (pattern copied from Binance).
+  - Combined public/private subscription flow verifying callbacks and reconnection handling without external network.
+- **Smoke:**
+  - FeedHandler end-to-end scenario identical to Binance smoke test, asserting config → callback flow and proxy/auth propagation.
+- **Security Regression:**
+  - Negative ED25519 key/timestamp tests to guard against silent auth failures.
 
 ## Migration Strategy
 ```mermaid

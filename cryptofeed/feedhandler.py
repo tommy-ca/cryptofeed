@@ -29,6 +29,7 @@ from cryptofeed.log import get_logger
 from cryptofeed.nbbo import NBBO
 from cryptofeed.exchanges import EXCHANGE_MAP
 from cryptofeed.proxy import ProxySettings, init_proxy_system, load_proxy_settings
+from cryptofeed.exchanges.backpack_toggle import maybe_enable_from_config
 
 
 LOG = logging.getLogger('feedhandler')
@@ -83,6 +84,7 @@ class FeedHandler:
                 LOG.info("FH: uvloop not initialized")
 
         self._initialize_proxy_system(proxy_settings)
+        maybe_enable_from_config(self.config)
 
     def _initialize_proxy_system(self, explicit_settings):
         """Initialize proxy system using env → YAML → explicit precedence."""

@@ -4,11 +4,11 @@
 The native Backpack integration exposes the exchange through cryptofeed’s `Feed` API without relying on `ccxt`. It delivers consistent symbol normalization, ED25519 private channel access, proxy-aware transports, and structured telemetry.
 
 ## Enabling the Native Feed
-- Set `CRYPTOFEED_BACKPACK_NATIVE=true` to register the native feed in `EXCHANGE_MAP`.
-- When the flag is disabled, `CcxtBackpackFeed` remains the default to preserve existing behaviour.
+- Add `exchanges.backpack.native_enabled: true` to your cryptofeed config (YAML/dict) **or** set `CRYPTOFEED_BACKPACK_NATIVE=true`. Either path flips the registry to the native feed at runtime.
+- When the flag is disabled (default), `CcxtBackpackFeed` remains the default for backwards compatibility.
 
 ## Configuration
-Use `BackpackConfig` or pass a dictionary to `BackpackFeed(config=...)`:
+Use `BackpackConfig` or pass a dictionary to `BackpackFeed(config=...)`. The native flag can also be set inline:
 
 ```python
 from cryptofeed.exchanges.backpack import BackpackConfig, BackpackFeed
