@@ -56,6 +56,10 @@ normalized outputs remain machine-verifiable and interoperable with Cryptofeed f
 4. WHEN tardis-node schema updates reach review-ready status THEN the Normalized
    Data Schema Initiative SHALL produce versioned JSON Schema definitions and
    sample payloads illustrating trades, L2 snapshots, funding, and options data.
+5. IF tardis-node already defines canonical normalized schemas (e.g., trades,
+   book snapshots, liquidations) THEN the Normalized Data Schema Initiative SHALL
+   map each proposed extension to the baseline tardis-node schema artifacts,
+   documenting field-level compatibility notes and required migration steps.
 
 ### Requirement 3: DBN Fixed Schema Crypto Extensions
 **Objective:** As a Historical Data Product Manager, I want DBN fixed-width
@@ -80,6 +84,10 @@ venues.
    Initiative SHALL deliver validation fixtures (binary + decoded JSON),
    automated conformance tests runnable via the shared CI harness, and an
    updated normalized data format specification sheet.
+5. IF cryptofeed typed events (e.g., Trade, OrderBook) expose fields not present
+   in the DBN layout THEN the Normalized Data Schema Initiative SHALL document
+   how those fields project into DBN structures or why they remain out of scope
+   for archival records.
 
 ### Requirement 4: Governance, Tooling, and Adoption
 **Objective:** As a Quant Platform Lead, I want governed rollout processes, so
@@ -120,3 +128,7 @@ normalized data interface across historical and streaming paths.
    Schema Initiative SHALL confirm that DBN payload emission does not bypass
    proxy logging or metrics instrumentation and documents the code flow path from
    transport adapters to DBN serialization hooks.
+5. WHEN DBN callback mode serializes events THEN the Normalized Data Schema
+   Initiative SHALL ensure typed payloads remain compatible with
+   `cryptofeed.types` dataclasses, capturing any adapter transformations required
+   to round-trip between Python objects and DBN fixed records.
