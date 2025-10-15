@@ -63,6 +63,14 @@ Refer to `AGENTS.md` for an overview of available agent workflows and command us
 - Align prioritization with user impact, revisiting NFRs once core behavior ships
 - Treat performance, resiliency, and compliance targets as iterative enhancements unless explicitly critical
 
+### Compound Engineering with Parallel Work Streams
+- **Decompose Outcomes:** Split large initiatives into discrete, value-focused streams that can progress independently without blocking shared milestones.
+- **Bounded Interfaces:** Define clear contracts (APIs, schema versions, specs) so parallel teams can integrate asynchronously with minimal coordination overhead.
+- **Synchronization Cadence:** Establish short, recurring integration checkpoints to surface cross-stream risks early while preserving autonomous execution between checkpoints.
+- **Shared Context Hubs:** Maintain living documents (specs, ADRs, dashboards) that aggregate decisions and status across streams to avoid redundant alignment meetings.
+- **Risk Balancing:** Pair high-complexity streams with stabilization or hardening tracks to ensure compound delivery doesn’t sacrifice reliability.
+- **Capacity Guardrails:** Reserve buffer capacity for emergent interdependencies or support needs, preventing one stream’s blockers from derailing overall delivery.
+
 ## Development Standards
 
 ### NO MOCKS
