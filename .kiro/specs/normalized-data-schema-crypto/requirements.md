@@ -1,134 +1,115 @@
 # Requirements Document
 
 ## Introduction
-The normalized-data-schema-crypto initiative aligns external market data sources with
-Cryptofeed's event model by researching industry formats, extending tardis-node
-schemas, modeling DBN fixed records with crypto-specific attributes, and enabling
-feed callbacks to emit DBN-compliant payloads. Delivering formal requirements ensures
-downstream ingestion teams receive consistent, well-governed schema definitions that
-accelerate analytics and lakehouse adoption.
+The normalized-data-schema-crypto initiative standardizes crypto market data by
+deriving canonical Protobuf schemas with Cryptofeed dataclasses as the primary
+source of truth. tardis-node JSON exports and DBN fixed layouts complement the
+Cryptofeed types by supplying auxiliary fields, metadata, or transport constraints
+that inform the unified schema. The program
+eliminates the previous bespoke schema package and instead adopts a Buf-based
+workflow that publishes versioned modules to the Buf Schema Registry (BSR) under a dedicated namespace such as `buf.build/tommyk/crypto-market-data`.
+Downstream teams consume these schema bundles to guarantee parity across
+streaming, historical, and analytics pipelines without maintaining parallel
+serialization stacks.
 
 ## Requirements
 
-### Requirement 1: Schema Landscape Assessment
-**Objective:** As a Data Platform Architect, I want a comprehensive view of existing
-market data schemas and data flows, so that we can identify required crypto
-extensions before modifying tardis-node or DBN baselines and confirm how exchange
-feeds propagate into normalized outputs.
+### Requirement 1: Cross-Source Schema Inventory
+**Objective:** As a Data Schema Analyst, I want a governed schema inventory that
+collects and compares field definitions across the expanding catalog of normalized events, treating Cryptofeed dataclass fields as canonical while recording tardis-node and DBN equivalents as complementary references before generating Buf modules. The inventory must grow with every newly supported Cryptofeed dataclass (e.g., balances, liquidations, options Greeks, NBBO, portfolio snapshots).
 
 #### Acceptance Criteria
-1. WHEN a crypto market data format or feed flow (exchange-native payloads,
-   tardis-node snapshots, DBN fixed records, or open-standard schemas) is evaluated
-   THEN the Normalized Data Schema Initiative SHALL log its field inventory, data
-   types, timestamp resolution, transport path, and licensing constraints in the
-   schema research register within two business days.
-2. IF a format lacks coverage for trades, order books, liquidations, funding, or
-   options Greeks THEN the Normalized Data Schema Initiative SHALL classify the
-   gap severity and recommend candidate sources or derivations in the coverage
-   matrix.
-3. WHILE schema research is in progress THE Normalized Data Schema Initiative
-   SHALL maintain a version-controlled comparison matrix that maps providers to
-   supported event classes, serialization formats, precision standards, and
-   upstream/downstream code flow touchpoints.
-4. WHERE conflicting definitions of a shared field (e.g., trade side, venue ID,
-   sequence numbers) are discovered THE Normalized Data Schema Initiative SHALL
-   schedule a schema review workshop within five business days and record the
-   adjudicated definition.
+1. WHEN schema artifacts (Cryptofeed dataclasses, tardis-node exports, DBN
+   layouts) are collected THEN the initiative SHALL capture field names, data
+   types, units, precision, and known aliases in a normalized comparison matrix
+   within two business days.
+2. IF conflicting definitions exist across sources THEN the Cryptofeed dataclass
+   SHALL be treated as authoritative unless a documented rationale justifies a
+   divergence; adjudication workshops occur within five business days and record
+   how tardis-node or DBN complements are adjusted to stay aligned.
+3. WHILE schema research remains active THE initiative SHALL tag each normalized
+   event (trade, order book, funding, options, balances) with a coverage status
+   of complete, partial, or missing, including severity rationale for any gaps
+   and explicit mappings that compare Cryptofeed fields to their tardis-node and
+   DBN counterparts.
 
-### Requirement 2: Tardis-Node Schema Extensions
-**Objective:** As a Streaming Data Engineer, I want updated tardis-node schemas and
-documented data flow mappings that encode crypto-specific attributes, so that
-normalized outputs remain machine-verifiable and interoperable with Cryptofeed feeds.
+### Requirement 2: Protobuf Canonicalization via Buf CLI
+**Objective:** As a Streaming Platform Engineer, I want canonical Protobuf
+schemas generated with `buf`, so that downstream services consume a single
+contract anchored on Cryptofeed dataclasses.
 
 #### Acceptance Criteria
-1. WHEN tardis-node normalized outputs require crypto-specific metadata THEN the
-   Normalized Data Schema Initiative SHALL define canonical field names, data
-   types, and enumerations covering instrument identity, venue codes, tick size,
-   and maker/taker flags.
-2. IF an existing tardis-node field conflicts with the unified Cryptofeed schema
-   (naming, type, or semantics) THEN the Normalized Data Schema Initiative SHALL
-   propose an alias or migration note that preserves backward compatibility and
-   documents transformation logic.
-3. WHERE order book depth arrays are represented THE Normalized Data Schema
-   Initiative SHALL specify level limits, precision rules (Decimal scale),
-   required sequencing flags, and the data flow path from exchange adapters to
-   normalized tardis-node outputs to prevent ambiguity in downstream reconstruction.
-4. WHEN tardis-node schema updates reach review-ready status THEN the Normalized
-   Data Schema Initiative SHALL produce versioned JSON Schema definitions and
-   sample payloads illustrating trades, L2 snapshots, funding, and options data.
-5. IF tardis-node already defines canonical normalized schemas (e.g., trades,
-   book snapshots, liquidations) THEN the Normalized Data Schema Initiative SHALL
-   map each proposed extension to the baseline tardis-node schema artifacts,
-   documenting field-level compatibility notes and required migration steps.
+1. WHEN canonical field definitions are approved THEN the initiative SHALL
+   produce `.proto` files using Buf module scaffolding (`buf.yaml`,
+   `buf.gen.yaml`, `buf.lock`) aligned with the Cryptofeed namespace.
+2. IF tardis-node or DBN structures provide metadata beyond the Cryptofeed
+   dataclass THEN the initiative SHALL mirror required fields using deterministic
+   casing, enum values, Decimal scale comments, and reserved field numbers while
+   noting that the source of truth remains the Cryptofeed type.
+3. WHEN schemas are generated THEN `buf lint` and `buf breaking --against` SHALL
+   run in CI to enforce style and backward-compatibility guarantees before a
+   release tag is published.
+4. IF transport-specific annotations (e.g., JSON, gRPC gateway) are necessary
+   THEN they SHALL be confined to Buf-managed options, ensuring the canonical
+   Protobuf remains transport-agnostic.
 
-### Requirement 3: DBN Fixed Schema Crypto Extensions
-**Objective:** As a Historical Data Product Manager, I want DBN fixed-width
-records to capture crypto observables and trace how exchange feeds map into DBN
-records, so that archival datasets remain lossless and query-efficient across new
-venues.
+### Requirement 3: BSR Publication & Versioning
+**Objective:** As a Release Manager, I need normalized schemas available through
+the Buf Schema Registry, so that internal and external consumers can pin to
+semantic versions.
 
 #### Acceptance Criteria
-1. WHEN new crypto event types are added to DBN fixed schemas THEN the Normalized
-   Data Schema Initiative SHALL allocate record identifiers, byte layouts, and
-   endianness rules consistent with existing DBN conventions while documenting
-   the normalized data format contract.
-2. IF crypto price or quantity fields exceed current DBN value ranges THEN the
-   Normalized Data Schema Initiative SHALL document revised scaling factors or
-   alternate encodings that maintain deterministic precision and update the
-   normalized schema reference.
-3. WHERE DBN ingest pipelines intersect tardis-node or Cryptofeed adapters THE
-   Normalized Data Schema Initiative SHALL define field-level mapping tables,
-   normalized field semantics, checksum expectations, and documented code flow
-   diagrams to guarantee bidirectional conversion fidelity.
-4. WHEN DBN schema extensions are approved THEN the Normalized Data Schema
-   Initiative SHALL deliver validation fixtures (binary + decoded JSON),
-   automated conformance tests runnable via the shared CI harness, and an
-   updated normalized data format specification sheet.
-5. IF cryptofeed typed events (e.g., Trade, OrderBook) expose fields not present
-   in the DBN layout THEN the Normalized Data Schema Initiative SHALL document
-   how those fields project into DBN structures or why they remain out of scope
-   for archival records.
+1. WHEN a schema release candidate is approved THEN the initiative SHALL publish
+   the module to the configured BSR namespace using authenticated Buf CLI
+   workflows, tagging the module with semantic version identifiers and release
+   notes.
+2. IF breaking changes are introduced THEN the initiative SHALL increment the
+   major version and include migration guidance tying fields back to their
+   originating Cryptofeed dataclasses (with tardis-node/DBN references updated
+   accordingly).
+3. WHEN modules are published THEN digest verification and module metadata
+   (owners, visibility, dependencies) SHALL be stored alongside change logs in
+   the documentation hub.
+4. IF dependent teams raise adoption issues via BSR feedback THEN the initiative
+   SHALL triage within two business days and track resolution status.
 
-### Requirement 4: Governance, Tooling, and Adoption
-**Objective:** As a Quant Platform Lead, I want governed rollout processes, so
-that engineering, data science, and compliance teams adopt the new schemas
-without disrupting production workloads.
+### Requirement 4: Tardis-Node and DBN Alignment
+**Objective:** As a Historical Data Product Owner, I want the Buf schemas to map
+directly onto tardis-node JSON exports and DBN fixed layouts—using Cryptofeed
+dataclasses as the canonical reference—so that historical replay and real-time
+streams share identical semantics.
 
 #### Acceptance Criteria
-1. WHEN schema decisions are ratified THEN the Normalized Data Schema Initiative
-   SHALL publish changelog entries, migration guides, and FAQ updates in the
-   documentation hub within three business days.
-2. IF partner teams request schema clarifications or feature additions THEN the
-   Normalized Data Schema Initiative SHALL triage the request within two
-   business days and assign an owner with a documented response timeline.
-3. WHILE schema migrations are in progress THE Normalized Data Schema Initiative
-   SHALL maintain automated regression checks that replay representative tardis-
-   node and DBN payloads through Cryptofeed normalization pipelines, tracing end-
-   to-end data flows from exchange inputs to normalized outputs.
-4. WHERE production environments require phased rollout THE Normalized Data
-   Schema Initiative SHALL provide versioned configuration toggles and sample
-   deployment playbooks aligned with proxy and lakehouse integration patterns.
+1. WHEN new Protobuf revisions are published THEN updated tardis-node JSON
+   Schema references and DBN layout documentation SHALL cross-link exact field
+   numbers, scaling, and enumerations back to the Buf module and the originating
+   Cryptofeed dataclass.
+2. IF DBN numeric ranges or tardis-node JSON types cannot express the canonical
+   schema THEN the initiative SHALL record explicit translation guidance and
+   tooling requirements (e.g., scaling factors, enum adapters) prior to release.
+3. WHILE schema alignment is in progress THE initiative SHALL maintain automated
+   parity checks that replay representative tardis-node and DBN samples through
+   generated Protobuf encoders, failing on mismatched timestamp, sequence, or
+   precision fields.
+4. WHEN alignment testing passes THEN release notes SHALL include readiness gates
+   for tardis-node pipeline deployment and DBN archival ingestion referencing the
+   canonical Cryptofeed-derived schema.
 
-### Requirement 5: Feed Callback Enablement
-**Objective:** As a Feed Platform Engineer, I want Cryptofeed callbacks to emit
-DBN-formatted payloads, so that downstream systems can rely on a single,
-normalized data interface across historical and streaming paths.
+### Requirement 5: Governance & Documentation
+**Objective:** As a Quant Platform Lead, I want transparent governance around
+schema updates, so that teams adopt Buf modules confidently without diverging
+implementations.
 
 #### Acceptance Criteria
-1. WHEN Cryptofeed emits callbacks for trades, order books, funding, or
-   positions THEN the Normalized Data Schema Initiative SHALL ensure feed
-   handlers can publish DBN-compliant records alongside existing dataclasses.
-2. IF a callback consumer opts into DBN mode THEN the Normalized Data Schema
-   Initiative SHALL provide configuration flags and documentation describing how
-   to serialize normalized events into DBN fixed records.
-3. WHILE DBN callback mode is enabled THE Normalized Data Schema Initiative
-   SHALL guarantee parity tests that compare standard Cryptofeed dataclasses
-   with their DBN counterparts for timestamp, sequence, and precision fidelity.
-4. WHERE callbacks interact with proxy-aware transports THE Normalized Data
-   Schema Initiative SHALL confirm that DBN payload emission does not bypass
-   proxy logging or metrics instrumentation and documents the code flow path from
-   transport adapters to DBN serialization hooks.
-5. WHEN DBN callback mode serializes events THEN the Normalized Data Schema
-   Initiative SHALL ensure typed payloads remain compatible with
-   `cryptofeed.types` dataclasses, capturing any adapter transformations required
-   to round-trip between Python objects and DBN fixed records.
+1. WHEN module versions are published to the BSR THEN migration guides, changelog
+   entries, and curated FAQs SHALL be updated within three business days,
+   referencing the canonical Protobuf package and Buf module slug.
+2. IF consumers request schema enhancements THEN the initiative SHALL log the
+   request, respond within two business days, and track status through resolution
+   (accepted, deferred, or rejected) with rationale.
+3. WHILE schema adoption is rolling out THE initiative SHALL expose Buf module
+   metrics (downloads, dependents, breaking-change alerts) via a shared dashboard
+   for engineering leadership review.
+4. WHERE production environments require staged rollout THE initiative SHALL
+   provide configuration toggles or fallbacks (e.g., per-feed schema version
+   selection) coupled with Buf module compatibility guidance.

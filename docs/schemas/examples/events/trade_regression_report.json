@@ -1,0 +1,12 @@
+{
+  "parity": {
+    "total": 2,
+    "matches": 2,
+    "mismatches": []
+  },
+  "throughput": {
+    "samples": 2,
+    "encoding_events_per_second": 229884.8450674071,
+    "decoding_events_per_second": 1333349.0509323038
+  }
+}

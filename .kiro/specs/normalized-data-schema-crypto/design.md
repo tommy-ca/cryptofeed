@@ -1,168 +1,139 @@
-# Design Document
+# Design Document – Buf-Centric Schema Alignment
 
 ## Overview
-The normalized-data-schema-crypto initiative extends Cryptofeed’s normalization
-pipeline to publish DBN-compatible payloads enriched with crypto-specific
-attributes. The solution standardizes schema research artifacts, introduces a
-versioned schema compiler for tardis-node and DBN fixed records, and adds a
-DBN emission path to feed callbacks without disturbing existing dataclass
-consumers. The design emphasizes parallel work streams (schema research,
-tardis-node alignment, DBN layout modeling, callback enablement) coordinated via
-bounded interfaces and shared specification hubs.
+The normalized-data-schema-crypto initiative now delivers canonical cryptocurrency
+market data schemas as Buf-managed Protobuf modules. Cryptofeed dataclasses are
+the primary source of truth for field semantics; tardis-node JSON exports and
+DBN fixed layouts serve as complementary references that supply transport-specific
+constraints and metadata. Instead of
+maintaining a separate schema package inside Cryptofeed, the program reconciles
+conflicts via governance and publishes versioned modules to the Buf Schema
+Registry (BSR). Downstream teams consume the BSR artifact to guarantee
+consistent semantics across streaming adapters, historical replay, and
+analytics tooling.
 
 ## Goals & Non-Goals
 - **Goals**
-  - Provide authoritative schema research outputs covering exchange payloads,
-    tardis-node exports, and DBN layouts.
-  - Generate versioned tardis-node schema extensions and DBN fixed-width
-    definitions with crypto fields (e.g., sequencing, funding, options Greeks).
-  - Enable Cryptofeed callbacks to emit DBN-compliant payloads alongside
-    existing dataclasses with configuration gating.
-  - Supply governance assets (migrations, changelog, regression plan) for
-    adoption across streaming and historical pipelines.
+  - Provide a single, Buf-based Protobuf contract for normalized crypto events.
+  - Align tardis-node JSON schemas and DBN fixed layouts with the canonical
+    Protobuf definitions.
+  - Automate schema validation, linting, and breaking-change detection via Buf
+    CLI workflows integrated in CI.
+  - Publish versioned modules to the BSR with governance artifacts (changelog,
+    migration guidance, dashboards).
 - **Non-Goals**
-  - Implement runtime ingestion or storage layers beyond schema emission.
-  - Replace tardis-node or DBN storage tooling.
-  - Redesign existing proxy, transport, or adapter infrastructure.
+  - Implement new runtime transports or storage engines; transports remain
+    consumers of the published Protobuf module as needed.
+  - Maintain a local schema registry or custom encoder library inside
+    Cryptofeed.
+  - Replace tardis-node or DBN pipelines; instead we synchronize their schemas
+    with the canonical Protobuf definitions.
 
 ## Requirements Traceability
 | Requirement | Design Coverage |
 | --- | --- |
-| R1 Schema Landscape Assessment | §Schema Research Workstream, §Context Registry |
-| R2 Tardis-Node Extensions | §Schema Compiler, §Tardis Alignment Workflow |
-| R3 DBN Fixed Extensions | §DBN Layout Model, §Binary Encoder |
-| R4 Governance & Tooling | §Governance & Documentation, §Regression Plan |
-| R5 DBN Callback Enablement | §Callback Adapter, §Runtime Configuration |
+| R1 Cross-Source Schema Inventory | §Schema Inventory Workflow |
+| R2 Protobuf Canonicalization | §Buf Module Structure, §Generation Pipeline |
+| R3 BSR Publication & Versioning | §Release Process, §CI/CD Integration |
+| R4 Tardis/DBN Alignment | §Source Alignment, §Regression Validation |
+| R5 Governance & Documentation | §Governance Model, §Artifacts |
 
 ## Architecture Overview
 ```mermaid
 graph TD
-  A[Exchange Payload Samples] -->|diff engine| B[Schema Research Registry]
-  B --> C[Tardis Schema Compiler]
-  C -->|JSON Schemas| D[Tardis-node Outputs]
-  C -->|Field Contracts| E[DBN Layout Modeler]
-  E --> F[DBN Binary Encoder]
-  F -->|Artifacts| G[DBN Schema Package]
-  G -->|Load| H[Cryptofeed DBN Adapter]
-  H --> I[Feed Callback Dispatcher]
-  I -->|Dataclass| J[Existing Consumers]
-  I -->|DBN Record| K[DBN-aware Consumers]
+  A[Cryptofeed Dataclasses] -->|Canonical Field Harvest| B[Schema Inventory]
+  C[tardis-node JSON Schemas] -->|Diff Engine| B
+  D[DBN Fixed Layouts] -->|Precision Mapping| B
+  B --> E[Buf Module Generator]
+  E -->|buf format/lint| F[Versioned Protobuf Package]
+  F -->|Publish| G[Buf Schema Registry]
+  G --> H[Downstream Services]
+  F --> I[Tardis/DBN Alignment Artifacts]
 ```
 
-## Data Flow
-```mermaid
-graph LR
-  src1[(Exchange)] --> p1[Transport/Adapter]
-  p1 --> norm[Normalized Event (dataclass)]
-  norm --> cfg{DBN Mode Enabled?}
-  cfg -- No --> fwd1[Dispatch Dataclass]
-  cfg -- Yes --> map[DBN Field Mapper]
-  map --> pack[Fixed Record Encoder]
-  pack --> fwd2[Dispatch DBN Payload]
-  fwd2 --> log[Proxy/Metrics Hooks]
-```
+## Schema Inventory Workflow (R1)
+1. **Source Harvesters** convert each field from Cryptofeed dataclasses (canonical source) across priority market data events—trades, order books (L2/L3), funding, NBBO, ticker—alongside complementary tardis-node JSON exports and DBN layouts into normalized records including name, type, units, precision, and lineage. Secondary datasets (balances, liquidations, options Greeks, portfolios) are catalogued in Phase 2.
+2. **Inventory Store**: YAML/CSV tables kept in `docs/schemas/inventory/` capture the merged view with conflict markers and coverage status (complete/partial/missing) for every normalized event. Each tardis-node/DBN row references the canonical Cryptofeed field it maps to, highlighting complementary metadata or gaps.
+3. **Adjudication Process**: Conflicts trigger workshops; decisions recorded in
+   `inventory/DECISIONS.md` with action items. Deviations from the Cryptofeed
+   canonical definition must document rationale and compensating steps.
+4. **Automation**: A simple Python CLI (`tools/schema_inventory.py`) validates
+   that new fields are documented before Buf generation runs.
 
-## Component Design
+## Buf Module Structure (R2)
+- **Workspace Layout**
+  - `proto/cryptofeed/normalized/v1/*.proto`
+  - `buf.yaml` (module definition, including BSR namespace and lint config)
+  - `buf.gen.yaml` (code generation targets for language bindings)
+- **Schema Conventions**
+  - Use snake_case field names aligned with existing dataclasses.
+  - Decimal fields represented as strings with comments describing scale; future
+    extension can adopt `google.type.DecimalValue` once standardized.
+  - Enumerations mirror existing defines (e.g., `BUY`/`SELL`) with reserved
+    numbers for future extension.
+  - Timestamp fields use `int64` microseconds since epoch for deterministic
+    alignment with tardis-node and DBN.
+- **Buf Workflows**
+  - `buf format` enforced via pre-commit.
+  - `buf lint` ensures style and package consistency.
+  - `buf breaking --against` checks the last published module in CI.
 
-### Schema Research Registry
-- **Purpose:** Centralize field inventories, transport notes, and licensing for
-  exchange formats, tardis-node outputs, and DBN layouts.
-- **Key Features:** Version-controlled markdown/CSV tables, diff tooling,
-  metadata enrichment (precision, timestamps, feed source).
-- **Interfaces:** CLI/automation script producing `schema_registry.json` with
-  enumerated fields and lineage references.
+## Generation Pipeline (R2)
+1. **Inventory to Protobuf Mapping**: A generator script reads the inventory and
+   outputs `.proto` templates with field numbers derived from a deterministic
+   sequence (optionally storing metadata in `proto/MAPPINGS.md`).
+2. **Manual Review**: Engineers validate annotations, comments, and message
+   naming.
+3. **Rendering**: `buf format` normalizes output before commit.
+4. **Code Generation**: Optional language targets (Python, Go) produced via
+   `buf generate` if downstream teams require libraries.
 
-### Tardis Schema Compiler
-- **Purpose:** Convert research artifacts into versioned tardis-node JSON Schema
-  definitions with crypto extensions.
-- **Key Features:** Canonical field naming, type validation, Decimal scale
-  policies, sequence semantics, migration annotations.
-- **Interfaces:** Python module `cryptofeed.schemas.tardis.compile()` producing
-  JSON Schema files plus sample payloads.
+## Source Alignment (R4)
+- **tardis-node**: Update JSON Schema references to include Buf field numbers and ensure JSON serialization matches the canonical Protobuf structure defined by Cryptofeed dataclasses for the market data set (trades, order books, funding, ticker, NBBO). Account-level schemas follow once market data parity is complete.
+- **DBN**: Document byte offsets and scaling relative to Protobuf fields; maintain YAML sheets cross-referencing DBN identifiers to Protobuf paths that originate from the Cryptofeed contract, focusing on market data first and documenting gaps for account data as follow-up.
+- **Cryptofeed Dataclasses**: Provide mapping tables so consumers know which dataclass properties map to each Protobuf field and confirm they remain the authoritative definition for every event class.
 
-### DBN Layout Modeler
-- **Purpose:** Define fixed-width record layouts consistent with DBN conventions
-  while incorporating crypto fields.
-- **Key Features:** Byte offset calculator, endianness rules, scaling factor
-  ledger, field-level compatibility notes vs. `cryptofeed.types`.
-- **Interfaces:** YAML definition consumed by encoder; export `dbn_layout.json`
-  and Markdown spec with diagrams.
+## Regression Validation (R4)
+- **Parity Tests**: Replay representative tardis-node JSON and DBN binary
+  samples, encode them into the Protobuf messages, and assert field equality.
+- **Throughput Benchmarks**: Measure `buf`-generated code performance to ensure
+  Protobuf serialization meets latency expectations.
+- **Diff Reports**: For each release candidate, generate `reports/parity/*.json`
+  summarizing mismatches and regression outcomes.
 
-### DBN Binary Encoder
-- **Purpose:** Produce test fixtures (binary + JSON) and parity tests ensuring
-  DBN records faithfully represent normalized dataclasses.
-- **Key Features:** Deterministic serialization, checksum validation, CI hooks
-  for regression replay.
-- **Interfaces:** `cryptofeed.dbn.encoder.encode(event)` returning `bytes` plus
-  metadata for assertions.
+## Release Process (R3 & R5)
+1. **Version Bump**: Update module version in `buf.yaml` and changelog entry.
+2. **CI Pipeline**: Run `buf lint`, `buf breaking`, parity tests, and code
+   generation checks; failing stages block release.
+3. **Publication**: `buf registry push` uploads the module to the BSR with
+   release notes referencing field changes and migration guidance.
+4. **Documentation**: Update `docs/schemas/README.md`, migration guides, FAQs,
+   and share Buf module metrics (downloads, dependents) via dashboards.
 
-### DBN Callback Adapter
-- **Purpose:** Extend feed callbacks with optional DBN emission while preserving
-  existing behavior.
-- **Key Features:** Config flag (`feedhandler.dbn_mode`), dual dispatch,
-  parity assertions, proxy/metrics integration.
-- **Interfaces:** Wrapper around `Feed.callback()` returning both dataclass and
-  DBN payload when enabled.
+## Governance Model (R5)
+- **Change Proposals**: Use lightweight RFCs stored in
+  `docs/schemas/proposals/` detailing rationale, impact, and rollout plan.
+- **Review Cadence**: Bi-weekly schema steering meeting reviews open proposals
+  and monitors BSR feedback.
+- **Consumer Feedback Loop**: BSR module issues tracked in the central schema
+  backlog with SLA (2 business days) for acknowledgement.
 
-## Data Models
-- **NormalizedEvent (existing):** Exchange, symbol, timestamp, price, size,
-  side, sequence, raw payload reference.
-- **TardisNormalizedRecord (JSON):** Extends NormalizedEvent with canonical
-  IDs, maker/taker flag, tick size, funding rate, options Greeks.
-- **DBNFixedRecord (binary):** Byte layout mapping to the above fields with
-  scaled integers and reserved bits for crypto extensions.
-- **SchemaRegistryEntry (JSON):** `{ "source": "exchange", "field": "price",
-  "type": "decimal", "precision": 8, "flow": "transport->adapter" }`.
+## Risks & Mitigations
+- **Schema Drift**: Mitigated by mandatory Buf breaking checks and parity
+  replays against tardis-node/DBN samples.
+- **Adoption Lag**: Provide version negotiation guidance and optional shims for
+  teams migrating from legacy JSON schemas.
+- **Decimal Precision**: Document recommended fixed-point scaling and highlight
+  potential overflow scenarios in DBN alignment notes.
 
-## Integration Strategy
-- **Bounded Interfaces:** Schema registry feeds compiler via JSON; compiler
-  outputs consumed by both tardis-node workflows and DBN modeler.
-- **Parallel Streams:** Each work stream (research, tardis, DBN, callbacks)
-  commits to artifacts compatible via the registry contract, supporting compound
-  engineering with minimal cross-blocking.
-- **Adoption Plan:** Provide configuration toggles and sample notebooks
-  demonstrating dataclass vs. DBN consumption.
-
-## Error Handling & Monitoring
-- **Validation Errors:** Compiler raises structured exceptions (with field path)
-  when schema conflicts detected; captured in CI.
-- **Encoding Failures:** DBN encoder logs record metadata and raw payload for
-  forensic analysis; retries disabled to ensure deterministic failure.
-- **Monitoring:** Metrics on DBN emission counts, parity check outcomes, and
-  schema registry freshness (age of latest research entry).
-
-## Testing Strategy
-- **Unit Tests:**
-  - Schema registry diffing and metadata enrichment.
-  - Tardis compiler generating expected JSON Schema fragments.
-  - DBN encoder scaling and checksum logic.
-  - Callback adapter toggling DBN mode.
-- **Integration Tests:**
-  - Replay recorded exchange payloads through adapters → DBN encoder.
-  - Tardis-node export compatibility using sample JSON Schemas.
-  - Proxy + DBN callback path verifying metrics.
-- **Regression Suites:**
-  - Golden binary fixtures vs. newly encoded payloads.
-  - Parity checks between dataclass and DBN representations for trades, order
-    books, funding, and options.
-
-## Governance & Documentation
-- Maintain `docs/schemas/normalized-data.md` summarizing schema versions,
-  migration guides, and FAQ.
-- Publish changelog entries per schema release with backward compatibility
-  matrix.
-- Define review cadence (bi-weekly) to reconcile parallel work streams and
-  adjust roadmap.
-
-## Migration Strategy
-```mermaid
-graph TD
-  phase1[Phase 1: Research & Registry] --> phase2[Phase 2: Tardis Compiler MVP]
-  phase2 --> phase3[Phase 3: DBN Layout Modeling]
-  phase3 --> phase4[Phase 4: Callback Adapter Pilot]
-  phase4 --> phase5[Phase 5: GA Rollout & Monitoring]
-```
-- **Rollback:** Toggle DBN mode off; fallback to existing dataclass-only path.
-- **Validation:** Run regression suite before advancing each phase; require
-  research registry freshness <= 7 days.
-
+## Implementation Roadmap
+1. **Phase 0 – Inventory Bootstrap**: Harvest fields, populate comparison
+   matrix, resolve conflicts for critical events (trades, L2 book).
+2. **Phase 1 – Buf Module MVP**: Generate initial `.proto` files, run linting,
+   produce sample code bindings, and stage release candidate.
+3. **Phase 2 – Source Alignment**: Update tardis-node JSON Schema references and
+   DBN layout docs; execute parity tests; iterate on gaps.
+4. **Phase 3 – BSR Publication**: Complete CI pipeline, publish module, and
+   distribute migration guides.
+5. **Phase 4 – Ongoing Governance**: Monitor metrics, respond to consumer
+   requests, and plan subsequent schema extensions.

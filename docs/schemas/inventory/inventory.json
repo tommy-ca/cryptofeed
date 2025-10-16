@@ -1,0 +1,355 @@
+{
+  "generated_at": "2025-10-16T19:28:48.528241+00:00",
+  "records": [
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "symbol",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "side",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "amount",
+      "data_type": "Decimal",
+      "precision": "1e-1",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "price",
+      "data_type": "Decimal",
+      "precision": "1e-2",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "id",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "type",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "trade",
+      "field": "timestamp",
+      "data_type": "float",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "ticker",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "ticker",
+      "field": "symbol",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "ticker",
+      "field": "bid",
+      "data_type": "Decimal",
+      "precision": "1e-2",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "ticker",
+      "field": "ask",
+      "data_type": "Decimal",
+      "precision": "1e-2",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "ticker",
+      "field": "timestamp",
+      "data_type": "float",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "order_book",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "order_book",
+      "field": "symbol",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "order_book",
+      "field": "book",
+      "data_type": "dict",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "order_book",
+      "field": "delta",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "order_book",
+      "field": "timestamp",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "symbol",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "mark_price",
+      "data_type": "Decimal",
+      "precision": "1e-2",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "rate",
+      "data_type": "Decimal",
+      "precision": "1e-4",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "next_funding_time",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "predicted_rate",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "funding",
+      "field": "timestamp",
+      "data_type": "float",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "open_interest",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "open_interest",
+      "field": "symbol",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "open_interest",
+      "field": "open_interest",
+      "data_type": "Decimal",
+      "precision": "1e0",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "open_interest",
+      "field": "timestamp",
+      "data_type": "float",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "balances",
+      "field": "exchange",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "balances",
+      "field": "currency",
+      "data_type": "str",
+      "precision": null,
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "balances",
+      "field": "balance",
+      "data_type": "Decimal",
+      "precision": "1e0",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "cryptofeed",
+      "event_type": "balances",
+      "field": "reserved",
+      "data_type": "Decimal",
+      "precision": "1e-1",
+      "unit": null,
+      "status": "complete",
+      "notes": null
+    },
+    {
+      "source": "tardis-node",
+      "event_type": "*",
+      "field": "*",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "missing",
+      "notes": "No tardis-node schema path provided."
+    },
+    {
+      "source": "dbn",
+      "event_type": "*",
+      "field": "*",
+      "data_type": "unknown",
+      "precision": null,
+      "unit": null,
+      "status": "missing",
+      "notes": "No DBN layout directory provided."
+    }
+  ]
+}
