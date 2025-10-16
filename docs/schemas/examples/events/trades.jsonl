@@ -1,0 +1,2 @@
+{"exchange": "SAMPLE", "symbol": "BTC-USD", "trade_id": "abc-1", "side": "buy", "price": "12345.67", "amount": "0.10000000", "ts_event": 1696160000000000}
+{"exchange": "SAMPLE", "symbol": "BTC-USD", "trade_id": "def-2", "side": "sell", "price": "12346.12", "amount": "0.05000000", "ts_event": 1696160001000000}

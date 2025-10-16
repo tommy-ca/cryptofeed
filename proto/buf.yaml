@@ -1,0 +1,9 @@
+version: v1
+name: buf.build/tommyk/crypto-market-data
+deps: []
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
