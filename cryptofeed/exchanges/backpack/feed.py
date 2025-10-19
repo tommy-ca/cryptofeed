@@ -9,7 +9,7 @@ from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BACKPACK, L2_BOOK, TRADES, TICKER
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol, Symbols
-from cryptofeed.proxy import ConnectionProxies, ProxySettings, get_proxy_injector
+from cryptofeed.proxy import ConnectionProxies, ProxySettings, get_proxy_injector, init_proxy_system
 
 from .adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
 from .auth import BackpackAuthHelper
@@ -46,13 +46,13 @@ class BackpackFeed(Feed):
         symbol_service: Optional[BackpackSymbolService] = None,
         **kwargs,
     ) -> None:
-        self.config = config or BackpackConfig()
+        self.exchange_config = config or BackpackConfig()
         self.metrics = BackpackMetrics()
         self._apply_proxy_override()
         Symbols.set(self.id, {}, {})
         self._rest_client_factory = rest_client_factory or (lambda cfg: BackpackRestClient(cfg))
         self._ws_session_factory = ws_session_factory or (lambda cfg: BackpackWsSession(cfg, metrics=self.metrics))
-        self._rest_client = self._rest_client_factory(self.config)
+        self._rest_client = self._rest_client_factory(self.exchange_config)
         self._symbol_service = symbol_service or BackpackSymbolService(rest_client=self._rest_client)
         self._trade_adapter = BackpackTradeAdapter(exchange=self.id)
         self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=kwargs.get("max_depth", 0))
@@ -120,8 +120,8 @@ class BackpackFeed(Feed):
             self.exchange_symbol_mapping = {value: key for key, value in mapping.items()}
 
     def _build_ws_session(self) -> BackpackWsSession:
-        auth_helper = BackpackAuthHelper(self.config) if self.config.requires_auth else None
-        session = self._ws_session_factory(self.config)
+        auth_helper = BackpackAuthHelper(self.exchange_config) if self.exchange_config.requires_auth else None
+        session = self._ws_session_factory(self.exchange_config)
         if auth_helper and getattr(session, "_auth_helper", None) is None:
             session._auth_helper = auth_helper
         return session
@@ -171,7 +171,7 @@ class BackpackFeed(Feed):
         return evaluate_health(self.metrics, max_snapshot_age=max_snapshot_age)
 
     def _apply_proxy_override(self) -> None:
-        proxies = self.config.proxies
+        proxies = self.exchange_config.proxies
         if not proxies:
             return
 
@@ -180,7 +180,7 @@ class BackpackFeed(Feed):
             init_proxy_system(ProxySettings())
             injector = get_proxy_injector()
 
-        key = self.config.exchange_id.casefold()
+        key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
         new_entry = ConnectionProxies(http=proxies, websocket=proxies)
         if exchanges.get(key) != new_entry:
