@@ -77,15 +77,19 @@ class TestProxyConfig:
         """Test validation fails for timeout outside valid range."""
         with pytest.raises(ValueError):
             ProxyConfig(url="socks5://proxy:1080", timeout_seconds=0)
-        
+
         with pytest.raises(ValueError):
             ProxyConfig(url="socks5://proxy:1080", timeout_seconds=301)
-    
+
     def test_frozen_model(self):
         """Test that ProxyConfig is immutable.""" 
         config = ProxyConfig(url="socks5://proxy:1080")
         with pytest.raises(ValueError):
             config.url = "http://other:8080"
+
+    def test_proxy_config_string_input(self):
+        config = ProxyConfig.model_validate("socks5://proxy.example.com:1080")
+        assert config.url == "socks5://proxy.example.com:1080"
 
 
 class TestConnectionProxies:
@@ -112,6 +116,11 @@ class TestConnectionProxies:
         """Test empty proxy configuration."""
         proxies = ConnectionProxies()
         assert proxies.http is None
+        assert proxies.websocket is None
+
+    def test_rest_alias_coercion(self):
+        proxies = ConnectionProxies(rest="http://proxy.example.com:8080")
+        assert proxies.http.url == "http://proxy.example.com:8080"
         assert proxies.websocket is None
 
 
@@ -431,11 +440,12 @@ class TestProxySystemGlobals:
     def test_init_proxy_system_disabled(self):
         """Test proxy system initialization when disabled."""
         settings = ProxySettings(enabled=False)
-        
+
         init_proxy_system(settings)
-        
+
         injector = get_proxy_injector()
-        assert injector is None
+        assert injector is not None
+        assert injector.settings.enabled is False
     
     def test_load_proxy_settings(self):
         """Test loading proxy settings from environment."""

@@ -18,12 +18,12 @@ import socket
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime, UTC
-from typing import Optional, Literal, Dict, Any, Tuple, List, Union
+from typing import Optional, Literal, Dict, Any, Tuple, List, Union, Mapping
 from urllib.parse import urlparse
 from weakref import ref as weakref_ref
 from weakref import ReferenceType
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -88,13 +88,20 @@ class ProxyPoolConfig(BaseModel):
 class ProxyConfig(BaseModel):
     """Single proxy configuration with URL validation, extended to support pools."""
     model_config = ConfigDict(frozen=True, extra='forbid')
-    
+
     # Single proxy configuration (existing)
     url: Optional[str] = Field(default=None, description="Proxy URL (e.g., socks5://user:pass@host:1080)")
     timeout_seconds: int = Field(default=30, ge=1, le=300)
-    
+
     # Pool configuration (new)
     pool: Optional[ProxyPoolConfig] = Field(default=None, description="Proxy pool configuration")
+
+    @model_validator(mode='before')
+    @classmethod
+    def _coerce_str(cls, value):
+        if isinstance(value, str):
+            return {'url': value}
+        return value
     
     @field_validator('url')
     @classmethod
@@ -373,7 +380,23 @@ class ProxyPool:
 class ConnectionProxies(BaseModel):
     """Proxy configuration for different connection types."""
     model_config = ConfigDict(extra='forbid')
-    
+
+    @model_validator(mode='before')
+    @classmethod
+    def _coerce_aliases(cls, data):
+        if isinstance(data, str):
+            return {'http': data}
+        if isinstance(data, Mapping):
+            data = dict(data)
+            rest_value = data.pop('rest', None)
+            if rest_value is not None and 'http' not in data:
+                data['http'] = rest_value
+            ws_value = data.pop('ws', None)
+            if ws_value is not None and 'websocket' not in data:
+                data['websocket'] = ws_value
+            return data
+        return data
+
     http: Optional[ProxyConfig] = Field(default=None, description="HTTP/REST proxy")
     websocket: Optional[ProxyConfig] = Field(default=None, description="WebSocket proxy")
 
@@ -525,10 +548,7 @@ def get_proxy_injector() -> Optional[ProxyInjector]:
 def init_proxy_system(settings: ProxySettings) -> None:
     """Initialize proxy system with settings."""
     global _proxy_injector
-    if settings.enabled:
-        _proxy_injector = ProxyInjector(settings)
-    else:
-        _proxy_injector = None
+    _proxy_injector = ProxyInjector(settings)
 
 
 def load_proxy_settings() -> ProxySettings:

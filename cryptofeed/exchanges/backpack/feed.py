@@ -9,7 +9,7 @@ from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BACKPACK, L2_BOOK, TRADES, TICKER
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol, Symbols
-from cryptofeed.proxy import ConnectionProxies, get_proxy_injector
+from cryptofeed.proxy import ConnectionProxies, ProxySettings, get_proxy_injector
 
 from .adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
 from .auth import BackpackAuthHelper
@@ -177,17 +177,17 @@ class BackpackFeed(Feed):
 
         injector = get_proxy_injector()
         if injector is None:
-            return
+            init_proxy_system(ProxySettings())
+            injector = get_proxy_injector()
 
-        if not injector.settings.enabled:
-            injector.settings.enabled = True
-
+        key = self.config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
         new_entry = ConnectionProxies(http=proxies, websocket=proxies)
-        if exchanges.get(self.config.exchange_id) != new_entry:
+        if exchanges.get(key) != new_entry:
             self.metrics.record_proxy_rotation()
-        exchanges[self.config.exchange_id] = new_entry
-        injector.settings.exchanges = exchanges
+        exchanges[key] = new_entry
+        injector.settings.exchanges = {k.casefold(): v for k, v in exchanges.items()}
+        injector.settings.enabled = True
 
     # ------------------------------------------------------------------
     # Override connect to use Backpack session
