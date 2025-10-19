@@ -34,6 +34,11 @@ feed = Binance(symbols=['BTC-USDT'], channels=[TRADES])
 feed.start()  # Now uses proxy automatically
 ```
 
+## Dependencies
+
+- `aiohttp>=3.8`
+- `aiohttp-socks>=0.8` (required for SOCKS4/SOCKS5 HTTP proxy support)
+
 ### 2. Per-Exchange Configuration
 
 ```yaml
@@ -78,7 +83,22 @@ proxy:
 | SOCKS4 | ✅ | ✅ | `socks4://proxy:1080` |
 | SOCKS5 | ✅ | ✅ | `socks5://user:pass@proxy:1080` |
 
-*WebSocket proxy support requires `python-socks` library for SOCKS proxies*
+*SOCKS proxies require the `aiohttp-socks` package for HTTP transports and `python-socks` for WebSocket transports.*
+
+## Live Testing
+
+End-to-end proxy regression tests are opt-in to avoid accidental external calls. To run the
+Binance connectivity check through a real SOCKS proxy:
+
+```bash
+export CRYPTOFEED_TEST_SOCKS_PROXY="socks5://host:1080"
+export CRYPTOFEED_TEST_BINANCE_SYMBOL="BTCUSDT"  # optional override
+pytest tests/integration/test_live_binance.py -v -m "live_binance and live_proxy"
+```
+
+If Binance blocks the chosen region, the test reports `HTTP 451` and skips gracefully.
+
+See [live-testing.md](live-testing.md) for region-specific proxy examples and troubleshooting tips.
 
 ## Common Use Cases
 

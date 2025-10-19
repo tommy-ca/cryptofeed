@@ -50,6 +50,18 @@ class BackpackWsSession:
         self._connected = False
         self._last_auth_timestamp_us: Optional[int] = None
         self._private_channels_active = False
+        self._request_id: int = 1
+
+    _CHANNEL_PREFIX = {
+        "trades": "trade",
+        "l2": "book",
+        "ticker": "ticker",
+    }
+
+    def _next_id(self) -> int:
+        current = self._request_id
+        self._request_id += 1
+        return current
 
     async def open(self) -> None:
         if self._connected and self._metrics:
@@ -74,16 +86,16 @@ class BackpackWsSession:
         if not self._connected:
             raise BackpackWebsocketError("Websocket not open")
 
+        params = []
+        for sub in subscriptions:
+            prefix = self._CHANNEL_PREFIX.get(sub.channel, sub.channel)
+            for symbol in sub.symbols:
+                params.append(f"{prefix}.{symbol}")
+
         payload = {
-            "op": "subscribe",
-            "channels": [
-                {
-                    "name": sub.channel,
-                    "symbols": list(sub.symbols),
-                    "private": sub.private,
-                }
-                for sub in subscriptions
-            ],
+            "method": "SUBSCRIBE",
+            "params": params,
+            "id": self._next_id(),
         }
         await self._send(payload)
 
@@ -133,7 +145,11 @@ class BackpackWsSession:
         except Exception as exc:  # pragma: no cover - defensive, metrics capture auth failures
             raise BackpackAuthError(str(exc)) from exc
 
-        payload = {"op": "auth", "headers": headers}
+        payload = {
+            "method": "AUTH",
+            "params": {"headers": headers},
+            "id": self._next_id(),
+        }
         await self._send(payload)
         self._last_auth_timestamp_us = timestamp
 
@@ -158,7 +174,7 @@ class BackpackWsSession:
         while True:
             await asyncio.sleep(self._heartbeat_interval)
             try:
-                await self._send({"op": "ping"})
+                await self._send({"method": "PING", "id": self._next_id()})
                 await self._maybe_refresh_auth()
             except Exception as exc:  # pragma: no cover - heartbeat failure best effort
                 if self._metrics:

@@ -228,25 +228,22 @@ def load_proxy_settings() -> ProxySettings:
 
 ### HTTP Proxy Integration
 
-HTTP proxy support is implemented through aiohttp's built-in proxy support:
+HTTP proxy support selects between aiohttp's built-in proxy handling for HTTP/HTTPS endpoints and `aiohttp-socks` connectors for SOCKS proxies:
 
 ```python
 # In HTTPAsyncConn._open()
-async def _open(self):
-    # Get proxy URL if configured through proxy system
-    proxy_url = None
-    injector = get_proxy_injector()
-    if injector and self.exchange_id:
-        proxy_url = injector.get_http_proxy_url(self.exchange_id)
-    
-    # Use proxy URL if available, otherwise fall back to legacy proxy parameter
-    proxy = proxy_url or self.proxy
-    
-    self.conn = aiohttp.ClientSession(proxy=proxy)
+proxy = injector.get_http_proxy_url(self.exchange_id) if injector else self.proxy
+if proxy and proxy.scheme in {"socks4", "socks5"}:
+    from aiohttp_socks import ProxyConnector
+    connector = ProxyConnector.from_url(proxy)
+    session = aiohttp.ClientSession(connector=connector)
+else:
+    session = aiohttp.ClientSession(proxy=proxy)
 ```
 
 **Key Points:**
-- Proxy must be set at `ClientSession` creation time
+- Proxy (or connector) is configured at `ClientSession` creation time
+- SOCKS4/5 endpoints require the optional `aiohttp-socks` dependency
 - Legacy `proxy` parameter is preserved for backward compatibility
 - Proxy URL is resolved per connection based on `exchange_id`
 
@@ -578,7 +575,7 @@ pip install python-socks
 | Feature | Required Dependencies | Optional Dependencies |
 |---------|----------------------|----------------------|
 | HTTP Proxy | `pydantic`, `pydantic-settings`, `aiohttp` | None |
-| SOCKS HTTP Proxy | `pydantic`, `pydantic-settings`, `aiohttp` | None |
+| SOCKS HTTP Proxy | `pydantic`, `pydantic-settings`, `aiohttp`, `aiohttp-socks` | `aiohttp-socks` |
 | HTTP WebSocket Proxy | `pydantic`, `pydantic-settings`, `websockets` | None |
 | SOCKS WebSocket Proxy | `pydantic`, `pydantic-settings`, `websockets` | `python-socks` |
 

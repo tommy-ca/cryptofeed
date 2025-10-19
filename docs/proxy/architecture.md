@@ -112,6 +112,7 @@ The proxy system strictly adheres to established engineering principles:
 
 3. Proxy Application:
    ProxyConfig → ProxyInjector → aiohttp.ClientSession(proxy=url)
+                                → aiohttp_socks.ProxyConnector.from_url(url) (for SOCKS)
                                 → websockets.connect(proxy_*=...)
 
 4. Connection Creation:
@@ -229,7 +230,7 @@ async def _open(self):
 **Choice:** Different implementation approaches for HTTP vs WebSocket proxies
 
 **HTTP Proxy Approach:**
-- Use aiohttp's built-in proxy support
+- Use aiohttp's built-in proxy support for HTTP/HTTPS and `aiohttp-socks` connectors for SOCKS endpoints
 - Set proxy at `ClientSession` creation time
 - Leverage existing HTTP proxy standards
 

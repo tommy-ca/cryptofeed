@@ -93,6 +93,23 @@ def test_client_kwargs_falls_back_to_injector(monkeypatch, cache: DummyCache) ->
     }
 
 
+def test_client_kwargs_uses_socks_proxy(cache: DummyCache) -> None:
+    """SOCKS proxies should map to ccxt's socksProxy option."""
+
+    context = DummyContext(http_proxy_url="socks5://context-socks:1080")
+
+    transport = CcxtRestTransport(cache, context=context)
+
+    kwargs = transport._client_kwargs()
+
+    assert kwargs["socksProxy"] == "socks5://context-socks:1080"
+    assert kwargs["proxies"] == {
+        "http": "socks5://context-socks:1080",
+        "https": "socks5://context-socks:1080",
+    }
+    assert "aiohttp_proxy" not in kwargs
+
+
 @pytest.mark.asyncio
 async def test_order_book_retries_on_transient_error(monkeypatch, cache: DummyCache, caplog: pytest.LogCaptureFixture) -> None:
     """Transient failures should trigger retries with backoff and logging."""
@@ -150,4 +167,3 @@ async def test_close_cleans_up_client(cache: DummyCache) -> None:
 
     assert transport._client is None
     dummy_client.close.assert_awaited_once()
-

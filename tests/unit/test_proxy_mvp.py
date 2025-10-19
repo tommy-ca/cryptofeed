@@ -7,8 +7,10 @@ Following engineering principles from CLAUDE.md:
 - START SMALL: Test MVP features only
 - SOLID: Test single responsibilities of each component
 """
+import builtins
 import logging
 import sys
+import types
 import pytest
 import aiohttp
 from unittest.mock import patch, AsyncMock
@@ -27,6 +29,7 @@ from cryptofeed.proxy import (
     init_proxy_system,
     get_proxy_injector,
     load_proxy_settings,
+    ProxyInjector,
 )
 from tests.util.proxy_assertions import assert_no_credentials, extract_logged_endpoints
 
@@ -606,8 +609,8 @@ class TestFeedHandlerProxyInitialization:
 
             assert len(DummySession.instances) == 1
             session = DummySession.instances[0]
-            # Session should be created without proxy kwargs; requests handle proxy application
-            assert session.kwargs == {}
+            # Session should receive proxy kwarg while avoiding additional parameters
+            assert session.kwargs == {"proxy": "http://env-proxy:8080"}
             # Two sequential GET calls reuse same session with proxy kwargs preserved
             assert len(session.calls) == 2
             for _, kwargs in session.calls:
@@ -653,12 +656,136 @@ class TestFeedHandlerProxyInitialization:
             await conn._open()
             session = conn.conn
             assert isinstance(session, DummySession)
-            assert session.kwargs == {}
+            assert session.kwargs == {"proxy": "http://env-proxy:8080"}
 
             proxy_cfg = get_proxy_injector().settings.get_proxy('binance', 'http')
             assert proxy_cfg.timeout_seconds == 45
         finally:
             await conn.close()
+            init_proxy_system(ProxySettings(enabled=False))
+
+    @pytest.mark.asyncio
+    async def test_http_async_conn_uses_socks_connector_when_available(self, monkeypatch):
+        """SOCKS proxies require aiohttp-socks connector integration."""
+
+        class DummyConnector:
+            def __init__(self, url):
+                self.url = url
+
+        dummy_module = types.SimpleNamespace()
+        dummy_module.ProxyConnector = types.SimpleNamespace(
+            from_url=staticmethod(lambda url: DummyConnector(url))
+        )
+
+        class DummySession:
+            instances = []
+
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.calls = []
+                self.closed = False
+                DummySession.instances.append(self)
+
+            def get(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+                raise AssertionError("HTTP GET should not be executed in this test")
+
+            async def close(self):
+                self.closed = True
+
+            @property
+            def closed(self):
+                return getattr(self, '_closed', False)
+
+            @closed.setter
+            def closed(self, value):
+                self._closed = value
+
+        monkeypatch.setenv('CRYPTOFEED_PROXY_ENABLED', 'true')
+        monkeypatch.setenv('CRYPTOFEED_PROXY_DEFAULT__HTTP__URL', 'socks5://proxy.example.com:1080')
+
+        monkeypatch.setitem(sys.modules, 'aiohttp_socks', dummy_module)
+        monkeypatch.setattr('cryptofeed.connection.aiohttp.ClientSession', DummySession)
+
+        init_proxy_system(load_proxy_settings())
+
+        conn = HTTPAsyncConn('test', exchange_id='binance')
+
+        try:
+            await conn._open()
+            assert len(DummySession.instances) == 1
+            session = DummySession.instances[0]
+            assert 'connector' in session.kwargs
+            connector = session.kwargs['connector']
+            assert isinstance(connector, DummyConnector)
+            assert connector.url == 'socks5://proxy.example.com:1080'
+            # Ensure per-request proxy kwargs are not applied for SOCKS
+            assert conn._request_proxy_kwargs == {}
+        finally:
+            await conn.close()
+            init_proxy_system(ProxySettings(enabled=False))
+
+    @pytest.mark.asyncio
+    async def test_http_async_conn_missing_aiohttp_socks_raises(self, monkeypatch):
+        """ImportError surfaces when aiohttp-socks is unavailable for SOCKS proxies."""
+
+        monkeypatch.setenv('CRYPTOFEED_PROXY_ENABLED', 'true')
+        monkeypatch.setenv('CRYPTOFEED_PROXY_DEFAULT__HTTP__URL', 'socks5://proxy.example.com:1080')
+
+        original_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == 'aiohttp_socks':
+                raise ModuleNotFoundError('aiohttp_socks missing for test')
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, '__import__', fake_import)
+
+        init_proxy_system(load_proxy_settings())
+
+        conn = HTTPAsyncConn('test', exchange_id='binance')
+        try:
+            with pytest.raises(ImportError, match='aiohttp-socks is required'):
+                await conn._open()
+        finally:
+            init_proxy_system(ProxySettings(enabled=False))
+
+    @pytest.mark.asyncio
+    async def test_http_async_conn_logs_socks_usage(self, monkeypatch, caplog):
+        """Ensure SOCKS proxies emit structured log entries."""
+
+        class DummyConnector:
+            def __init__(self, url):
+                self.url = url
+
+        dummy_module = types.SimpleNamespace()
+        dummy_module.ProxyConnector = types.SimpleNamespace(
+            from_url=staticmethod(lambda url: DummyConnector(url))
+        )
+
+        monkeypatch.setenv('CRYPTOFEED_PROXY_ENABLED', 'true')
+        monkeypatch.setenv('CRYPTOFEED_PROXY_DEFAULT__HTTP__URL', 'socks5://user:pass@proxy.example.com:1080')
+
+        monkeypatch.setitem(sys.modules, 'aiohttp_socks', dummy_module)
+
+        class DummySession:
+            def __init__(self, **kwargs):
+                self._connector = kwargs.get('connector')
+                self.closed = False
+
+            async def close(self):
+                self.closed = True
+
+        monkeypatch.setattr('cryptofeed.connection.aiohttp.ClientSession', DummySession)
+
+        init_proxy_system(load_proxy_settings())
+
+        conn = HTTPAsyncConn('test', exchange_id='binance')
+        caplog.set_level(logging.INFO, logger='feedhandler')
+
+        try:
+            await conn._open()
+        finally:
             init_proxy_system(ProxySettings(enabled=False))
 
     @pytest.mark.asyncio
@@ -721,6 +848,65 @@ class TestFeedHandlerProxyInitialization:
             await conn.close()
             init_proxy_system(ProxySettings(enabled=False))
 
+
+@pytest.mark.asyncio
+async def test_websocket_connector_uses_socks_proxy(monkeypatch, caplog):
+    dummy_python_socks = types.SimpleNamespace()
+    monkeypatch.setitem(sys.modules, 'python_socks', dummy_python_socks)
+
+    ws_calls = []
+
+    async def fake_connect(url, **kwargs):
+        ws_calls.append((url, kwargs))
+        return 'dummy-connection'
+
+    monkeypatch.setattr('cryptofeed.proxy.websockets.connect', fake_connect)
+
+    settings = ProxySettings(
+        enabled=True,
+        exchanges={
+            'binance': ConnectionProxies(
+                websocket=ProxyConfig(url='socks5://user:secret@proxy.example.com:1080')
+            )
+        },
+    )
+
+    injector = ProxyInjector(settings)
+
+    with caplog.at_level(logging.INFO, logger='feedhandler'):
+        conn = await injector.create_websocket_connection('wss://stream.example.com/ws', 'binance')
+
+    assert conn == 'dummy-connection'
+    assert len(ws_calls) == 1
+    url, kwargs = ws_calls[0]
+    assert url == 'wss://stream.example.com/ws'
+    assert kwargs['proxy'] == 'socks5://user:secret@proxy.example.com:1080'
+
+
+@pytest.mark.asyncio
+async def test_websocket_connector_missing_python_socks(monkeypatch):
+    original_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == 'python_socks':
+            raise ModuleNotFoundError('python_socks missing')
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, '__import__', fake_import)
+
+    settings = ProxySettings(
+        enabled=True,
+        exchanges={
+            'binance': ConnectionProxies(
+                websocket=ProxyConfig(url='socks5://proxy.example.com:1080')
+            )
+        },
+    )
+
+    injector = ProxyInjector(settings)
+
+    with pytest.raises(ImportError, match='python-socks'):
+        await injector.create_websocket_connection('wss://stream.example.com/ws', 'binance')
 
 @pytest.mark.integration
 class TestProxyIntegration:
