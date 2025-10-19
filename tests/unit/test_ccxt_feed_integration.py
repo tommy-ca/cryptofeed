@@ -144,6 +144,16 @@ class TestCcxtFeedInheritance:
         )
         
         assert feed.id == BACKPACK
+
+    def test_ccxt_feed_instance_id_isolated(self, mock_ccxt):
+        """Constructing multiple feeds should not mutate class-level identifiers."""
+        feed_one = CcxtFeed(exchange_id="backpack", symbols=["BTC-USDT"], channels=[TRADES])
+        feed_two = CcxtFeed(exchange_id="coinbase", symbols=["BTC-USDT"], channels=[TRADES])
+
+        assert feed_one.id == "BACKPACK"
+        assert feed_two.id == "COINBASE"
+        assert feed_one.id == "BACKPACK"
+        assert CcxtFeed.id is NotImplemented
         
     def test_ccxt_feed_symbol_normalization(self, mock_ccxt):
         """CcxtFeed should normalize symbols using cryptofeed conventions."""
@@ -307,7 +317,7 @@ class TestCcxtFeedEndToEnd:
         )
         
         # Should be able to start and stop like other feeds
-        await feed.start()
+        feed.start()
         
         # Simulate receiving some data
         await asyncio.sleep(0.1)

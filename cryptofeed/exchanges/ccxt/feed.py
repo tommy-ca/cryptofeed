@@ -28,6 +28,8 @@ from .transport import (
     CcxtRestTransport,
     CcxtWsTransport,
 )
+from contextlib import suppress
+
 from .adapters import CcxtTypeAdapter, get_adapter_registry
 from .config import CcxtConfig, CcxtExchangeConfig
 from .context import CcxtExchangeContext, load_ccxt_config
@@ -150,8 +152,10 @@ class CcxtFeed(Feed):
         self._running = False
         self._adapter_registry = get_adapter_registry()
         self._tasks: List[asyncio.Task] = []
+        self._main_task: Optional[asyncio.Task] = None
 
-        self.__class__.id = self._get_exchange_constant(self.ccxt_exchange_id)
+        exchange_constant = self._get_exchange_constant(self.ccxt_exchange_id)
+        self.id = exchange_constant
 
         self._initialize_symbol_mapping()
 
@@ -161,10 +165,10 @@ class CcxtFeed(Feed):
                 for sym in kwargs['symbols']
             ]
 
-        exchange_constant = self._get_exchange_constant(self.ccxt_exchange_id).lower()
+        exchange_constant_lower = exchange_constant.lower()
         if self.ccxt_options.get('apiKey') and self.ccxt_options.get('secret'):
             credentials_config = {
-                exchange_constant: {
+                exchange_constant_lower: {
                     'key_id': self.ccxt_options.get('apiKey'),
                     'key_secret': self.ccxt_options.get('secret'),
                     'key_passphrase': self.ccxt_options.get('password'),
@@ -201,8 +205,8 @@ class CcxtFeed(Feed):
         info = {'symbols': []}
 
         # Register with Symbols system
-        if not Symbols.populated(self.__class__.id):
-            Symbols.set(self.__class__.id, normalized_mapping, info)
+        if not Symbols.populated(self.id):
+            Symbols.set(self.id, normalized_mapping, info)
 
     def _resolve_proxy_settings(self):
         injector = get_proxy_injector()
@@ -325,27 +329,49 @@ class CcxtFeed(Feed):
         """
         pass
     
-    async def start(self):
-        """Start the CCXT feed."""
-        if self._running:
+    def start(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+        """Start the CCXT feed using a synchronous interface."""
+        if self._running or (self._main_task and not self._main_task.done()):
             return
 
-        await self._initialize_ccxt_feed()
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.get_event_loop()
 
-        self._running = True
-        self._tasks = []
+        self._main_task = loop.create_task(self._start_async())
 
-        if TRADES in self.subscription:
-            self._tasks.append(asyncio.create_task(self._stream_trades()))
+    async def _start_async(self):
+        """Async entry point for starting the CCXT feed."""
+        try:
+            if self._running:
+                return
 
-        if L2_BOOK in self.subscription:
-            self._tasks.append(asyncio.create_task(self._stream_books()))
+            await self._initialize_ccxt_feed()
 
-        if TRADES in self.subscription:
-            await self._emit_bootstrap_trade()
+            self._running = True
+            self._tasks = []
+
+            if TRADES in self.subscription:
+                self._tasks.append(asyncio.create_task(self._stream_trades()))
+
+            if L2_BOOK in self.subscription:
+                self._tasks.append(asyncio.create_task(self._stream_books()))
+
+            if TRADES in self.subscription:
+                await self._emit_bootstrap_trade()
+        finally:
+            self._main_task = None
     
     async def stop(self):
         """Stop the CCXT feed."""
+        if self._main_task and not self._main_task.done():
+            self._main_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._main_task
+            self._main_task = None
+
         if not self._running:
             return
 
@@ -361,6 +387,7 @@ class CcxtFeed(Feed):
 
         if self._ccxt_feed:
             await self._ccxt_feed.close()
+        self._main_task = None
     
     async def _stream_trades(self):
         """Stream trade data from CCXT."""
