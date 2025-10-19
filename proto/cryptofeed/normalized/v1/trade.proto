@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+import "cryptofeed/normalized/v1/trade_side.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Trade encapsulates a normalized trade event emitted by Cryptofeed and tardis-node.
+// Decimal values are transported as strings using fixed-point scaling described below.
+message Trade {
+  string exchange = 1; // normalized exchange identifier (e.g., BITFINEX)
+  string symbol = 2; // normalized trading pair (e.g., BTC-USD)
+  TradeSide side = 3; // buy/sell direction
+  string trade_id = 4; // optional exchange trade identifier
+  string price = 5; // decimal string, scale 1e-8 unless otherwise noted per venue
+  string amount = 6; // decimal string, scale 1e-8
+  int64 timestamp = 7; // microseconds since UNIX epoch (UTC)
+  string raw_id = 8; // optional raw identifier when available (CCXT/tardis trace)
+}

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Transaction captures wallet transactions such as deposits and withdrawals.
+message Transaction {
+  string exchange = 1;
+  string currency = 2;
+  string type = 3; // e.g. deposit, withdraw
+  string status = 4;
+  string amount = 5; // decimal string, native precision
+  int64 timestamp = 6; // microseconds since UNIX epoch
+}

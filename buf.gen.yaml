@@ -2,3 +2,7 @@ version: v1
 plugins:
   - plugin: buf.build/protocolbuffers/python
     out: gen/python
+  - plugin: buf.build/bufbuild/protoschema-jsonschema:v0.5.2
+    out: gen/jsonschema
+    opt:
+      - target=proto+json+proto-bundle+json-bundle
