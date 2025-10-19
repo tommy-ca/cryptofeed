@@ -7,13 +7,13 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Order captures order submissions prior to execution.
 message Order {
-  string exchange = 1;
-  string symbol = 2;
-  string client_order_id = 3;
-  string side = 4; // venue-provided verbatim value
-  string type = 5; // e.g. limit, market
-  string price = 6; // decimal string, scale 1e-8
-  string amount = 7; // decimal string, scale 1e-8
-  optional string account = 8;
-  optional int64 timestamp = 9; // microseconds since UNIX epoch
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Order.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed Order.symbol)
+  string client_order_id = 3; // client-supplied identifier when present
+  string side = 4; // venue verbatim side code (e.g., buy/sell)
+  string type = 5; // order type (e.g., limit, market)
+  string price = 6; // decimal string, scale 1e-8 (Order.price)
+  string amount = 7; // decimal string, scale 1e-8 (Order.amount)
+  optional string account = 8; // venue account or subaccount identifier
+  optional int64 timestamp = 9; // microseconds since UNIX epoch (Order.timestamp converted to µs)
 }

@@ -7,17 +7,17 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Candle captures OHLCV bars with optional trade counts.
 message Candle {
-  string exchange = 1;
-  string symbol = 2;
-  int64 start = 3; // microseconds since UNIX epoch
-  int64 end = 4; // microseconds since UNIX epoch
-  string interval = 5; // e.g. "1m", "5m"
-  optional int64 trades = 6;
-  string open = 7; // decimal string, scale 1e-8
-  string close = 8; // decimal string, scale 1e-8
-  string high = 9; // decimal string, scale 1e-8
-  string low = 10; // decimal string, scale 1e-8
-  string volume = 11; // decimal string, scale 1e-8
-  bool closed = 12;
-  optional int64 timestamp = 13; // microseconds since UNIX epoch
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Candle.exchange)
+  string symbol = 2; // normalized trading pair (Candle.symbol)
+  int64 start = 3; // window start microseconds since UNIX epoch (Candle.start converted to µs)
+  int64 end = 4; // window end microseconds since UNIX epoch (Candle.stop converted to µs)
+  string interval = 5; // bar interval string (e.g., "1m", "5m")
+  optional int64 trades = 6; // trade count when provided by venue
+  string open = 7; // decimal string, scale 1e-8 (Candle.open)
+  string close = 8; // decimal string, scale 1e-8 (Candle.close)
+  string high = 9; // decimal string, scale 1e-8 (Candle.high)
+  string low = 10; // decimal string, scale 1e-8 (Candle.low)
+  string volume = 11; // decimal string, scale 1e-8 (Candle.volume)
+  bool closed = 12; // true when venue flags bar as final
+  optional int64 timestamp = 13; // microseconds since UNIX epoch (Candle.timestamp converted to µs)
 }

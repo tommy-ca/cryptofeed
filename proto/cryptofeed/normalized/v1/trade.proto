@@ -10,12 +10,12 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 // Trade encapsulates a normalized trade event emitted by Cryptofeed and tardis-node.
 // Decimal values are transported as strings using fixed-point scaling described below.
 message Trade {
-  string exchange = 1; // normalized exchange identifier (e.g., BITFINEX)
-  string symbol = 2; // normalized trading pair (e.g., BTC-USD)
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Trade.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed Trade.symbol, e.g., BTC-USD)
   TradeSide side = 3; // buy/sell direction
-  string trade_id = 4; // optional exchange trade identifier
+  string trade_id = 4; // venue-provided trade identifier (Trade.id)
   string price = 5; // decimal string, scale 1e-8 unless otherwise noted per venue
   string amount = 6; // decimal string, scale 1e-8
-  int64 timestamp = 7; // microseconds since UNIX epoch (UTC)
+  int64 timestamp = 7; // microseconds since UNIX epoch (Trade.timestamp converted to µs)
   string raw_id = 8; // optional raw identifier when available (CCXT/tardis trace)
 }

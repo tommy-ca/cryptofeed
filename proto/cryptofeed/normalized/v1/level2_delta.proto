@@ -9,11 +9,11 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Level2Delta represents incremental order book updates.
 message Level2Delta {
-  string exchange = 1;
-  string symbol = 2;
+  string exchange = 1; // normalized exchange identifier (Cryptofeed OrderBook.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed OrderBook.symbol)
   repeated PriceLevel bids = 3; // price/size deltas, descending by price
   repeated PriceLevel asks = 4; // price/size deltas, ascending by price
-  int64 timestamp = 5; // microseconds since UNIX epoch
-  optional int64 sequence = 6;
-  optional string checksum = 7;
+  int64 timestamp = 5; // microseconds since UNIX epoch (delta receipt time converted to µs)
+  optional int64 sequence = 6; // exchange sequence number when provided
+  optional string checksum = 7; // venue checksum sent alongside delta
 }
