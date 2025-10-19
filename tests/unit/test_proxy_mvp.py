@@ -13,8 +13,10 @@ import pytest
 import aiohttp
 from unittest.mock import patch, AsyncMock
 
+from cryptofeed.feed import Feed
 from cryptofeed.feedhandler import FeedHandler
-from cryptofeed.connection import HTTPAsyncConn
+from cryptofeed.connection import HTTPAsyncConn, WebsocketEndpoint
+from cryptofeed.defines import TRADES
 from cryptofeed.proxy import (
     ProxyConfig,
     ConnectionProxies,
@@ -753,3 +755,52 @@ class TestProxyIntegration:
                 await conn.close()
             # Reset proxy system
             init_proxy_system(ProxySettings(enabled=False))
+
+
+class DummyFeed(Feed):
+    id = "DUMMY"
+    websocket_channels = {TRADES: "trades"}
+    websocket_endpoints = [WebsocketEndpoint(address="wss://example.com/ws")]
+    rest_endpoints = []
+    valid_candle_intervals = NotImplemented
+    candle_interval_map = NotImplemented
+
+    @classmethod
+    def symbol_mapping(cls, refresh=False):
+        from cryptofeed.symbols import Symbols
+
+        mapping = {"BTC-USD": "BTCUSD"}
+        info = {"symbols": list(mapping.keys())}
+        if refresh or not Symbols.populated(cls.id):
+            Symbols.set(cls.id, mapping, info)
+        return mapping
+
+    async def message_handler(self, msg, conn, timestamp):
+        return None
+
+    async def subscribe(self, connection):
+        return None
+
+
+@pytest.fixture
+def dummy_feed():
+    from cryptofeed.symbols import Symbols
+
+    if Symbols.populated("DUMMY"):
+        Symbols.data.pop("DUMMY", None)
+
+    feed = DummyFeed(symbols=["BTC-USD"], channels=[TRADES])
+    yield feed
+
+    Symbols.data.pop("DUMMY", None)
+
+
+def test_feed_http_connection_uses_exchange_id(dummy_feed):
+    assert dummy_feed.http_conn.exchange_id == dummy_feed.id
+
+
+def test_feed_websocket_connection_uses_exchange_id(dummy_feed):
+    connections = dummy_feed.connect()
+    assert connections
+    for connection, *_ in connections:
+        assert connection.exchange_id == dummy_feed.id
