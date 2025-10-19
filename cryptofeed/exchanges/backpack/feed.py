@@ -140,7 +140,7 @@ class BackpackFeed(Feed):
         for std_channel, exchange_channel in self.websocket_channels.items():
             if exchange_channel not in self.subscription:
                 continue
-            symbols = list(self.subscription[exchange_channel])
+            symbols = [self.std_symbol_to_exchange_symbol(symbol) for symbol in self.subscription[exchange_channel]]
             subscriptions.append(
                 BackpackSubscription(
                     channel=exchange_channel,

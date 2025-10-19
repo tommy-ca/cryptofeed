@@ -79,6 +79,7 @@ setup(
         "websockets>=14.1",
         "pyyaml",
         "aiohttp>=3.11.6",
+        "aiohttp-socks>=0.10.0",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
         "pydantic>=2.0.0",

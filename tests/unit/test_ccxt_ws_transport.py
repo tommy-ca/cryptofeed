@@ -52,11 +52,8 @@ def test_client_kwargs_prefers_websocket_proxy(monkeypatch, cache: DummyCache) -
 
     kwargs = transport._client_kwargs()
 
-    assert kwargs["aiohttp_proxy"] == "socks5://context-proxy:1080"
-    assert kwargs["proxies"] == {
-        "http": "socks5://context-proxy:1080",
-        "https": "socks5://context-proxy:1080",
-    }
+    assert kwargs["wsSocksProxy"] == "socks5://context-proxy:1080"
+    assert "aiohttp_proxy" not in kwargs
     assert seen == {
         "transport": "websocket",
         "exchange_id": "test-exchange",
@@ -81,6 +78,7 @@ def test_client_kwargs_uses_injector_when_context_missing(monkeypatch, cache: Du
     kwargs = transport._client_kwargs()
 
     assert requested == ["test-exchange"]
+    assert kwargs["wsProxy"] == "http://injector-proxy:8080"
     assert kwargs["aiohttp_proxy"] == "http://injector-proxy:8080"
     assert kwargs["proxies"]["https"] == "http://injector-proxy:8080"
 
@@ -153,6 +151,36 @@ async def test_next_trade_raises_unavailable_when_not_supported(monkeypatch, cac
 
     with pytest.raises(CcxtUnavailable):
         await transport.next_trade("BTC-USDT")
+
+
+@pytest.mark.asyncio
+async def test_next_trade_normalizes_timestamp(monkeypatch, cache: DummyCache) -> None:
+    transport = CcxtWsTransport(cache, context=None)
+
+    async def watch_trades(_symbol):
+        return [
+            {"price": "100", "amount": "1", "timestamp": 1_700_000_000_000},
+            {"price": "101", "amount": "0.5", "ts": 1_700_000_000_000_000},
+        ]
+
+    client = SimpleNamespace(
+        watch_trades=AsyncMock(side_effect=watch_trades),
+        close=AsyncMock(),
+    )
+
+    def fake_ensure_client():
+        transport._client = client
+        transport.connect_count += 1
+        return client
+
+    monkeypatch.setattr(transport, "_ensure_client", fake_ensure_client)
+
+    trade = await transport.next_trade("BTC-USDT")
+    assert trade.timestamp == pytest.approx(1_700_000_000.0)
+
+    # Invoke again to cover microsecond scaling via `ts`
+    trade = await transport.next_trade("BTC-USDT")
+    assert trade.timestamp == pytest.approx(1_700_000_000.0)
 
 
 def _pop_response(responses):

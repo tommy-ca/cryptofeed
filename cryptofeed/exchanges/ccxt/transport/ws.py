@@ -7,6 +7,7 @@ import logging
 import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, Iterable, Optional
+from urllib.parse import urlparse
 
 from cryptofeed.proxy import get_proxy_injector, log_proxy_usage
 
@@ -84,8 +85,13 @@ class CcxtWsTransport:
             if injector is not None:
                 proxy_url = injector.get_http_proxy_url(self._cache.exchange_id)
         if proxy_url:
-            kwargs.setdefault('aiohttp_proxy', proxy_url)
-            kwargs.setdefault('proxies', {'http': proxy_url, 'https': proxy_url})
+            scheme = (urlparse(proxy_url).scheme or '').lower()
+            if scheme in ('socks4', 'socks5'):
+                kwargs.setdefault('wsSocksProxy', proxy_url)
+            else:
+                kwargs.setdefault('wsProxy', proxy_url)
+                kwargs.setdefault('aiohttp_proxy', proxy_url)
+                kwargs.setdefault('proxies', {'http': proxy_url, 'https': proxy_url})
             log_proxy_usage(transport='websocket', exchange_id=self._cache.exchange_id, proxy_url=proxy_url)
         kwargs.setdefault('enableRateLimit', kwargs.get('enableRateLimit', True))
         return kwargs
@@ -150,13 +156,16 @@ class CcxtWsTransport:
             price = Decimal(str(raw.get('p') or raw.get('price')))
             amount = Decimal(str(raw.get('q') or raw.get('amount')))
             ts_raw = raw.get('ts') or raw.get('timestamp') or 0
+            # ccxt returns trade timestamps in milliseconds. Some exchanges may provide
+            # microseconds via alternate fields (e.g., `ts`). Detect µs heuristically.
+            ts_scale = 1_000_000.0 if abs(float(ts_raw)) >= 1_000_000_000_000_000 else 1_000.0
             return TradeUpdate(
                 symbol=symbol,
                 price=price,
                 amount=amount,
                 side=raw.get('side'),
                 trade_id=str(raw.get('t') or raw.get('id')),
-                timestamp=float(ts_raw) / 1_000_000.0,
+                timestamp=float(ts_raw) / ts_scale,
                 sequence=raw.get('s') or raw.get('sequence'),
             )
 

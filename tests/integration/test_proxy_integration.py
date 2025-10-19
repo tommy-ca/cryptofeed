@@ -135,6 +135,8 @@ class TestProxySystemIntegration:
         """Test HTTP connection integration with proxy system."""
         init_proxy_system(production_proxy_settings)
         
+        conn_binance = conn_unknown = conn_no_proxy = None
+
         try:
             # Test connection with exchange-specific proxy
             conn_binance = HTTPAsyncConn("test-binance", exchange_id="binance")
@@ -152,7 +154,8 @@ class TestProxySystemIntegration:
             assert conn_unknown.is_open
             assert conn_unknown.exchange_id == "unknown_exchange"
             assert conn_unknown.proxy == "socks5://corporate-proxy.company.com:1080"
-            assert str(conn_unknown.conn._default_proxy) == "socks5://corporate-proxy.company.com:1080"
+            assert conn_unknown.conn._connector is not None
+            assert conn_unknown.conn._default_proxy is None
             
             # Test connection without exchange_id (no proxy)
             conn_no_proxy = HTTPAsyncConn("test-no-proxy")
@@ -165,8 +168,8 @@ class TestProxySystemIntegration:
             
         finally:
             # Clean up connections
-            for conn in [conn_binance, conn_unknown, conn_no_proxy]:
-                if conn.is_open:
+            for conn in (conn_binance, conn_unknown, conn_no_proxy):
+                if conn and conn.is_open:
                     await conn.close()
             
             # Reset proxy system

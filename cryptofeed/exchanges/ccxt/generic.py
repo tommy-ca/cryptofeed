@@ -6,6 +6,7 @@ import inspect
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Iterable, Set
+from urllib.parse import urlparse
 import sys
 
 from loguru import logger
@@ -102,7 +103,11 @@ class CcxtMetadataCache:
         kwargs = dict(self._context.ccxt_options)
         proxy_url = self._context.http_proxy_url
         if proxy_url:
-            kwargs.setdefault('aiohttp_proxy', proxy_url)
+            scheme = (urlparse(proxy_url).scheme or '').lower()
+            if scheme in ('socks4', 'socks5'):
+                kwargs.setdefault('socksProxy', proxy_url)
+            else:
+                kwargs.setdefault('aiohttp_proxy', proxy_url)
             kwargs.setdefault('proxies', {'http': proxy_url, 'https': proxy_url})
         kwargs.setdefault('enableRateLimit', kwargs.get('enableRateLimit', True))
         return kwargs

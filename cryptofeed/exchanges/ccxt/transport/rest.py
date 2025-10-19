@@ -6,6 +6,7 @@ import inspect
 import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Iterable, Optional
+from urllib.parse import urlparse
 
 from cryptofeed.proxy import get_proxy_injector, log_proxy_usage
 
@@ -85,7 +86,11 @@ class CcxtRestTransport:
             if injector is not None:
                 proxy_url = injector.get_http_proxy_url(self._cache.exchange_id)
         if proxy_url:
-            kwargs.setdefault('aiohttp_proxy', proxy_url)
+            scheme = (urlparse(proxy_url).scheme or '').lower()
+            if scheme in ('socks4', 'socks5'):
+                kwargs.setdefault('socksProxy', proxy_url)
+            else:
+                kwargs.setdefault('aiohttp_proxy', proxy_url)
             kwargs.setdefault('proxies', {'http': proxy_url, 'https': proxy_url})
             log_proxy_usage(transport='rest', exchange_id=self._cache.exchange_id, proxy_url=proxy_url)
         kwargs.setdefault('enableRateLimit', kwargs.get('enableRateLimit', True))
