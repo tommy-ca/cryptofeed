@@ -5,6 +5,8 @@ aiohttp-socks>=0.10.0
 cchardet
 cython
 order_book==0.6.1
+ccxt==4.5.11
+python-socks>=2.4.3
 pyyaml
 requests>=2.18.4
 uvloop
