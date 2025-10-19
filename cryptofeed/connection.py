@@ -9,7 +9,8 @@ import time
 import asyncio
 from asyncio import Queue, CancelledError
 from contextlib import asynccontextmanager, suppress
-from typing import List, Union, AsyncIterable
+from typing import List, Union, AsyncIterable, Callable
+from urllib.parse import urlparse
 from decimal import Decimal
 import atexit
 from dataclasses import dataclass
@@ -141,10 +142,23 @@ class HTTPAsyncConn(AsyncConnection):
         super().__init__(f'{conn_id}.http.{self.conn_count}')
         self.proxy = proxy
         self.exchange_id = exchange_id
+        self._request_proxy_kwargs: dict = {}
+        self._proxy_release: Callable[[], None] = lambda: None
 
     @property
     def is_open(self) -> bool:
         return self.conn and not self.conn.closed
+
+    async def close(self):
+        if self.is_open:
+            conn = self.conn
+            self.conn = None
+            try:
+                await conn.close()
+            finally:
+                self._proxy_release()
+                self._proxy_release = lambda: None
+            LOG.info('%s: closed connection %r', self.id, conn.__class__.__name__)
 
     def _handle_error(self, resp: ClientResponse, data: bytes):
         if resp.status != 200:
@@ -161,18 +175,51 @@ class HTTPAsyncConn(AsyncConnection):
             
             # Get proxy URL if configured through proxy system
             proxy_url = None
+            release_proxy = self._proxy_release
             injector = get_proxy_injector()
             if injector and self.exchange_id:
-                proxy_url = injector.get_http_proxy_url(self.exchange_id)
-            
+                proxy_url, release_proxy = injector.lease_proxy(self.exchange_id, 'http')
+
             # Use proxy URL if available, otherwise fall back to legacy proxy parameter
             proxy = proxy_url if proxy_url is not None else self.proxy
             self.proxy = proxy
+            self._proxy_release = release_proxy
 
             if proxy:
                 log_proxy_usage(transport='http', exchange_id=self.exchange_id, proxy_url=proxy)
 
-            self.conn = aiohttp.ClientSession()
+            self._request_proxy_kwargs = {}
+
+            if proxy:
+                scheme = (urlparse(proxy).scheme or '').lower()
+            else:
+                scheme = ''
+
+            if proxy and scheme in {'socks4', 'socks5'}:
+                try:
+                    from aiohttp_socks import ProxyConnector
+                except ModuleNotFoundError as exc:
+                    raise ImportError(
+                        "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                    ) from exc
+
+                connector = ProxyConnector.from_url(proxy)
+                try:
+                    self.conn = aiohttp.ClientSession(connector=connector)
+                except Exception:
+                    release_proxy()
+                    raise
+            else:
+                session_kwargs = {}
+                if proxy:
+                    session_kwargs["proxy"] = proxy
+                    self._request_proxy_kwargs = {"proxy": proxy}
+
+                try:
+                    self.conn = aiohttp.ClientSession(**session_kwargs)
+                except Exception:
+                    release_proxy()
+                    raise
             
             self.sent = 0
             self.received = 0
@@ -184,7 +231,12 @@ class HTTPAsyncConn(AsyncConnection):
 
         LOG.debug("%s: requesting data from %s", self.id, address)
         while True:
-            async with self.conn.get(address, headers=header, params=params, proxy=self.proxy) as response:
+            async with self.conn.get(
+                address,
+                headers=header,
+                params=params,
+                **self._request_proxy_kwargs,
+            ) as response:
                 data = await response.text()
                 self.last_message = time.time()
                 self.received += 1
@@ -207,7 +259,12 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.post(address, data=msg, headers=header) as response:
+            async with self.conn.post(
+                address,
+                data=msg,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 self.sent += 1
                 data = await response.read()
                 if self.raw_data_callback:
@@ -227,7 +284,11 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.delete(address, headers=header) as response:
+            async with self.conn.delete(
+                address,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 self.sent += 1
                 data = await response.read()
                 if self.raw_data_callback:
@@ -260,7 +321,11 @@ class HTTPPoll(HTTPAsyncConn):
                 LOG.error('%s: connection closed in read()', self.id)
                 raise ConnectionClosed
 
-            async with self.conn.get(address, headers=header, proxy=self.proxy) as response:
+            async with self.conn.get(
+                address,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 data = await response.text()
                 self.received += 1
                 self.last_message = time.time()

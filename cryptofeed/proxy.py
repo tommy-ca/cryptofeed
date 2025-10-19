@@ -18,7 +18,7 @@ import socket
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime, UTC
-from typing import Optional, Literal, Dict, Any, Tuple, List, Union, Mapping
+from typing import Optional, Literal, Dict, Any, Tuple, List, Union, Mapping, Callable
 from urllib.parse import urlparse
 from weakref import ref as weakref_ref
 from weakref import ReferenceType
@@ -367,14 +367,19 @@ class ProxyPool:
     def mark_unhealthy(self, proxy: ProxyUrlConfig) -> None:
         """Mark a proxy as unhealthy."""
         self._unhealthy_proxies.add(proxy.url)
-    
+
     def mark_healthy(self, proxy: ProxyUrlConfig) -> None:
         """Mark a proxy as healthy (remove from unhealthy set)."""
         self._unhealthy_proxies.discard(proxy.url)
-    
+
     def is_healthy(self, proxy: ProxyUrlConfig) -> bool:
         """Check if a proxy is considered healthy."""
         return proxy.enabled and proxy.url not in self._unhealthy_proxies
+
+    def release_proxy(self, proxy: ProxyUrlConfig) -> None:
+        """Release a previously leased proxy, updating selector accounting."""
+        if isinstance(self._selector, LeastConnectionsSelector):
+            self._selector.record_disconnection(proxy)
 
 
 class ConnectionProxies(BaseModel):
@@ -454,6 +459,7 @@ class ProxyInjector:
     def __init__(self, proxy_settings: ProxySettings):
         self.settings = proxy_settings
         self._pool_cache: Dict[int, Tuple[ReferenceType[ProxyConfig], ProxyPool]] = {}
+        self._leased_proxies: Dict[Tuple[int, str], Tuple[ProxyPool, ProxyUrlConfig]] = {}
 
     def _get_proxy_pool(self, proxy_config: ProxyConfig) -> ProxyPool:
         """Get or create a ProxyPool for the given proxy configuration."""
@@ -475,25 +481,33 @@ class ProxyInjector:
         self._pool_cache[key] = (weakref_ref(proxy_config, _cleanup), pool)
         return pool
 
-    def _resolve_proxy_url(self, proxy_config: ProxyConfig) -> Optional[str]:
-        """Resolve concrete proxy URL, selecting from pools when configured."""
-        if proxy_config is None:
-            return None
+    def lease_proxy(self, exchange_id: str, connection_type: Literal['http', 'websocket']) -> Tuple[Optional[str], Callable[[], None]]:
+        proxy_config = self.settings.get_proxy(exchange_id, connection_type)
+        if not proxy_config:
+            return None, lambda: None
+        return self._lease_from_config(proxy_config)
 
+    def _lease_from_config(self, proxy_config: ProxyConfig) -> Tuple[Optional[str], Callable[[], None]]:
         if proxy_config.pool:
             pool = self._get_proxy_pool(proxy_config)
             selected_proxy = pool.select_proxy()
-            return selected_proxy.url
+            lease_key = (id(proxy_config), selected_proxy.url)
+            self._leased_proxies[lease_key] = (pool, selected_proxy)
 
-        return proxy_config.url
-    
+            def release() -> None:
+                entry = self._leased_proxies.pop(lease_key, None)
+                if entry:
+                    entry[0].release_proxy(entry[1])
+
+            return selected_proxy.url, release
+
+        return proxy_config.url, lambda: None
+
     def get_http_proxy_url(self, exchange_id: str) -> Optional[str]:
         """Get HTTP proxy URL for exchange if configured."""
-        proxy_config = self.settings.get_proxy(exchange_id, 'http')
-        if not proxy_config:
-            return None
-
-        return self._resolve_proxy_url(proxy_config)
+        url, release = self.lease_proxy(exchange_id, 'http')
+        release()
+        return url
     
     def apply_http_proxy(self, session: aiohttp.ClientSession, exchange_id: str) -> None:
         """Apply HTTP proxy to aiohttp session if configured."""
@@ -510,7 +524,7 @@ class ProxyInjector:
             return await websockets.connect(url, **kwargs)
 
         connect_kwargs = dict(kwargs)
-        resolved_proxy_url = self._resolve_proxy_url(proxy_config)
+        resolved_proxy_url, release = self._lease_from_config(proxy_config)
 
         if not resolved_proxy_url:
             return await websockets.connect(url, **kwargs)
@@ -533,7 +547,27 @@ class ProxyInjector:
             connect_kwargs[header_key] = headers
 
         connect_kwargs['proxy'] = resolved_proxy_url
-        return await websockets.connect(url, **connect_kwargs)
+        try:
+            connection = await websockets.connect(url, **connect_kwargs)
+        except Exception:
+            release()
+            raise
+
+        close_attr = getattr(connection, 'close', None)
+        if callable(close_attr):
+
+            async def _wrapped_close(*close_args, **close_kwargs):
+                try:
+                    return await close_attr(*close_args, **close_kwargs)
+                finally:
+                    release()
+
+            connection.close = _wrapped_close  # type: ignore[attr-defined]
+            return connection
+
+        # Fallback for unexpected connection types
+        release()
+        return connection
 
 
 # Global proxy injector instance (singleton pattern simplified)

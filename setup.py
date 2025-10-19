@@ -80,13 +80,15 @@ setup(
         "pyyaml",
         "aiohttp>=3.11.6",
         "aiohttp-socks>=0.10.0",
+        "python-socks>=2.4.3",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
         "pydantic>=2.0.0",
         "pydantic-settings>=2.0.0",
         'uvloop ; platform_system!="Windows"',
         "order_book>=0.6.0",
-        "aiodns>=1.1"  # aiodns speeds up DNS resolving
+        "aiodns>=1.1",  # aiodns speeds up DNS resolving
+        "ccxt>=4.5.11"
     ],
     extras_require={
         "arctic": ["arctic", "pandas"],
