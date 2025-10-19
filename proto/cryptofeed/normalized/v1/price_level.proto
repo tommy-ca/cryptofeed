@@ -7,6 +7,6 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // PriceLevel encodes an individual order book level.
 message PriceLevel {
-  string price = 1; // decimal string, scale 1e-8
-  string quantity = 2; // decimal string, scale 1e-8
+  string price = 1; // decimal string, scale 1e-8 (OrderBook price component)
+  string quantity = 2; // decimal string, scale 1e-8 (OrderBook size component)
 }

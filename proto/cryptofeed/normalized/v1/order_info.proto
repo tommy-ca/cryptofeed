@@ -7,16 +7,16 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // OrderInfo reflects venue-reported order state.
 message OrderInfo {
-  string exchange = 1;
-  string symbol = 2;
-  string order_id = 3;
-  optional string client_order_id = 4;
-  string side = 5;
-  string status = 6; // venue-specific status (e.g. open, closed)
-  string type = 7;
-  string price = 8; // decimal string, scale 1e-8
-  string amount = 9; // decimal string, scale 1e-8
-  optional string remaining = 10; // decimal string, scale 1e-8
-  optional string account = 11;
-  optional int64 timestamp = 12; // microseconds since UNIX epoch
+  string exchange = 1; // normalized exchange identifier (Cryptofeed OrderInfo.exchange)
+  string symbol = 2; // normalized trading pair (OrderInfo.symbol)
+  string order_id = 3; // venue order identifier (OrderInfo.id)
+  optional string client_order_id = 4; // client-supplied identifier when present
+  string side = 5; // venue verbatim side
+  string status = 6; // venue-specific status (e.g., open, closed)
+  string type = 7; // order type classification
+  string price = 8; // decimal string, scale 1e-8 (OrderInfo.price)
+  string amount = 9; // decimal string, scale 1e-8 (OrderInfo.amount)
+  optional string remaining = 10; // decimal string, scale 1e-8 (OrderInfo.remaining)
+  optional string account = 11; // venue account or subaccount identifier
+  optional int64 timestamp = 12; // microseconds since UNIX epoch (OrderInfo.timestamp converted to µs)
 }

@@ -9,11 +9,11 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Level2Book represents an order book snapshot with best bid/ask ladders.
 message Level2Book {
-  string exchange = 1;
-  string symbol = 2;
+  string exchange = 1; // normalized exchange identifier (Cryptofeed OrderBook.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed OrderBook.symbol)
   repeated PriceLevel bids = 3; // sorted descending by price
   repeated PriceLevel asks = 4; // sorted ascending by price
-  int64 timestamp = 5; // microseconds since UNIX epoch
-  optional int64 sequence = 6; // exchange-specific sequence number when available
-  optional string checksum = 7; // exchange-specific checksum if provided
+  int64 timestamp = 5; // microseconds since UNIX epoch (OrderBook.timestamp converted to µs)
+  optional int64 sequence = 6; // exchange sequence number when available (OrderBook.sequence_number)
+  optional string checksum = 7; // venue checksum for integrity validation (OrderBook.checksum)
 }

@@ -7,8 +7,8 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // OpenInterest tracks outstanding contract quantities.
 message OpenInterest {
-  string exchange = 1;
-  string symbol = 2;
-  string open_interest = 3; // decimal string, scale 1e-8
-  optional int64 timestamp = 4; // microseconds since UNIX epoch
+  string exchange = 1; // normalized exchange identifier (Cryptofeed OpenInterest.exchange)
+  string symbol = 2; // normalized contract identifier (OpenInterest.symbol)
+  string open_interest = 3; // decimal string, scale 1e-8 (OpenInterest.open_interest)
+  optional int64 timestamp = 4; // microseconds since UNIX epoch (OpenInterest.timestamp converted to µs)
 }

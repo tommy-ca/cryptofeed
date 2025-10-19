@@ -7,11 +7,11 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Funding captures perpetual swap funding rate broadcasts.
 message Funding {
-  string exchange = 1;
-  string symbol = 2;
-  string mark_price = 3; // decimal string, scale 1e-8
-  string rate = 4; // decimal string, scale 1e-8 (per-period rate)
-  optional string predicted_rate = 5;
-  optional int64 next_funding_time = 6; // microseconds since UNIX epoch
-  int64 timestamp = 7; // event timestamp, microseconds
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Funding.exchange)
+  string symbol = 2; // normalized perpetual contract (Funding.symbol)
+  string mark_price = 3; // decimal string, scale 1e-8 (Funding.mark_price)
+  string rate = 4; // decimal string, scale 1e-8 per funding period (Funding.rate)
+  optional string predicted_rate = 5; // decimal string, scale 1e-8 (Funding.predicted_rate)
+  optional int64 next_funding_time = 6; // microseconds since UNIX epoch (Funding.next_funding_time converted to µs)
+  int64 timestamp = 7; // event timestamp, microseconds (Funding.timestamp converted to µs)
 }

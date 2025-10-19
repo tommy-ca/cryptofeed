@@ -7,9 +7,9 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 
 // Ticker captures bid/ask quotes at a point in time.
 message Ticker {
-  string exchange = 1;
-  string symbol = 2;
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Ticker.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed Ticker.symbol)
   string bid = 3; // decimal string, scale 1e-8
   string ask = 4; // decimal string, scale 1e-8
-  int64 timestamp = 5; // microseconds since UNIX epoch
+  int64 timestamp = 5; // microseconds since UNIX epoch (Ticker.timestamp converted to µs)
 }
