@@ -81,6 +81,8 @@ setup(
         "aiohttp>=3.11.6",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
+        "pydantic>=2.0.0",
+        "pydantic-settings>=2.0.0",
         'uvloop ; platform_system!="Windows"',
         "order_book>=0.6.0",
         "aiodns>=1.1"  # aiodns speeds up DNS resolving
