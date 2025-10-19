@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// OpenInterest tracks outstanding contract quantities.
+message OpenInterest {
+  string exchange = 1;
+  string symbol = 2;
+  string open_interest = 3; // decimal string, scale 1e-8
+  optional int64 timestamp = 4; // microseconds since UNIX epoch
+}

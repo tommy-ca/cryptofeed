@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Balance reports wallet balances with optional reserved portion.
+message Balance {
+  string exchange = 1;
+  string currency = 2;
+  string balance = 3; // decimal string, native precision
+  optional string reserved = 4; // decimal string, native precision
+}

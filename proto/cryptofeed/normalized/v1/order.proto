@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Order captures order submissions prior to execution.
+message Order {
+  string exchange = 1;
+  string symbol = 2;
+  string client_order_id = 3;
+  string side = 4; // venue-provided verbatim value
+  string type = 5; // e.g. limit, market
+  string price = 6; // decimal string, scale 1e-8
+  string amount = 7; // decimal string, scale 1e-8
+  optional string account = 8;
+  optional int64 timestamp = 9; // microseconds since UNIX epoch
+}

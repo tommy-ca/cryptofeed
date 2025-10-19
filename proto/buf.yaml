@@ -4,6 +4,8 @@ deps: []
 lint:
   use:
     - STANDARD
+  except:
+    - IMPORT_NO_PUBLIC
 breaking:
   use:
     - FILE

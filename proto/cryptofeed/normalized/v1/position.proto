@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Position reports open derivatives positions per symbol.
+message Position {
+  string exchange = 1;
+  string symbol = 2;
+  string position = 3; // decimal string, scale 1e-8
+  string entry_price = 4; // decimal string, scale 1e-8
+  optional string side = 5;
+  optional string unrealised_pnl = 6; // decimal string, scale 1e-8
+  optional int64 timestamp = 7; // microseconds since UNIX epoch
+}

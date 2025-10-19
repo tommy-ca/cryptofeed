@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Funding captures perpetual swap funding rate broadcasts.
+message Funding {
+  string exchange = 1;
+  string symbol = 2;
+  string mark_price = 3; // decimal string, scale 1e-8
+  string rate = 4; // decimal string, scale 1e-8 (per-period rate)
+  optional string predicted_rate = 5;
+  optional int64 next_funding_time = 6; // microseconds since UNIX epoch
+  int64 timestamp = 7; // event timestamp, microseconds
+}

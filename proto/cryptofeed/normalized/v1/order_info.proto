@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// OrderInfo reflects venue-reported order state.
+message OrderInfo {
+  string exchange = 1;
+  string symbol = 2;
+  string order_id = 3;
+  optional string client_order_id = 4;
+  string side = 5;
+  string status = 6; // venue-specific status (e.g. open, closed)
+  string type = 7;
+  string price = 8; // decimal string, scale 1e-8
+  string amount = 9; // decimal string, scale 1e-8
+  optional string remaining = 10; // decimal string, scale 1e-8
+  optional string account = 11;
+  optional int64 timestamp = 12; // microseconds since UNIX epoch
+}

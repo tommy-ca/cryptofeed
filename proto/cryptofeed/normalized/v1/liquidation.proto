@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v1;
+
+import "cryptofeed/normalized/v1/trade_side.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v1";
+option java_package = "build.buf.cryptofeed.normalized.v1";
+
+// Liquidation represents forced position closures broadcast by venues.
+message Liquidation {
+  string exchange = 1;
+  string symbol = 2;
+  TradeSide side = 3;
+  string quantity = 4; // decimal string, scale 1e-8
+  string price = 5; // decimal string, scale 1e-8
+  optional string liquidation_id = 6;
+  optional string status = 7;
+  int64 timestamp = 8; // microseconds since UNIX epoch
+}
