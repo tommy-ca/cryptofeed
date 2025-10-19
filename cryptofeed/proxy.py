@@ -400,15 +400,21 @@ class ProxySettings(BaseSettings):
         default_factory=dict,
         description="Exchange-specific proxy overrides"
     )
-    
+
+    def model_post_init(self, __context) -> None:  # type: ignore[override]
+        # Normalize exchange keys for case-insensitive lookups
+        if self.exchanges:
+            self.exchanges = {key.casefold(): value for key, value in self.exchanges.items()}
+
     def get_proxy(self, exchange_id: str, connection_type: Literal['http', 'websocket']) -> Optional[ProxyConfig]:
         """Get proxy configuration for specific exchange and connection type."""
         if not self.enabled:
             return None
-        
+
         # Check exchange-specific override first
-        if exchange_id in self.exchanges:
-            proxy = getattr(self.exchanges[exchange_id], connection_type, None)
+        key = exchange_id.casefold() if exchange_id else exchange_id
+        if key in self.exchanges:
+            proxy = getattr(self.exchanges[key], connection_type, None)
             if proxy is not None:
                 return proxy
         

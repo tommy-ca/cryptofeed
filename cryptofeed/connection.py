@@ -169,12 +169,10 @@ class HTTPAsyncConn(AsyncConnection):
             proxy = proxy_url if proxy_url is not None else self.proxy
             self.proxy = proxy
 
-            session_kwargs = {}
             if proxy:
-                session_kwargs['proxy'] = proxy
                 log_proxy_usage(transport='http', exchange_id=self.exchange_id, proxy_url=proxy)
 
-            self.conn = aiohttp.ClientSession(**session_kwargs)
+            self.conn = aiohttp.ClientSession()
             
             self.sent = 0
             self.received = 0
