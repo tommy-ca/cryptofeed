@@ -92,20 +92,32 @@ class FeedHandler:
                 return {k: _coerce_to_plain_dict(v) for k, v in value.items()}
             return value
 
+        def _normalize_root_config(value):
+            if isinstance(value, str):
+                return {
+                    'enabled': True,
+                    'default': {
+                        'http': value,
+                        'websocket': value,
+                    },
+                }
+            return value
+
         env_settings = load_proxy_settings()
 
         config_settings = None
         if 'proxy' in self.config:
-            raw_proxy_config = self.config['proxy']
+            raw_proxy_config = _normalize_root_config(self.config['proxy'])
             if raw_proxy_config:
                 config_settings = ProxySettings(**_coerce_to_plain_dict(raw_proxy_config))
 
         explicit_proxy_settings = None
         if explicit_settings is not None:
+            normalized_explicit = _normalize_root_config(explicit_settings)
             if isinstance(explicit_settings, ProxySettings):
                 explicit_proxy_settings = explicit_settings
-            elif isinstance(explicit_settings, Mapping):
-                explicit_proxy_settings = ProxySettings(**_coerce_to_plain_dict(explicit_settings))
+            elif isinstance(normalized_explicit, Mapping):
+                explicit_proxy_settings = ProxySettings(**_coerce_to_plain_dict(normalized_explicit))
             else:
                 raise TypeError('proxy_settings must be a ProxySettings instance or mapping')
 
