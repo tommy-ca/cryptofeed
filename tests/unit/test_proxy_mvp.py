@@ -193,6 +193,19 @@ class TestProxySettings:
         proxy = settings.get_proxy("unknown_exchange", "websocket")
         assert proxy.url == "socks5://default:1081"
 
+    def test_get_proxy_case_insensitive_exchange_lookup(self):
+        """Exchange overrides should match irrespective of case."""
+        settings = ProxySettings(
+            enabled=True,
+            exchanges={
+                "binance": ConnectionProxies(http=ProxyConfig(url="socks5://binance:1080"))
+            }
+        )
+
+        proxy = settings.get_proxy("BINANCE", "http")
+        assert proxy is not None
+        assert proxy.url == "socks5://binance:1080"
+
     def test_exchange_override_inherits_missing_fields(self):
         """Exchange overrides inherit missing fields from default configuration."""
         settings = ProxySettings(
@@ -593,8 +606,8 @@ class TestFeedHandlerProxyInitialization:
 
             assert len(DummySession.instances) == 1
             session = DummySession.instances[0]
-            # Session created with proxy argument once
-            assert session.kwargs['proxy'] == 'http://env-proxy:8080'
+            # Session should be created without proxy kwargs; requests handle proxy application
+            assert session.kwargs == {}
             # Two sequential GET calls reuse same session with proxy kwargs preserved
             assert len(session.calls) == 2
             for _, kwargs in session.calls:
@@ -640,9 +653,7 @@ class TestFeedHandlerProxyInitialization:
             await conn._open()
             session = conn.conn
             assert isinstance(session, DummySession)
-            assert 'proxy' in session.kwargs
-            assert session.kwargs['proxy'] == 'http://env-proxy:8080'
-            assert 'timeout' not in session.kwargs
+            assert session.kwargs == {}
 
             proxy_cfg = get_proxy_injector().settings.get_proxy('binance', 'http')
             assert proxy_cfg.timeout_seconds == 45

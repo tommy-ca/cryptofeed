@@ -61,9 +61,9 @@ deployments should prefer the actively maintained list above. Additional communi
 The roadmap prioritises modern derivatives venues with robust APIs:
 
 * Backpack – unified REST/WebSocket API (`api.backpack.exchange`) covering spot
-  and perpetual contracts, with account webhooks for order lifecycle events.citeturn0search0
+  and perpetual contracts, with account webhooks for order lifecycle events.
 * Hyperliquid – on-chain perpetual protocol with high-frequency book streams and
-  programmatic funding/vault data via `api.hyperliquid.xyz`.citeturn0search1
+  programmatic funding/vault data via `api.hyperliquid.xyz`.
 
 If you operate at one of these venues or would like to help with testing, please join the discussion in `docs/exchange.md`.
 
