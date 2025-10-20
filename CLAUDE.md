@@ -214,6 +214,9 @@ CcxtGenericFeed
 # Run tests
 python -m pytest tests/ -v
 
+# Code quality gate (smells + complexity)
+pyscn check --max-complexity 15 cryptofeed
+
 # Type checking
 mypy cryptofeed/
 
