@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
@@ -23,10 +22,6 @@ from cryptofeed.feed import Feed
 from .generic import (
     CcxtGenericFeed,
     CcxtMetadataCache,
-)
-from .transport import (
-    CcxtRestTransport,
-    CcxtWsTransport,
 )
 from contextlib import suppress
 

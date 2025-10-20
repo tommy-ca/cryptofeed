@@ -126,7 +126,7 @@ class BackpackWsSession:
                 if self._metrics:
                     self._metrics.record_ws_message()
                 return message
-        except Exception as exc:
+        except Exception:
             if self._metrics:
                 self._metrics.record_ws_error()
             raise

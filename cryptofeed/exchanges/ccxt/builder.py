@@ -7,7 +7,6 @@ from cryptofeed.feed import Feed
 
 from .adapters import BaseOrderBookAdapter, BaseTradeAdapter
 from .feed import CcxtFeed
-from .generic import CcxtMetadataCache, CcxtUnavailable
 from .generic import get_supported_ccxt_exchanges as _get_supported_ccxt_exchanges
 from .config import CcxtExchangeConfig
 from .exchanges import get_symbol_normalizer
