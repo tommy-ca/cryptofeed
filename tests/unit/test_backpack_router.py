@@ -6,7 +6,11 @@ from decimal import Decimal
 import pytest
 
 from cryptofeed.exchanges.backpack.adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
-from cryptofeed.exchanges.backpack.router import BackpackMessageRouter
+from cryptofeed.exchanges.backpack.router import (
+    BackpackMessageRouter,
+    BackpackRouterAdapters,
+    BackpackRouterCallbacks,
+)
 from cryptofeed.exchanges.backpack.metrics import BackpackMetrics
 
 
@@ -24,14 +28,13 @@ async def test_router_dispatches_trade():
     orderbook_adapter = BackpackOrderBookAdapter(exchange="BACKPACK")
     collector = CallbackCollector()
 
-    router = BackpackMessageRouter(
-        trade_adapter=trade_adapter,
-        order_book_adapter=orderbook_adapter,
-        ticker_adapter=BackpackTickerAdapter(exchange="BACKPACK"),
-        trade_callback=collector,
-        order_book_callback=None,
-        ticker_callback=None,
+    adapters = BackpackRouterAdapters(
+        trade=trade_adapter,
+        order_book=orderbook_adapter,
+        ticker=BackpackTickerAdapter(exchange="BACKPACK"),
     )
+    callbacks = BackpackRouterCallbacks(trade=collector)
+    router = BackpackMessageRouter(adapters=adapters, callbacks=callbacks)
 
     await router.dispatch(
         {
@@ -56,14 +59,13 @@ async def test_router_dispatches_order_book_snapshot():
     orderbook_adapter = BackpackOrderBookAdapter(exchange="BACKPACK")
     collector = CallbackCollector()
 
-    router = BackpackMessageRouter(
-        trade_adapter=trade_adapter,
-        order_book_adapter=orderbook_adapter,
-        ticker_adapter=BackpackTickerAdapter(exchange="BACKPACK"),
-        trade_callback=None,
-        order_book_callback=collector,
-        ticker_callback=None,
+    adapters = BackpackRouterAdapters(
+        trade=trade_adapter,
+        order_book=orderbook_adapter,
+        ticker=BackpackTickerAdapter(exchange="BACKPACK"),
     )
+    callbacks = BackpackRouterCallbacks(order_book=collector)
+    router = BackpackMessageRouter(adapters=adapters, callbacks=callbacks)
 
     await router.dispatch(
         {
@@ -90,14 +92,9 @@ async def test_router_dispatches_ticker():
     ticker_adapter = BackpackTickerAdapter(exchange="BACKPACK")
     collector = CallbackCollector()
 
-    router = BackpackMessageRouter(
-        trade_adapter=trade_adapter,
-        order_book_adapter=orderbook_adapter,
-        ticker_adapter=ticker_adapter,
-        trade_callback=None,
-        order_book_callback=None,
-        ticker_callback=collector,
-    )
+    adapters = BackpackRouterAdapters(trade=trade_adapter, order_book=orderbook_adapter, ticker=ticker_adapter)
+    callbacks = BackpackRouterCallbacks(ticker=collector)
+    router = BackpackMessageRouter(adapters=adapters, callbacks=callbacks)
 
     await router.dispatch(
         {
@@ -120,15 +117,12 @@ async def test_router_dispatches_ticker():
 @pytest.mark.asyncio
 async def test_router_drops_invalid_payload_and_records_metrics():
     metrics = BackpackMetrics()
-    router = BackpackMessageRouter(
-        trade_adapter=BackpackTradeAdapter(exchange="BACKPACK"),
-        order_book_adapter=BackpackOrderBookAdapter(exchange="BACKPACK"),
-        ticker_adapter=None,
-        trade_callback=None,
-        order_book_callback=None,
-        ticker_callback=None,
-        metrics=metrics,
+    adapters = BackpackRouterAdapters(
+        trade=BackpackTradeAdapter(exchange="BACKPACK"),
+        order_book=BackpackOrderBookAdapter(exchange="BACKPACK"),
+        ticker=None,
     )
+    router = BackpackMessageRouter(adapters=adapters, callbacks=None, metrics=metrics)
 
     await router.dispatch({"type": "trade", "price": "100"})
 

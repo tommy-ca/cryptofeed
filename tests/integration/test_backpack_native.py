@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from cryptofeed.defines import L2_BOOK, TRADES
-from cryptofeed.exchanges.backpack import BackpackConfig, BackpackFeed
+from cryptofeed.exchanges.backpack import BackpackConfig
+from cryptofeed.exchanges.backpack.feed import BackpackFeed, BackpackFeedDependencies
 
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "backpack"
@@ -63,10 +64,14 @@ async def test_backpack_feed_processes_fixtures(monkeypatch):
     async def book_cb(book, ts):
         books.append((book, ts))
 
-    feed = BackpackFeed(
-        config=BackpackConfig(),
+    dependencies = BackpackFeedDependencies(
         rest_client_factory=lambda cfg: rest,
         ws_session_factory=lambda cfg: ws,
+    )
+
+    feed = BackpackFeed(
+        config=BackpackConfig(),
+        dependencies=dependencies,
         symbols=["BTC-USDT"],
         channels=[TRADES, L2_BOOK],
         callbacks={TRADES: [trade_cb], L2_BOOK: [book_cb]},

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from contextlib import suppress
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BACKPACK, L2_BOOK, TRADES, TICKER
@@ -18,12 +19,23 @@ from .config import BackpackConfig
 from .health import BackpackHealthReport, evaluate_health
 from .metrics import BackpackMetrics
 from .rest import BackpackRestClient
-from .router import BackpackMessageRouter
+from .router import (
+    BackpackMessageRouter,
+    BackpackRouterAdapters,
+    BackpackRouterCallbacks,
+)
 from .symbols import BackpackSymbolService
 from .ws import BackpackSubscription, BackpackWsSession
 
 
 LOG = logging.getLogger("feedhandler")
+
+
+@dataclass(frozen=True)
+class BackpackFeedDependencies:
+    rest_client_factory: Callable[[BackpackConfig], BackpackRestClient]
+    ws_session_factory: Callable[[BackpackConfig], BackpackWsSession]
+    symbol_service: Optional[BackpackSymbolService] = None
 
 
 class BackpackFeed(Feed):
@@ -42,9 +54,8 @@ class BackpackFeed(Feed):
         self,
         *,
         config: Optional[BackpackConfig] = None,
-        rest_client_factory=None,
-        ws_session_factory=None,
-        symbol_service: Optional[BackpackSymbolService] = None,
+        dependencies: Optional[BackpackFeedDependencies] = None,
+        max_depth: int = 0,
         **kwargs,
     ) -> None:
         self.exchange_config = config or BackpackConfig()
@@ -53,33 +64,26 @@ class BackpackFeed(Feed):
         self._apply_proxy_override()
         Symbols.set(self.id, {}, {})
 
-        self._configure_factories(rest_client_factory, ws_session_factory)
-        self._rest_client = self._create_rest_client()
-        self._symbol_service = symbol_service or BackpackSymbolService(rest_client=self._rest_client)
-
-        self._configure_adapters(max_depth=kwargs.get("max_depth", 0))
-        self._initialize_runtime_state()
-
-        super().__init__(**kwargs)
-
-    def _configure_factories(self, rest_client_factory, ws_session_factory) -> None:
-        self._rest_client_factory = rest_client_factory or (lambda cfg: BackpackRestClient(cfg))
-        self._ws_session_factory = ws_session_factory or (
-            lambda cfg: BackpackWsSession(cfg, metrics=self.metrics)
+        deps = dependencies or BackpackFeedDependencies(
+            rest_client_factory=lambda cfg: BackpackRestClient(cfg),
+            ws_session_factory=lambda cfg: BackpackWsSession(cfg, metrics=self.metrics),
         )
 
-    def _create_rest_client(self) -> BackpackRestClient:
-        return self._rest_client_factory(self.exchange_config)
+        self._rest_client_factory = deps.rest_client_factory
+        self._ws_session_factory = deps.ws_session_factory
+        self._rest_client = self._rest_client_factory(self.exchange_config)
+        self._symbol_service = deps.symbol_service or BackpackSymbolService(rest_client=self._rest_client)
 
-    def _configure_adapters(self, *, max_depth: int) -> None:
+        depth = kwargs.pop("max_depth", max_depth)
         self._trade_adapter = BackpackTradeAdapter(exchange=self.id)
-        self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=max_depth)
+        self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=depth)
         self._ticker_adapter = BackpackTickerAdapter(exchange=self.id)
 
-    def _initialize_runtime_state(self) -> None:
         self._router: Optional[BackpackMessageRouter] = None
         self._ws_session: Optional[BackpackWsSession] = None
         self._connection: Optional["BackpackWsConnection"] = None
+
+        super().__init__(**kwargs)
 
     # ------------------------------------------------------------------
     # Symbol handling
@@ -105,13 +109,19 @@ class BackpackFeed(Feed):
     # ------------------------------------------------------------------
     async def _initialize_router(self) -> None:
         if self._router is None:
+            adapters = BackpackRouterAdapters(
+                trade=self._trade_adapter,
+                order_book=self._order_book_adapter,
+                ticker=self._ticker_adapter,
+            )
+            callbacks = BackpackRouterCallbacks(
+                trade=self._callback(TRADES),
+                order_book=self._callback(L2_BOOK),
+                ticker=self._callback(TICKER),
+            )
             self._router = BackpackMessageRouter(
-                trade_adapter=self._trade_adapter,
-                order_book_adapter=self._order_book_adapter,
-                ticker_adapter=self._ticker_adapter,
-                trade_callback=self._callback(TRADES),
-                order_book_callback=self._callback(L2_BOOK),
-                ticker_callback=self._callback(TICKER),
+                adapters=adapters,
+                callbacks=callbacks,
                 metrics=self.metrics,
             )
 
