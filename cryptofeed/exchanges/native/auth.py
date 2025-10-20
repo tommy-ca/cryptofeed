@@ -4,7 +4,8 @@ from __future__ import annotations
 from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, Optional, Mapping
+from types import MappingProxyType
 
 from nacl.signing import SigningKey
 
@@ -51,6 +52,7 @@ class Ed25519AuthHelper:
         self._headers = dict(self.DEFAULT_HEADERS)
         if header_names:
             self._headers.update(header_names)
+        self._header_map: Mapping[str, str] = MappingProxyType(self._headers)
 
     @staticmethod
     def _ensure_path(path: str) -> str:
@@ -115,3 +117,7 @@ class Ed25519AuthHelper:
     @property
     def window_ms(self) -> int:
         return self._window_ms
+
+    @property
+    def header_names(self) -> Mapping[str, str]:
+        return self._header_map
