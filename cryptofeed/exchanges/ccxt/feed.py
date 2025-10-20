@@ -72,11 +72,43 @@ class CcxtFeed(Feed):
             config: Complete typed configuration (preferred over individual args)
             **kwargs: Standard Feed arguments (symbols, channels, callbacks, etc.)
         """
+        transport_overrides = self._pop_transport_overrides(kwargs)
+        overrides = self._collect_overrides(proxies, ccxt_options, transport_overrides, kwargs)
+
+        proxy_settings = self._resolve_proxy_settings()
+        context, base_config = self._resolve_context(config, exchange_id, overrides, proxy_settings)
+
+        self._initialize_context_state(context, base_config)
+        self._normalize_symbol_arguments(kwargs)
+        self._apply_default_credentials(kwargs)
+
+        super().__init__(**kwargs)
+
+        self._store_ccxt_credentials()
+        self.log = logging.getLogger('feedhandler')
+
+    def _pop_transport_overrides(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         transport_keys = {'snapshot_interval', 'websocket_enabled', 'rest_only', 'use_market_id'}
-        transport_overrides: Dict[str, Any] = {}
+        overrides: Dict[str, Any] = {}
         for key in list(kwargs.keys()):
             if key in transport_keys:
-                transport_overrides[key] = kwargs.pop(key)
+                overrides[key] = kwargs.pop(key)
+        return overrides
+
+    def _collect_overrides(
+        self,
+        proxies: Optional[Dict[str, str]],
+        ccxt_options: Optional[Dict[str, Any]],
+        transport_overrides: Dict[str, Any],
+        kwargs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        overrides: Dict[str, Any] = {}
+        if proxies:
+            overrides['proxies'] = proxies
+        if ccxt_options:
+            overrides['options'] = ccxt_options
+        if transport_overrides:
+            overrides['transport'] = transport_overrides
 
         credential_keys = {
             'api_key',
@@ -87,23 +119,22 @@ class CcxtFeed(Feed):
             'enable_rate_limit',
             'timeout',
         }
-        overrides: Dict[str, Any] = {}
-        if proxies:
-            overrides['proxies'] = proxies
-        if ccxt_options:
-            overrides['options'] = ccxt_options
-        if transport_overrides:
-            overrides['transport'] = transport_overrides
         for field in list(kwargs.keys()):
             if field in credential_keys:
                 overrides[field] = kwargs.pop(field)
+        return overrides
 
-        proxy_settings = self._resolve_proxy_settings()
-
+    def _resolve_context(
+        self,
+        config: Optional[CcxtExchangeConfig | CcxtExchangeContext],
+        exchange_id: Optional[str],
+        overrides: Dict[str, Any],
+        proxy_settings,
+    ) -> Tuple[CcxtExchangeContext, CcxtConfig]:
         if isinstance(config, CcxtExchangeContext):
-            context = config
-            base_config = context.config
-        elif isinstance(config, CcxtExchangeConfig):
+            return config, config.config
+
+        if isinstance(config, CcxtExchangeConfig):
             options_dump = (
                 config.ccxt_options.model_dump(exclude_none=True)
                 if config.ccxt_options
@@ -120,33 +151,35 @@ class CcxtFeed(Feed):
                 raise ValueError(
                     f"Invalid CCXT configuration for exchange '{config.exchange_id}'"
                 ) from exc
-            context = base_config.to_context(proxy_settings=proxy_settings)
-        else:
-            if exchange_id is None:
-                raise ValueError("exchange_id is required when config is not provided")
-            try:
-                context = load_ccxt_config(
-                    exchange_id=exchange_id,
-                    overrides=overrides or None,
-                    proxy_settings=proxy_settings,
-                )
-            except ValidationError as exc:
-                raise ValueError(
-                    f"Invalid CCXT configuration for exchange '{exchange_id}'"
-                ) from exc
-            base_config = context.config
+            return base_config.to_context(proxy_settings=proxy_settings), base_config
 
+        if exchange_id is None:
+            raise ValueError("exchange_id is required when config is not provided")
+        try:
+            context = load_ccxt_config(
+                exchange_id=exchange_id,
+                overrides=overrides or None,
+                proxy_settings=proxy_settings,
+            )
+        except ValidationError as exc:
+            raise ValueError(
+                f"Invalid CCXT configuration for exchange '{exchange_id}'"
+            ) from exc
+        return context, context.config
+
+    def _initialize_context_state(self, context: CcxtExchangeContext, base_config: CcxtConfig) -> None:
         self._context = context
         self.ccxt_context = context
         self.ccxt_config = base_config
         self.ccxt_exchange_id = context.exchange_id
+
         self.proxies: Dict[str, str] = {}
         if context.http_proxy_url:
             self.proxies['rest'] = context.http_proxy_url
         if context.websocket_proxy_url:
             self.proxies['websocket'] = context.websocket_proxy_url
-        self.ccxt_options = dict(context.ccxt_options)
 
+        self.ccxt_options = dict(context.ccxt_options)
         self._metadata_cache = CcxtMetadataCache(self.ccxt_exchange_id, context=context)
         self._ccxt_feed: Optional[CcxtGenericFeed] = None
         self._running = False
@@ -156,16 +189,19 @@ class CcxtFeed(Feed):
 
         exchange_constant = self._get_exchange_constant(self.ccxt_exchange_id)
         self.id = exchange_constant
-
         self._initialize_symbol_mapping()
 
-        if 'symbols' in kwargs and kwargs['symbols']:
-            kwargs['symbols'] = [
-                str_to_symbol(sym) if isinstance(sym, str) else sym
-                for sym in kwargs['symbols']
-            ]
+    def _normalize_symbol_arguments(self, kwargs: Dict[str, Any]) -> None:
+        symbols = kwargs.get('symbols')
+        if not symbols:
+            return
+        kwargs['symbols'] = [
+            str_to_symbol(sym) if isinstance(sym, str) else sym
+            for sym in symbols
+        ]
 
-        exchange_constant_lower = exchange_constant.lower()
+    def _apply_default_credentials(self, kwargs: Dict[str, Any]) -> None:
+        exchange_constant_lower = self.id.lower()
         if self.ccxt_options.get('apiKey') and self.ccxt_options.get('secret'):
             credentials_config = {
                 exchange_constant_lower: {
@@ -177,16 +213,13 @@ class CcxtFeed(Feed):
             }
             kwargs.setdefault('config', credentials_config)
 
-        kwargs.setdefault('sandbox', context.use_sandbox)
+        kwargs.setdefault('sandbox', self.ccxt_context.use_sandbox)
 
-        super().__init__(**kwargs)
-
+    def _store_ccxt_credentials(self) -> None:
         self.key_id = self.ccxt_options.get('apiKey')
         self.key_secret = self.ccxt_options.get('secret')
         self.key_passphrase = self.ccxt_options.get('password')
 
-        self.log = logging.getLogger('feedhandler')
-        
     def _get_exchange_constant(self, exchange_id: str) -> str:
         """Map CCXT exchange ID to cryptofeed exchange constant."""
         # This mapping should be expanded as more exchanges are added

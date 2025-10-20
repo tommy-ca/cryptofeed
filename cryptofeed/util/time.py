@@ -6,40 +6,27 @@ associated with this software.
 '''
 
 
+_TIMEDELTA_SECONDS = {
+    '1m': 60,
+    '3m': 180,
+    '5m': 300,
+    '10m': 600,
+    '15m': 900,
+    '30m': 1800,
+    '1h': 3600,
+    '2h': 7200,
+    '4h': 14400,
+    '6h': 21600,
+    '8h': 28800,
+    '12h': 43200,
+    '1d': 86400,
+    '3d': 259200,
+    '1w': 604800,
+    '2w': 1209600,
+    '1M': 2592000,
+    '1Y': 31536000,
+}
+
+
 def timedelta_str_to_sec(td: str):
-    if td == '1m':
-        return 60
-    if td == '3m':
-        return 180
-    if td == '5m':
-        return 300
-    if td == '10m':
-        return 600
-    if td == '15m':
-        return 900
-    if td == '30m':
-        return 1800
-    if td == '1h':
-        return 3600
-    if td == '2h':
-        return 7200
-    if td == '4h':
-        return 14400
-    if td == '6h':
-        return 21600
-    if td == '8h':
-        return 28800
-    if td == '12h':
-        return 43200
-    if td == '1d':
-        return 86400
-    if td == '3d':
-        return 259200
-    if td == '1w':
-        return 604800
-    if td == '2w':
-        return 1209600
-    if td == '1M':
-        return 2592000
-    if td == '1Y':
-        return 31536000
+    return _TIMEDELTA_SECONDS[td]
