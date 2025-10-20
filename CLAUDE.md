@@ -6,6 +6,7 @@
 - `ccxt-generic-pro-exchange`: Generic CCXT/CCXT-Pro abstraction to standardize feed integration patterns
 - `backpack-exchange-integration`: Backpack exchange implementation leveraging the generic CCXT/CCXT-Pro layer
 - `normalized-data-schema-crypto`: Research normalized data formats and extend tardis-node/dbn schemas for crypto datasets
+- `unified-exchange-feed-architecture`: Unify native and CCXT exchange integrations behind shared contracts with reusable tooling and tests
 
 Refer to `AGENTS.md` for an overview of available agent workflows and command usage. Command files live under `.claude/commands/kiro/`—see their descriptions in `AGENTS.md` before invoking any `/kiro:` commands.
 - `proxy-system-complete`: ✅ COMPLETED - Full proxy system implementation with consolidated documentation. Complete 3-component architecture (~150 lines), 40 passing tests, comprehensive user guides organized by audience
