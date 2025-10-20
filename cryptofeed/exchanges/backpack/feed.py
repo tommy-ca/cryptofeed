@@ -49,20 +49,37 @@ class BackpackFeed(Feed):
     ) -> None:
         self.exchange_config = config or BackpackConfig()
         self.metrics = BackpackMetrics()
+
         self._apply_proxy_override()
         Symbols.set(self.id, {}, {})
-        self._rest_client_factory = rest_client_factory or (lambda cfg: BackpackRestClient(cfg))
-        self._ws_session_factory = ws_session_factory or (lambda cfg: BackpackWsSession(cfg, metrics=self.metrics))
-        self._rest_client = self._rest_client_factory(self.exchange_config)
+
+        self._configure_factories(rest_client_factory, ws_session_factory)
+        self._rest_client = self._create_rest_client()
         self._symbol_service = symbol_service or BackpackSymbolService(rest_client=self._rest_client)
+
+        self._configure_adapters(max_depth=kwargs.get("max_depth", 0))
+        self._initialize_runtime_state()
+
+        super().__init__(**kwargs)
+
+    def _configure_factories(self, rest_client_factory, ws_session_factory) -> None:
+        self._rest_client_factory = rest_client_factory or (lambda cfg: BackpackRestClient(cfg))
+        self._ws_session_factory = ws_session_factory or (
+            lambda cfg: BackpackWsSession(cfg, metrics=self.metrics)
+        )
+
+    def _create_rest_client(self) -> BackpackRestClient:
+        return self._rest_client_factory(self.exchange_config)
+
+    def _configure_adapters(self, *, max_depth: int) -> None:
         self._trade_adapter = BackpackTradeAdapter(exchange=self.id)
-        self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=kwargs.get("max_depth", 0))
+        self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=max_depth)
         self._ticker_adapter = BackpackTickerAdapter(exchange=self.id)
+
+    def _initialize_runtime_state(self) -> None:
         self._router: Optional[BackpackMessageRouter] = None
         self._ws_session: Optional[BackpackWsSession] = None
         self._connection: Optional["BackpackWsConnection"] = None
-
-        super().__init__(**kwargs)
 
     # ------------------------------------------------------------------
     # Symbol handling

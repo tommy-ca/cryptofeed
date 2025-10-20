@@ -92,15 +92,24 @@ class BackpackWsSession:
         if not self._connected:
             raise BackpackWebsocketError("Websocket not open")
 
-        params = []
+        channels = []
+        params: list[str] = []
         for sub in subscriptions:
             prefix = self._CHANNEL_PREFIX.get(sub.channel, sub.channel)
+            entry = {
+                "name": prefix,
+                "symbols": list(sub.symbols),
+                "private": sub.private,
+            }
+            channels.append(entry)
             for symbol in sub.symbols:
                 params.append(f"{prefix}.{symbol}")
 
         payload = {
+            "op": "subscribe",
             "method": "SUBSCRIBE",
-            "params": params,
+            "params": {"channels": channels, "raw": params},
+            "channels": channels,
             "id": self._next_id(),
         }
         await self._send(payload)
@@ -168,8 +177,10 @@ class BackpackWsSession:
             raise BackpackAuthError(str(exc)) from exc
 
         payload = {
+            "op": "auth",
             "method": "AUTH",
             "params": {"headers": headers},
+            "headers": headers,
             "id": self._next_id(),
         }
         await self._send(payload)

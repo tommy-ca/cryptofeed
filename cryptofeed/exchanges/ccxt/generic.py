@@ -114,34 +114,43 @@ class CcxtMetadataCache:
     async def ensure(self) -> None:
         if self._markets is not None:
             return
+        ctor = self._import_exchange_ctor()
+        client = self._create_client(ctor)
+        try:
+            markets = await client.load_markets()
+            self._cache_markets(markets)
+        finally:
+            await client.close()
+
+    def _import_exchange_ctor(self):
         try:
             async_support = _dynamic_import("ccxt.async_support")
-            ctor = getattr(async_support, self.exchange_id)
+            return getattr(async_support, self.exchange_id)
         except Exception as exc:  # pragma: no cover - import failure path
             raise CcxtUnavailable(
                 f"ccxt.async_support.{self.exchange_id} unavailable"
             ) from exc
+
+    def _create_client(self, ctor):
         kwargs = self._client_kwargs()
         if not kwargs:
-            client = ctor()
-        else:
-            try:
-                client = ctor(**kwargs)
-            except TypeError:
-                client = ctor()
-                try:
-                    client.__dict__.setdefault('_cryptofeed_init_kwargs', {}).update(kwargs)
-                except Exception:  # pragma: no cover - defensive fallback
-                    pass
+            return ctor()
         try:
-            markets = await client.load_markets()
-            self._markets = markets
-            for symbol, meta in markets.items():
-                normalized = self._normalize_symbol(symbol, meta)
-                self._id_map[normalized] = meta.get("id", symbol)
-                self._symbol_map[normalized] = symbol
-        finally:
-            await client.close()
+            return ctor(**kwargs)
+        except TypeError:
+            client = ctor()
+            try:
+                client.__dict__.setdefault('_cryptofeed_init_kwargs', {}).update(kwargs)
+            except Exception:  # pragma: no cover - defensive fallback
+                pass
+            return client
+
+    def _cache_markets(self, markets: Dict[str, Dict[str, Any]]) -> None:
+        self._markets = markets
+        for symbol, meta in markets.items():
+            normalized = self._normalize_symbol(symbol, meta)
+            self._id_map[normalized] = meta.get("id", symbol)
+            self._symbol_map[normalized] = symbol
 
     def id_for_symbol(self, symbol: str) -> str:
         if self._markets is None:

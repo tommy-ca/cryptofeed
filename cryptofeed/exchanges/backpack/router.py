@@ -6,6 +6,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from cryptofeed.exchanges.native.router import NativeMessageRouter
 
+from .adapters import OrderBookDelta, OrderBookSnapshot
 from .metrics import BackpackMetrics
 
 LOG = logging.getLogger("feedhandler")
@@ -65,46 +66,60 @@ class BackpackMessageRouter(NativeMessageRouter):
             return
         normalized_symbol = symbol.replace("_", "-")
 
-        if payload.get("snapshot", False) or payload.get("type") == "l2_snapshot":
-            try:
-                book = self._order_book_adapter.apply_snapshot(
-                    normalized_symbol=normalized_symbol,
-                    bids=payload.get("bids", []),
-                    asks=payload.get("asks", []),
-                    timestamp=payload.get("timestamp"),
-                    sequence=payload.get("sequence"),
-                    raw=payload,
-                )
-            except (ValueError, KeyError, TypeError) as exc:
-                self._drop_payload(f"orderbook snapshot parse error: {exc}", payload)
-                return
+        if self._is_snapshot(payload):
+            book = self._handle_snapshot(normalized_symbol, payload)
         else:
-            try:
-                book = self._order_book_adapter.apply_delta(
-                    normalized_symbol=normalized_symbol,
-                    bids=payload.get("bids"),
-                    asks=payload.get("asks"),
-                    timestamp=payload.get("timestamp"),
-                    sequence=payload.get("sequence"),
-                    raw=payload,
-                )
-            except KeyError:
-                self._drop_payload("order book delta received before snapshot", payload)
-                return
-            except (ValueError, TypeError) as exc:
-                self._drop_payload(f"orderbook delta parse error: {exc}", payload)
-                return
+            book = self._handle_delta(normalized_symbol, payload)
+
+        if book is None:
+            return
 
         timestamp = getattr(book, "timestamp", None) or 0.0
-        if self._metrics:
-            self._metrics.record_orderbook(
-                normalized_symbol,
-                timestamp if timestamp else None,
-                getattr(book, "sequence_number", None),
-            )
+        self._record_orderbook_metrics(normalized_symbol, timestamp, getattr(book, "sequence_number", None))
         if not self._order_book_callback:
             return
         await self._order_book_callback(book, timestamp)
+
+    def _is_snapshot(self, payload: dict) -> bool:
+        return payload.get("snapshot", False) or payload.get("type") == "l2_snapshot"
+
+    def _handle_snapshot(self, symbol: str, payload: dict) -> Optional[Any]:
+        snapshot = OrderBookSnapshot(
+            symbol=symbol,
+            bids=payload.get("bids", []),
+            asks=payload.get("asks", []),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload,
+        )
+        try:
+            return self._order_book_adapter.apply_snapshot(snapshot)
+        except (ValueError, KeyError, TypeError) as exc:
+            self._drop_payload(f"orderbook snapshot parse error: {exc}", payload)
+            return None
+
+    def _handle_delta(self, symbol: str, payload: dict) -> Optional[Any]:
+        delta = OrderBookDelta(
+            symbol=symbol,
+            bids=payload.get("bids"),
+            asks=payload.get("asks"),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload,
+        )
+        try:
+            return self._order_book_adapter.apply_delta(delta)
+        except KeyError:
+            self._drop_payload("order book delta received before snapshot", payload)
+        except (ValueError, TypeError) as exc:
+            self._drop_payload(f"orderbook delta parse error: {exc}", payload)
+        return None
+
+    def _record_orderbook_metrics(self, symbol: str, timestamp: float, sequence: Optional[int]) -> None:
+        if not self._metrics:
+            return
+        recorded_timestamp = timestamp if timestamp else None
+        self._metrics.record_orderbook(symbol, recorded_timestamp, sequence)
 
     async def _handle_ticker(self, payload: dict) -> None:
         if not self._ticker_adapter:
