@@ -115,7 +115,8 @@ class NativeWsSession:
             raise
         payload = {"op": "auth", "headers": headers}
         await self._send(payload)
-        self._last_auth_timestamp_us = int(headers[self._auth_helper.DEFAULT_HEADERS["timestamp"]])
+        timestamp_header = self._auth_helper.header_names["timestamp"]
+        self._last_auth_timestamp_us = int(headers[timestamp_header])
 
     def _start_heartbeat(self) -> None:
         if self._heartbeat_interval <= 0:
