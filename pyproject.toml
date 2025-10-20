@@ -44,10 +44,12 @@ dependencies = [
     "yapic.json>=1.6.3",
     "uvloop ; platform_system!='Windows'",
     "order_book>=0.6.0",
-    "aiodns>=1.1"
+    "aiodns>=1.1",
+    "PyNaCl>=1.5",
 ]
 
 [project.optional-dependencies]
+dev = ["pyscn>=0.6.0"]
 arctic = ["arctic", "pandas"]
 gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
 kafka = ["aiokafka>=0.7.0"]
