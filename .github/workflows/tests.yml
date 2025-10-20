@@ -37,7 +37,7 @@ jobs:
       - name: Check for breaking changes
         run: |
           cd proto
-          buf breaking --against 'buf.build/tommyk/crypto-market-data:main' || echo "⚠ Breaking changes detected; review manually"
+          buf breaking --against 'buf.build/tommyk/crypto-market-data:main'
       - name: Generate Protobuf bindings
         run: |
           cd proto
