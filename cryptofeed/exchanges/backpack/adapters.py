@@ -79,6 +79,17 @@ class OrderBookSnapshot:
     sequence: Optional[int] = None
     raw: Optional[dict] = None
 
+    @classmethod
+    def from_payload(cls, *, symbol: str, **payload: dict) -> "OrderBookSnapshot":
+        return cls(
+            symbol=symbol,
+            bids=payload.get("bids", []),
+            asks=payload.get("asks", []),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload or None,
+        )
+
 
 @dataclass(frozen=True)
 class OrderBookDelta:
@@ -89,6 +100,17 @@ class OrderBookDelta:
     sequence: Optional[int] = None
     raw: Optional[dict] = None
 
+    @classmethod
+    def from_payload(cls, *, symbol: str, **payload: dict) -> "OrderBookDelta":
+        return cls(
+            symbol=symbol,
+            bids=payload.get("bids"),
+            asks=payload.get("asks"),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload or None,
+        )
+
 
 class BackpackOrderBookAdapter:
     """Maintain Backpack order book state and emit cryptofeed OrderBook objects."""
@@ -98,16 +120,7 @@ class BackpackOrderBookAdapter:
         self._max_depth = max_depth
         self._books: Dict[str, OrderBook] = {}
 
-    def apply_snapshot(self, snapshot: OrderBookSnapshot | None = None, **legacy_kwargs) -> OrderBook:
-        if snapshot is None:
-            snapshot = OrderBookSnapshot(
-                symbol=legacy_kwargs.get("normalized_symbol") or legacy_kwargs["symbol"],
-                bids=legacy_kwargs.get("bids", []),
-                asks=legacy_kwargs.get("asks", []),
-                timestamp=legacy_kwargs.get("timestamp"),
-                sequence=legacy_kwargs.get("sequence"),
-                raw=legacy_kwargs.get("raw"),
-            )
+    def apply_snapshot(self, snapshot: OrderBookSnapshot) -> OrderBook:
         bids_processed = self._levels_to_map(snapshot.bids)
         asks_processed = self._levels_to_map(snapshot.asks)
 
@@ -124,16 +137,7 @@ class BackpackOrderBookAdapter:
         self._books[snapshot.symbol] = order_book
         return order_book
 
-    def apply_delta(self, delta: OrderBookDelta | None = None, **legacy_kwargs) -> OrderBook:
-        if delta is None:
-            delta = OrderBookDelta(
-                symbol=legacy_kwargs.get("normalized_symbol") or legacy_kwargs["symbol"],
-                bids=legacy_kwargs.get("bids"),
-                asks=legacy_kwargs.get("asks"),
-                timestamp=legacy_kwargs.get("timestamp"),
-                sequence=legacy_kwargs.get("sequence"),
-                raw=legacy_kwargs.get("raw"),
-            )
+    def apply_delta(self, delta: OrderBookDelta) -> OrderBook:
         if delta.symbol not in self._books:
             raise KeyError(f"No snapshot for symbol {delta.symbol}")
 
@@ -151,6 +155,17 @@ class BackpackOrderBookAdapter:
         }
         book.raw = delta.raw
         return book
+
+    # Legacy API wrappers -------------------------------------------------
+    def apply_snapshot_from_payload(self, **payload: dict) -> OrderBook:
+        symbol = payload.pop("normalized_symbol", None) or payload.pop("symbol")
+        snapshot = OrderBookSnapshot.from_payload(symbol=symbol, **payload)
+        return self.apply_snapshot(snapshot)
+
+    def apply_delta_from_payload(self, **payload: dict) -> OrderBook:
+        symbol = payload.pop("normalized_symbol", None) or payload.pop("symbol")
+        delta = OrderBookDelta.from_payload(symbol=symbol, **payload)
+        return self.apply_delta(delta)
 
     def _normalize_level(self, level: Iterable) -> List[Decimal]:
         price, size = level[0], level[1]
