@@ -459,7 +459,12 @@ class ProxyInjector:
     def __init__(self, proxy_settings: ProxySettings):
         self.settings = proxy_settings
         self._pool_cache: Dict[int, Tuple[ReferenceType[ProxyConfig], ProxyPool]] = {}
-        self._leased_proxies: Dict[Tuple[int, str], Tuple[ProxyPool, ProxyUrlConfig]] = {}
+        self._leased_proxies: Dict[Tuple[int, int], Tuple[ProxyPool, ProxyUrlConfig]] = {}
+        self._lease_counter: int = 0
+
+    def _next_lease_id(self) -> int:
+        self._lease_counter += 1
+        return self._lease_counter
 
     def _get_proxy_pool(self, proxy_config: ProxyConfig) -> ProxyPool:
         """Get or create a ProxyPool for the given proxy configuration."""
@@ -491,7 +496,8 @@ class ProxyInjector:
         if proxy_config.pool:
             pool = self._get_proxy_pool(proxy_config)
             selected_proxy = pool.select_proxy()
-            lease_key = (id(proxy_config), selected_proxy.url)
+            lease_id = self._next_lease_id()
+            lease_key = (id(proxy_config), lease_id)
             self._leased_proxies[lease_key] = (pool, selected_proxy)
 
             def release() -> None:

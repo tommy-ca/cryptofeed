@@ -210,13 +210,10 @@ class HTTPAsyncConn(AsyncConnection):
                     release_proxy()
                     raise
             else:
-                session_kwargs = {}
                 if proxy:
-                    session_kwargs["proxy"] = proxy
                     self._request_proxy_kwargs = {"proxy": proxy}
-
                 try:
-                    self.conn = aiohttp.ClientSession(**session_kwargs)
+                    self.conn = aiohttp.ClientSession()
                 except Exception:
                     release_proxy()
                     raise
