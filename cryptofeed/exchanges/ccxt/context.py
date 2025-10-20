@@ -11,7 +11,7 @@ import yaml
 
 from cryptofeed.proxy import ProxySettings
 
-from .config import CcxtConfig, CcxtExchangeConfig, CcxtOptionsConfig, CcxtProxyConfig, CcxtTransportConfig
+from .config import CcxtConfig, CcxtExchangeConfig, CcxtTransportConfig
 from .extensions import CcxtConfigExtensions
 
 LOG = logging.getLogger("feedhandler")

@@ -14,11 +14,10 @@ import aiohttp
 import websockets
 import logging
 import asyncio
-import socket
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime, UTC
-from typing import Optional, Literal, Dict, Any, Tuple, List, Union, Mapping, Callable
+from typing import Optional, Literal, Dict, Tuple, List, Mapping, Callable
 from urllib.parse import urlparse
 from weakref import ref as weakref_ref
 from weakref import ReferenceType

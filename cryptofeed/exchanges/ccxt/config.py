@@ -8,7 +8,6 @@ Functional-first refactor guidance:
 """
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator

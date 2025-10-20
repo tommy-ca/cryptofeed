@@ -1,11 +1,10 @@
 """Generic ccxt/ccxt.pro integration scaffolding."""
 from __future__ import annotations
 
-import asyncio
 import inspect
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Iterable, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse
 import sys
 

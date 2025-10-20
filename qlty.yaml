@@ -1,0 +1,10 @@
+version: 1
+workflows:
+  local:
+    tools:
+      ruff_backpack:
+        command: ["ruff", "check", "cryptofeed/exchanges/backpack"]
+      ruff_ccxt:
+        command: ["ruff", "check", "cryptofeed/exchanges/ccxt"]
+      ruff_proxy:
+        command: ["ruff", "check", "cryptofeed/proxy.py"]

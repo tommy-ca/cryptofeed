@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Iterable, Mapping, Optional
+from typing import Mapping, Optional
 
 from cryptofeed.exchanges.native.symbols import NativeMarket, NativeSymbolService
 

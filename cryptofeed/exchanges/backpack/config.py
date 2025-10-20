@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import base64
 import binascii
-from dataclasses import dataclass
 from typing import ClassVar, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from cryptofeed.proxy import ProxyConfig
 

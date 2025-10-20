@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Any, Dict
 
 from cryptofeed.types import OrderBook, Trade
-from cryptofeed.defines import BID, ASK
 
 
 class CcxtTypeAdapter:

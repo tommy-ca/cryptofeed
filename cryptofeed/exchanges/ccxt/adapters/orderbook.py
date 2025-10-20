@@ -4,7 +4,6 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from cryptofeed.defines import BID, ASK
 from cryptofeed.types import OrderBook
 
 from .base import AdapterValidationError, BaseOrderBookAdapter, LOG

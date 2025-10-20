@@ -174,6 +174,12 @@ def apply_orderbook_hooks(exchange_id: str, payload: OrderBookPayload) -> OrderB
     return working
 
 
+def register_reset_callback(callback: Callable[[], None]) -> None:
+    """Public wrapper to register lifecycle reset callbacks."""
+
+    AdapterHookRegistry.register_reset_callback(callback)
+
+
 __all__ = [
     "AdapterHookRegistry",
     "apply_orderbook_hooks",
