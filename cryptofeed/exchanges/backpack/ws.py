@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from yapic import json
 
@@ -24,6 +24,14 @@ class BackpackSubscription:
     private: bool = False
 
 
+@dataclass(frozen=True)
+class BackpackWsDependencies:
+    conn_factory: Optional[Callable[[], WSAsyncConn]] = None
+    auth_helper: Optional[BackpackAuthHelper] = None
+    metrics: Optional[BackpackMetrics] = None
+    heartbeat_interval: float = 15.0
+
+
 class BackpackWsSession:
     """Manages Backpack websocket connectivity, authentication, and subscriptions."""
 
@@ -31,21 +39,23 @@ class BackpackWsSession:
         self,
         config: BackpackConfig,
         *,
-        auth_helper: BackpackAuthHelper | None = None,
-        metrics: Optional[BackpackMetrics] = None,
-        conn_factory=None,
-        heartbeat_interval: float = 15.0,
+        dependencies: Optional[BackpackWsDependencies] = None,
+        **legacy_kwargs,
     ) -> None:
+        deps = self._resolve_dependencies(dependencies, legacy_kwargs)
+
         self._config = config
-        self._auth_helper = auth_helper
+        self._auth_helper = deps.auth_helper
         if self._config.enable_private_channels and self._auth_helper is None:
             self._auth_helper = BackpackAuthHelper(self._config)
 
-        self._metrics = metrics
-        factory = conn_factory or (lambda: WSAsyncConn(self._config.ws_endpoint, "backpack", exchange_id=config.exchange_id))
+        self._metrics = deps.metrics
+        factory = deps.conn_factory or (
+            lambda: WSAsyncConn(self._config.ws_endpoint, "backpack", exchange_id=config.exchange_id)
+        )
         self._conn = factory()
 
-        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_interval = deps.heartbeat_interval
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._connected = False
         self._last_auth_timestamp_us: Optional[int] = None
@@ -62,6 +72,23 @@ class BackpackWsSession:
         current = self._request_id
         self._request_id += 1
         return current
+
+    @staticmethod
+    def _resolve_dependencies(
+        deps: Optional[BackpackWsDependencies], legacy_kwargs: dict
+    ) -> BackpackWsDependencies:
+        if deps is not None and legacy_kwargs:
+            raise ValueError("Provide either dependencies or legacy keyword arguments, not both.")
+
+        if deps is not None:
+            return deps
+
+        return BackpackWsDependencies(
+            conn_factory=legacy_kwargs.get("conn_factory"),
+            auth_helper=legacy_kwargs.get("auth_helper"),
+            metrics=legacy_kwargs.get("metrics"),
+            heartbeat_interval=legacy_kwargs.get("heartbeat_interval", 15.0),
+        )
 
     async def open(self) -> None:
         if self._connected and self._metrics:
