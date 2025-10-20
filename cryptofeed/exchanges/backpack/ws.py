@@ -66,13 +66,16 @@ class BackpackWsSession:
     async def open(self) -> None:
         if self._connected and self._metrics:
             self._metrics.record_ws_reconnect()
+
         open_fn = getattr(self._conn, "open", None)
         if callable(open_fn):
             await open_fn()
         else:
             await self._conn._open()
+
         self._connected = True
-        self._start_heartbeat()
+        self._private_channels_active = False
+        self._last_auth_timestamp_us = None
 
         if self._auth_helper:
             try:
@@ -80,7 +83,10 @@ class BackpackWsSession:
             except BackpackAuthError:
                 if self._metrics:
                     self._metrics.record_auth_failure()
+                await self._handle_auth_failure()
                 raise
+
+        self._start_heartbeat()
 
     async def subscribe(self, subscriptions: Iterable[BackpackSubscription]) -> None:
         if not self._connected:
@@ -137,6 +143,22 @@ class BackpackWsSession:
         if self._connected:
             await self._conn.close()
             self._connected = False
+            self._private_channels_active = False
+            self._last_auth_timestamp_us = None
+
+    async def _handle_auth_failure(self) -> None:
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
+
+        with suppress(Exception):
+            await self._conn.close()
+
+        self._connected = False
+        self._private_channels_active = False
+        self._last_auth_timestamp_us = None
 
     async def _send_auth(self) -> None:
         try:

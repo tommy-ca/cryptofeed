@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import suppress
 from typing import List, Optional, Tuple
 
 from cryptofeed.connection import AsyncConnection
@@ -206,9 +207,17 @@ class BackpackWsConnection(AsyncConnection):
 
     async def _open(self):
         if self.session is None:
-            self.session = self.feed._build_ws_session()
-            await self.session.open()
-            self.feed._ws_session = self.session
+            candidate = self.feed._build_ws_session()
+            try:
+                await candidate.open()
+            except Exception:
+                with suppress(Exception):
+                    await candidate.close()
+                self.feed._ws_session = None
+                raise
+
+            self.session = candidate
+            self.feed._ws_session = candidate
 
     @property
     def is_open(self) -> bool:
@@ -230,3 +239,4 @@ class BackpackWsConnection(AsyncConnection):
         if self.session:
             await self.session.close()
             self.session = None
+            self.feed._ws_session = None
