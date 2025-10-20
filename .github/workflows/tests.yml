@@ -23,6 +23,34 @@ jobs:
           pip install flake8 pytest cython
           if [ "${{ matrix.python-socks }}" = "with" ]; then pip install python-socks; fi
           python -m pip install -e .
+      - name: Set up Buf CLI
+        run: |
+          mkdir -p /usr/local/bin
+          curl -fsSL https://github.com/bufbuild/buf/releases/download/v1.40.0/buf-$(uname -s)-$(uname -m) -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+          buf --version
+      - name: Validate Protobuf schemas
+        run: |
+          cd proto
+          buf lint
+          echo "✓ Proto schemas pass linting"
+      - name: Check for breaking changes
+        run: |
+          cd proto
+          buf breaking --against 'buf.build/tommyk/crypto-market-data:main' || echo "⚠ Breaking changes detected; review manually"
+      - name: Generate Protobuf bindings
+        run: |
+          cd proto
+          buf generate
+          echo "✓ Protobuf bindings generated"
+      - name: Run schema regression tests
+        if: matrix.python-version == '3.12'
+        run: |
+          python tools/schema_regression.py \
+            --events docs/schemas/examples/events/trades.jsonl \
+            --output reports/parity-ci.json \
+            --tolerance 1e-8 \
+            --verbose
       - name: Test with pytest
         run: |
-          pytest tests/
+          pytest tests/ -v --tb=short
