@@ -66,7 +66,10 @@ class BackpackFeed(Feed):
 
         deps = dependencies or BackpackFeedDependencies(
             rest_client_factory=lambda cfg: BackpackRestClient(cfg),
-            ws_session_factory=lambda cfg: BackpackWsSession(cfg, metrics=self.metrics),
+            ws_session_factory=lambda cfg, metrics=self.metrics: BackpackWsSession(
+                cfg,
+                dependencies=BackpackWsDependencies(metrics=metrics),
+            ),
         )
 
         self._rest_client_factory = deps.rest_client_factory
