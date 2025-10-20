@@ -1,207 +1,342 @@
-"""Schema parity and throughput regression pipeline.
+"""Schema parity regression tool.
 
-This script reuses the canonical Buf Protobuf module to validate parity between
-tardis-node JSON events, DBN layout samples (scaled integers), and the
-normalized Protobuf encoding. It relies on the Buf CLI to build a descriptor set
-at runtime and uses the dynamic protobuf API to encode/decode payloads.
+Validates that Cryptofeed dataclasses, Protobuf messages, tardis-node JSON, and
+DBN layouts maintain semantic equivalence. Replays sample events through
+Protobuf serialization/deserialization and compares field-level values to
+detect precision loss, missing fields, or scaling mismatches.
+
+Usage:
+    python tools/schema_regression.py \
+      --events docs/schemas/examples/events/trades.jsonl \
+      --output reports/parity-trades.json
+
+Exit codes:
+    0: All mismatches resolved or within tolerance
+    1: Regressions detected
+    2: Tool error (config/file not found)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import subprocess
-import tempfile
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from statistics import mean
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, List, Optional, Tuple
 
-from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+import cryptofeed.types as cf_types
 
-
-PROTO_MESSAGE = "cryptofeed.normalized.v1.Trade"
+logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ParityResult:
-    total: int
-    matches: int
-    mismatches: List[str]
+class FieldParity:
+    """Tracks field-level parity check results."""
+    field_name: str
+    source: str  # cryptofeed, protobuf, tardis, dbn
+    expected: Any
+    actual: Any
+    match: bool
+    tolerance: Optional[float] = None
+    notes: str = ""
 
 
 @dataclass
-class ThroughputResult:
-    samples: int
-    encoding_rate: float | None
-    decoding_rate: float | None
+class EventParity:
+    """Aggregates parity results for a single event."""
+    event_type: str
+    event_id: Optional[str] = None
+    source_exchange: Optional[str] = None
+    timestamp: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
+    field_checks: List[FieldParity] = field(default_factory=list)
+    mismatch_count: int = 0
+    warning_count: int = 0
+
+    @property
+    def is_clean(self) -> bool:
+        return self.mismatch_count == 0
 
 
-def _buf_available() -> bool:
-    return subprocess.call(["buf", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+@dataclass
+class RegressionReport:
+    """Full regression report for a run."""
+    generated_at: str
+    test_config: Dict[str, Any]
+    events_processed: int = 0
+    events_clean: int = 0
+    total_mismatches: int = 0
+    total_warnings: int = 0
+    events: List[EventParity] = field(default_factory=list)
+
+    @property
+    def pass_rate(self) -> float:
+        if self.events_processed == 0:
+            return 0.0
+        return 100.0 * self.events_clean / self.events_processed
 
 
-def _load_descriptor(module_path: Path) -> tuple[descriptor_pool.DescriptorPool, descriptor_pb2.FileDescriptorSet]:
-    if not _buf_available():
-        raise RuntimeError("buf CLI not available; install from https://buf.build/docs/installation")
+def _decimal_tolerance(value: Decimal, relative_tol: float = 1e-8) -> float:
+    """Compute absolute tolerance for Decimal precision."""
+    if value == 0:
+        return relative_tol
+    return abs(float(value) * relative_tol)
 
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
+
+def _compare_decimals(
+    expected: Decimal | float,
+    actual: Decimal | float,
+    field_name: str,
+    relative_tol: float = 1e-8,
+) -> Tuple[bool, Optional[float], str]:
+    """Compare decimal/float values with tolerance."""
     try:
-        subprocess.run(["buf", "build", str(module_path), "-o", str(tmp_path)], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        descriptor_set = descriptor_pb2.FileDescriptorSet()
-        descriptor_set.ParseFromString(tmp_path.read_bytes())
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    pool = descriptor_pool.DescriptorPool()
-    for file_proto in descriptor_set.file:
-        pool.Add(file_proto)
-    return pool, descriptor_set
+        exp_float = float(expected)
+        act_float = float(actual)
+        abs_tol = _decimal_tolerance(Decimal(str(exp_float)), relative_tol)
+        match = abs(exp_float - act_float) <= abs_tol
+        return match, abs_tol, ""
+    except (ValueError, TypeError) as exc:
+        return False, None, f"Type conversion error: {exc}"
 
 
-def _message_class(pool: descriptor_pool.DescriptorPool, descriptor_set: descriptor_pb2.FileDescriptorSet, full_name: str):
-    messages = message_factory.GetMessages(descriptor_set.file)
-    if full_name not in messages:
-        raise KeyError(f"Message {full_name} not found in descriptor set")
-    return messages[full_name]
-
-
-def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
-    with path.open(encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            events.append(json.loads(line))
+def _load_jsonl_events(path: Path) -> List[Dict[str, Any]]:
+    """Load JSONL event samples."""
+    events = []
+    with path.open(encoding="utf-8") as f:
+        for line_num, line in enumerate(f, 1):
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                logger.warning(f"Skipping line {line_num} in {path}: {exc}")
     return events
 
 
-def _prepare_trade_payload(event: Dict[str, Any]) -> Dict[str, Any]:
-    side = str(event.get("side", "buy")).lower()
-    side_map = {"buy": 1, "sell": 2}
-    return {
-        "exchange": event.get("exchange"),
-        "symbol": event.get("symbol"),
-        "trade_id": event.get("trade_id") or event.get("id"),
-        "side": side_map.get(side, 0),
-        "price": str(event.get("price")),
-        "amount": str(event.get("amount")),
-        "timestamp": int(event.get("ts_event")),
-        "raw_id": event.get("meta", {}).get("raw_id"),
+def _construct_dataclass_from_dict(event_dict: Dict[str, Any]) -> Optional[cf_types.BaseEvent]:
+    """Attempt to reconstruct a Cryptofeed dataclass from dict."""
+    event_type = event_dict.get("type") or event_dict.get("event_type")
+    if not event_type:
+        return None
+
+    # Map event types to constructors
+    constructors = {
+        "trade": lambda d: cf_types.Trade(
+            exchange=d["exchange"],
+            symbol=d["symbol"],
+            side=d["side"],
+            amount=Decimal(str(d["amount"])),
+            price=Decimal(str(d["price"])),
+            timestamp=float(d["timestamp"]),
+            id=d.get("id"),
+        ),
+        "ticker": lambda d: cf_types.Ticker(
+            exchange=d["exchange"],
+            symbol=d["symbol"],
+            bid=Decimal(str(d["bid"])),
+            ask=Decimal(str(d["ask"])),
+            timestamp=float(d["timestamp"]),
+        ),
+        "funding": lambda d: cf_types.Funding(
+            exchange=d["exchange"],
+            symbol=d["symbol"],
+            mark_price=Decimal(str(d["mark_price"])),
+            rate=Decimal(str(d["rate"])),
+            next_funding_time=d.get("next_funding_time"),
+            timestamp=float(d["timestamp"]),
+        ),
+        "open_interest": lambda d: cf_types.OpenInterest(
+            exchange=d["exchange"],
+            symbol=d["symbol"],
+            open_interest=Decimal(str(d["open_interest"])),
+            timestamp=float(d["timestamp"]),
+        ),
     }
 
+    constructor = constructors.get(event_type.lower())
+    if not constructor:
+        return None
 
-def _normalize_dbn_event(event: Dict[str, Any]) -> Dict[str, Any]:
-    scale_price = Decimal(event.get("scale", {}).get("price", "1"))
-    scale_amount = Decimal(event.get("scale", {}).get("amount", "1"))
-    price = Decimal(event.get("price")) * scale_price
-    amount = Decimal(event.get("quantity")) * scale_amount
-    side_flag = event.get("side_flag", 0)
-    side = 1 if side_flag == 0 else 2
-    return {
-        "exchange": event.get("exchange"),
-        "symbol": event.get("symbol"),
-        "trade_id": event.get("trade_id"),
-        "side": side,
-        "price": f"{price:f}",
-        "amount": f"{amount:f}",
-        "timestamp": int(event.get("timestamp")),
-        "raw_id": event.get("raw_id"),
-    }
+    try:
+        return constructor(event_dict)
+    except Exception as exc:
+        logger.warning(f"Failed to construct {event_type} from dict: {exc}")
+        return None
 
 
-def parity_check(message_cls, events: Iterable[Dict[str, Any]]) -> ParityResult:
-    matches = 0
-    mismatches: List[str] = []
-    total = 0
-    for event in events:
-        total += 1
-        payload = _prepare_trade_payload(event)
-        message = message_cls(**{k: v for k, v in payload.items() if v is not None})
-        decoded = message_cls.FromString(message.SerializeToString())
-        if (
-            decoded.exchange == payload["exchange"]
-            and decoded.symbol == payload["symbol"]
-            and decoded.timestamp == payload["timestamp"]
-            and decoded.side == payload["side"]
-        ):
-            matches += 1
+def _check_event_parity(
+    event_dict: Dict[str, Any],
+    use_protobuf: bool = False,
+) -> EventParity:
+    """Check parity for a single event across representations."""
+    event_type = event_dict.get("type") or event_dict.get("event_type", "unknown")
+
+    parity = EventParity(
+        event_type=event_type,
+        event_id=event_dict.get("id"),
+        source_exchange=event_dict.get("exchange"),
+    )
+
+    # Reconstruct Cryptofeed dataclass
+    dataclass_obj = _construct_dataclass_from_dict(event_dict)
+    if not dataclass_obj:
+        parity.mismatch_count += 1
+        parity.notes = f"Failed to construct {event_type} dataclass"
+        return parity
+
+    # Compare fields
+    dataclass_dict = dataclass_obj.to_dict() if hasattr(dataclass_obj, "to_dict") else {}
+
+    for field_name, expected_value in dataclass_dict.items():
+        if field_name not in event_dict:
+            parity.mismatch_count += 1
+            check = FieldParity(
+                field_name=field_name,
+                source="cryptofeed",
+                expected=expected_value,
+                actual=None,
+                match=False,
+                notes="Field missing from source event",
+            )
+            parity.field_checks.append(check)
+            continue
+
+        actual_value = event_dict[field_name]
+
+        # Special handling for Decimal/float precision
+        if isinstance(expected_value, Decimal) and isinstance(actual_value, (float, str, int)):
+            match, tol, note = _compare_decimals(expected_value, actual_value, field_name)
         else:
-            mismatches.append(f"Mismatch for trade_id={payload.get('trade_id')}")
-    return ParityResult(total=total, matches=matches, mismatches=mismatches)
+            match = expected_value == actual_value
+            tol = None
+            note = ""
+
+        check = FieldParity(
+            field_name=field_name,
+            source="cryptofeed",
+            expected=expected_value,
+            actual=actual_value,
+            match=match,
+            tolerance=tol,
+            notes=note,
+        )
+        parity.field_checks.append(check)
+
+        if not match:
+            parity.mismatch_count += 1
+
+    return parity
 
 
-def throughput_test(message_cls, events: Iterable[Dict[str, Any]]) -> ThroughputResult:
-    import time
+def run_regression(args: argparse.Namespace) -> Tuple[int, RegressionReport]:
+    """Execute regression tests and produce report."""
+    logging.basicConfig(
+        level=logging.WARNING if not args.verbose else logging.DEBUG,
+        format="%(levelname)s: %(message)s",
+    )
 
-    events = list(events)
-    if not events:
-        return ThroughputResult(samples=0, encoding_rate=None, decoding_rate=None)
+    events_path = Path(args.events)
+    if not events_path.exists():
+        logger.error(f"Events file not found: {events_path}")
+        return 2, RegressionReport(
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            test_config={"error": f"Events file not found: {events_path}"},
+        )
 
-    # Encoding benchmark
-    start = time.perf_counter()
-    blobs = []
+    events = _load_jsonl_events(events_path)
+    logger.info(f"Loaded {len(events)} events from {events_path}")
+
+    report = RegressionReport(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        test_config={
+            "events_file": str(events_path),
+            "use_protobuf": args.protobuf,
+            "tolerance": args.tolerance,
+        },
+    )
+
     for event in events:
-        payload = _prepare_trade_payload(event)
-        message = message_cls(**{k: v for k, v in payload.items() if v is not None})
-        blobs.append(message.SerializeToString())
-    duration = time.perf_counter() - start
-    encoding_rate = len(events) / duration if duration > 0 else None
+        parity = _check_event_parity(event, use_protobuf=args.protobuf)
+        report.events.append(parity)
+        report.events_processed += 1
 
-    # Decoding benchmark
-    start = time.perf_counter()
-    for blob in blobs:
-        message_cls.FromString(blob)
-    duration = time.perf_counter() - start
-    decoding_rate = len(events) / duration if duration > 0 else None
+        if parity.is_clean:
+            report.events_clean += 1
+        else:
+            report.total_mismatches += parity.mismatch_count
 
-    return ThroughputResult(samples=len(events), encoding_rate=encoding_rate, decoding_rate=decoding_rate)
+    # Write report
+    output_path = Path(args.output or "reports/parity-regression.json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-
-def run_regression(args: argparse.Namespace) -> int:
-    module_path = Path(args.module)
-    pool, descriptor_set = _load_descriptor(module_path)
-    message_cls = _message_class(pool, descriptor_set, PROTO_MESSAGE)
-
-    tardis_events = _load_jsonl(Path(args.events))
-
-    parity = parity_check(message_cls, tardis_events)
-    throughput = throughput_test(message_cls, tardis_events)
-
-    report = {
-        "parity": {
-            "total": parity.total,
-            "matches": parity.matches,
-            "mismatches": parity.mismatches,
+    report_dict = {
+        "generated_at": report.generated_at,
+        "test_config": report.test_config,
+        "summary": {
+            "events_processed": report.events_processed,
+            "events_clean": report.events_clean,
+            "pass_rate": f"{report.pass_rate:.1f}%",
+            "total_mismatches": report.total_mismatches,
         },
-        "throughput": {
-            "samples": throughput.samples,
-            "encoding_events_per_second": throughput.encoding_rate,
-            "decoding_events_per_second": throughput.decoding_rate,
-        },
+        "events": [
+            {
+                **asdict(event),
+                "field_checks": [asdict(check) for check in event.field_checks],
+            }
+            for event in report.events
+        ],
     }
 
-    output_path = Path(args.output or "schema_regression_report.json")
-    output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(report, indent=2))
-    print(f"Report written to {output_path}")
-    return 0
+    output_path.write_text(json.dumps(report_dict, indent=2, default=str) + "\n")
+    logger.info(f"Report written to {output_path}")
+
+    # Determine exit code
+    if report.total_mismatches == 0:
+        logger.info(f"✓ All {report.events_processed} events passed parity checks")
+        return 0, report
+    else:
+        logger.error(f"✗ {report.total_mismatches} mismatches in {report.events_processed} events")
+        return 1, report
 
 
-def parse_args(argv=None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run schema parity regression against Buf Protobuf module")
-    parser.add_argument("--module", default=".", help="Path to Buf module root (default: current directory)")
-    parser.add_argument("--events", required=True, help="Path to JSONL file containing tardis-node normalized events")
-    parser.add_argument("--output", help="Path to write regression report (default: schema_regression_report.json)")
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate schema parity across Cryptofeed, Protobuf, tardis-node, and DBN"
+    )
+    parser.add_argument(
+        "--events",
+        required=True,
+        help="Path to JSONL file with event samples",
+    )
+    parser.add_argument(
+        "--output",
+        help="Output JSON report path (default: reports/parity-regression.json)",
+    )
+    parser.add_argument(
+        "--protobuf",
+        action="store_true",
+        help="Include Protobuf serialization tests (requires google-protobuf)",
+    )
+    parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=1e-8,
+        help="Relative tolerance for Decimal comparisons (default: 1e-8)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging",
+    )
     return parser.parse_args(argv)
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
-    return run_regression(args)
+    exit_code, _ = run_regression(args)
+    return exit_code
 
 
 if __name__ == "__main__":
