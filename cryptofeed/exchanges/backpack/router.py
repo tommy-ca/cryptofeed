@@ -5,7 +5,6 @@ import logging
 from typing import Any, Awaitable, Callable, Optional
 
 from cryptofeed.exchanges.native.router import NativeMessageRouter
-
 from .adapters import OrderBookDelta, OrderBookSnapshot
 from .metrics import BackpackMetrics
 
@@ -84,14 +83,9 @@ class BackpackMessageRouter(NativeMessageRouter):
         return payload.get("snapshot", False) or payload.get("type") == "l2_snapshot"
 
     def _handle_snapshot(self, symbol: str, payload: dict) -> Optional[Any]:
-        snapshot = OrderBookSnapshot(
-            symbol=symbol,
-            bids=payload.get("bids", []),
-            asks=payload.get("asks", []),
-            timestamp=payload.get("timestamp"),
-            sequence=payload.get("sequence"),
-            raw=payload,
-        )
+        snapshot_payload = dict(payload)
+        snapshot_payload.pop("symbol", None)
+        snapshot = OrderBookSnapshot.from_payload(symbol=symbol, **snapshot_payload)
         try:
             return self._order_book_adapter.apply_snapshot(snapshot)
         except (ValueError, KeyError, TypeError) as exc:
@@ -99,14 +93,9 @@ class BackpackMessageRouter(NativeMessageRouter):
             return None
 
     def _handle_delta(self, symbol: str, payload: dict) -> Optional[Any]:
-        delta = OrderBookDelta(
-            symbol=symbol,
-            bids=payload.get("bids"),
-            asks=payload.get("asks"),
-            timestamp=payload.get("timestamp"),
-            sequence=payload.get("sequence"),
-            raw=payload,
-        )
+        delta_payload = dict(payload)
+        delta_payload.pop("symbol", None)
+        delta = OrderBookDelta.from_payload(symbol=symbol, **delta_payload)
         try:
             return self._order_book_adapter.apply_delta(delta)
         except KeyError:

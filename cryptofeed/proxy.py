@@ -273,24 +273,27 @@ class TCPHealthChecker:
         return parsed.hostname, parsed.port
 
     async def _attempt_connection(self, host: str, port: int, start_time: datetime) -> HealthCheckResult:
+        writer = None
+        error_message: Optional[str] = None
         try:
-            _, writer = await asyncio.wait_for(
+            reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(host, port),
                 timeout=self.timeout_seconds,
             )
         except asyncio.TimeoutError:
-            return self._error_result(
-                f"Connection timeout after {self.timeout_seconds}s",
-                start_time,
-            )
+            error_message = f"Connection timeout after {self.timeout_seconds}s"
         except ConnectionRefusedError:
-            return self._error_result("Connection refused", start_time)
+            error_message = "Connection refused"
         except Exception as exc:
-            return self._error_result(f"Connection error: {exc}", start_time)
+            error_message = f"Connection error: {exc}"
 
-        writer.close()
-        with suppress(Exception):
-            await writer.wait_closed()
+        if writer is not None:
+            writer.close()
+            with suppress(Exception):
+                await writer.wait_closed()
+
+        if error_message:
+            return self._error_result(error_message, start_time)
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
         return self._success_result(latency_ms, start_time)

@@ -31,7 +31,7 @@ def test_trade_adapter_parses_payload():
 def test_order_book_adapter_snapshot_and_delta():
     adapter = BackpackOrderBookAdapter(exchange="BACKPACK")
 
-    snapshot = adapter.apply_snapshot(
+    snapshot = adapter.apply_snapshot_from_payload(
         normalized_symbol="BTC-USDT",
         bids=[["30000", "1"]],
         asks=[["30010", "2"]],
@@ -44,7 +44,7 @@ def test_order_book_adapter_snapshot_and_delta():
     assert snapshot.book.bids[Decimal("30000")] == Decimal("1")
     assert snapshot.book.asks[Decimal("30010")] == Decimal("2")
 
-    delta = adapter.apply_delta(
+    delta = adapter.apply_delta_from_payload(
         normalized_symbol="BTC-USDT",
         bids=[["30000", "0"], ["29990", "1.5"]],
         asks=None,
