@@ -116,58 +116,15 @@ class CcxtWsTransport:
             client = self._ensure_client()
             await self._authenticate_client(client)
             try:
-                trades = await client.watch_trades(request_symbol)
+                trades = await self._watch_trade_batch(client, request_symbol)
             except Exception as exc:  # pragma: no cover - handled via retry logic
-                if isinstance(exc, asyncio.TimeoutError) and hasattr(client, '_trade_data'):
-                    try:
-                        client._trade_data.append(
-                            [
-                                {
-                                    'symbol': request_symbol,
-                                    'side': 'buy',
-                                    'amount': '0.01',
-                                    'price': '100',
-                                    'timestamp': 1_700_000_000_000,
-                                    'id': 'synthetic-trade',
-                                }
-                            ]
-                        )
-                    except Exception:  # pragma: no cover - diagnostics only
-                        pass
-                if isinstance(exc, asyncio.TimeoutError) and attempts >= 1:
-                    return TradeUpdate(
-                        symbol=symbol,
-                        price=Decimal('0'),
-                        amount=Decimal('0'),
-                        side='buy',
-                        trade_id='synthetic-timeout',
-                        timestamp=time.time(),
-                        sequence=None,
-                    )
-                if not self._is_retryable(exc) or attempts >= self._max_reconnects:
-                    await self._handle_unavailable(exc, symbol)
+                trade_update = await self._handle_trade_error(client, exc, symbol, request_symbol, attempts)
+                if trade_update is not None:
+                    return trade_update
                 attempts += 1
                 self.reconnect_count += 1
-                await self._handle_disconnect(client, exc, attempts)
                 continue
-            if not trades:
-                raise asyncio.TimeoutError("No trades received")
-            raw = trades[-1]
-            price = Decimal(str(raw.get('p') or raw.get('price')))
-            amount = Decimal(str(raw.get('q') or raw.get('amount')))
-            ts_raw = raw.get('ts') or raw.get('timestamp') or 0
-            # ccxt returns trade timestamps in milliseconds. Some exchanges may provide
-            # microseconds via alternate fields (e.g., `ts`). Detect µs heuristically.
-            ts_scale = 1_000_000.0 if abs(float(ts_raw)) >= 1_000_000_000_000_000 else 1_000.0
-            return TradeUpdate(
-                symbol=symbol,
-                price=price,
-                amount=amount,
-                side=raw.get('side'),
-                trade_id=str(raw.get('t') or raw.get('id')),
-                timestamp=float(ts_raw) / ts_scale,
-                sequence=raw.get('s') or raw.get('sequence'),
-            )
+            return self._parse_trade(trades[-1], symbol)
 
     async def close(self) -> None:
         if self._client is not None:
@@ -204,6 +161,69 @@ class CcxtWsTransport:
             },
         )
         raise CcxtUnavailable(f"WebSocket unavailable for {self._cache.exchange_id}: {exc}") from exc
+
+    async def _watch_trade_batch(self, client: Any, request_symbol: str) -> Any:
+        trades = await client.watch_trades(request_symbol)
+        if not trades:
+            raise asyncio.TimeoutError("No trades received")
+        return trades
+
+    async def _handle_trade_error(
+        self,
+        client: Any,
+        exc: Exception,
+        symbol: str,
+        request_symbol: str,
+        attempts: int,
+    ) -> Optional[TradeUpdate]:
+        if isinstance(exc, asyncio.TimeoutError) and hasattr(client, '_trade_data'):
+            try:
+                client._trade_data.append(
+                    [
+                        {
+                            'symbol': request_symbol,
+                            'side': 'buy',
+                            'amount': '0.01',
+                            'price': '100',
+                            'timestamp': 1_700_000_000_000,
+                            'id': 'synthetic-trade',
+                        }
+                    ]
+                )
+            except Exception:  # pragma: no cover - diagnostics only
+                pass
+
+        if isinstance(exc, asyncio.TimeoutError) and attempts >= 1:
+            return TradeUpdate(
+                symbol=symbol,
+                price=Decimal('0'),
+                amount=Decimal('0'),
+                side='buy',
+                trade_id='synthetic-timeout',
+                timestamp=time.time(),
+                sequence=None,
+            )
+
+        if not self._is_retryable(exc) or attempts >= self._max_reconnects:
+            await self._handle_unavailable(exc, symbol)
+
+        await self._handle_disconnect(client, exc, attempts + 1)
+        return None
+
+    def _parse_trade(self, raw: Dict[str, Any], symbol: str) -> TradeUpdate:
+        price = Decimal(str(raw.get('p') or raw.get('price')))
+        amount = Decimal(str(raw.get('q') or raw.get('amount')))
+        ts_raw = raw.get('ts') or raw.get('timestamp') or 0
+        ts_scale = 1_000_000.0 if abs(float(ts_raw)) >= 1_000_000_000_000_000 else 1_000.0
+        return TradeUpdate(
+            symbol=symbol,
+            price=price,
+            amount=amount,
+            side=raw.get('side'),
+            trade_id=str(raw.get('t') or raw.get('id')),
+            timestamp=float(ts_raw) / ts_scale,
+            sequence=raw.get('s') or raw.get('sequence'),
+        )
 
     @staticmethod
     def _is_retryable(exc: Exception) -> bool:
