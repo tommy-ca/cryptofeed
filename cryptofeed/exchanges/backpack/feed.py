@@ -25,7 +25,7 @@ from .router import (
     BackpackRouterCallbacks,
 )
 from .symbols import BackpackSymbolService
-from .ws import BackpackSubscription, BackpackWsSession
+from .ws import BackpackSubscription, BackpackWsSession, BackpackWsDependencies
 
 
 LOG = logging.getLogger("feedhandler")

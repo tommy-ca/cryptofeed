@@ -13,220 +13,54 @@ from __future__ import annotations
 import aiohttp
 import websockets
 import logging
-import asyncio
-import random
-from abc import ABC, abstractmethod
-from contextlib import suppress
-from datetime import datetime, UTC
-from typing import Optional, Literal, Dict, Tuple, List, Mapping, Callable
+from typing import Optional, Literal, Dict, Tuple, Callable
 from urllib.parse import urlparse
-from weakref import ref as weakref_ref
-from weakref import ReferenceType
+from weakref import ref as weakref_ref, ReferenceType
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict, model_validator
-from pydantic_settings import BaseSettings
+from cryptofeed.proxy_config import (
+    ConnectionProxies,
+    ProxyConfig,
+    ProxyPoolConfig,
+    ProxySettings,
+    ProxyUrlConfig,
+)
+from cryptofeed.proxy_pool import (
+    LeastConnectionsSelector,
+    ProxyPool,
+    ProxySelector,
+    RoundRobinSelector,
+    RandomSelector,
+    TCPHealthChecker,
+    HealthCheckResult,
+)
+from pydantic import BaseModel, Field, ConfigDict
+
+
+__all__ = [
+    'ProxySettings',
+    'ProxyConfig',
+    'ProxyPoolConfig',
+    'ProxyUrlConfig',
+    'ConnectionProxies',
+    'ProxyPool',
+    'ProxySelector',
+    'RoundRobinSelector',
+    'RandomSelector',
+    'LeastConnectionsSelector',
+    'TCPHealthChecker',
+    'HealthCheckResult',
+    'HealthCheckConfig',
+    'ProxyInjector',
+    'get_proxy_injector',
+    'init_proxy_system',
+    'load_proxy_settings',
+    'log_proxy_usage',
+]
 
 
 LOG = logging.getLogger('feedhandler')
 
 
-class ProxyUrlConfig(BaseModel):
-    """Individual proxy URL configuration within pools."""
-    model_config = ConfigDict(frozen=True, extra='forbid')
-    
-    url: str = Field(..., description="Proxy URL (e.g., socks5://user:pass@host:1080)")
-    weight: float = Field(default=1.0, ge=0.1, le=10.0, description="Proxy weight for selection")
-    enabled: bool = Field(default=True, description="Whether proxy is enabled")
-    
-    @field_validator('url')
-    @classmethod
-    def validate_proxy_url(cls, v: str) -> str:
-        """Validate proxy URL format and scheme."""
-        parsed = urlparse(v)
-        
-        # Check for valid URL format - should have '://' for scheme
-        if '://' not in v:
-            raise ValueError("Proxy URL must include scheme")
-            
-        if not parsed.scheme:
-            raise ValueError("Proxy URL must include scheme")
-        if parsed.scheme not in ('http', 'https', 'socks4', 'socks5'):
-            raise ValueError(f"Unsupported proxy scheme: {parsed.scheme}")
-        if not parsed.hostname:
-            raise ValueError("Proxy URL must include hostname")
-        if not parsed.port:
-            raise ValueError("Proxy URL must include port")
-        return v
-    
-    @property
-    def scheme(self) -> str:
-        """Extract proxy scheme."""
-        return urlparse(self.url).scheme
-    
-    @property
-    def host(self) -> str:
-        """Extract proxy hostname."""
-        return urlparse(self.url).hostname
-    
-    @property
-    def port(self) -> int:
-        """Extract proxy port."""
-        return urlparse(self.url).port
-
-
-class ProxyPoolConfig(BaseModel):
-    """Proxy pool configuration with multiple proxies and selection strategy."""
-    model_config = ConfigDict(extra='forbid')
-    
-    proxies: List[ProxyUrlConfig] = Field(..., min_length=1, description="List of proxy configurations")
-    strategy: Literal['round_robin', 'random', 'least_connections'] = Field(
-        default='round_robin', 
-        description="Proxy selection strategy"
-    )
-
-
-class ProxyConfig(BaseModel):
-    """Single proxy configuration with URL validation, extended to support pools."""
-    model_config = ConfigDict(frozen=True, extra='forbid')
-
-    # Single proxy configuration (existing)
-    url: Optional[str] = Field(default=None, description="Proxy URL (e.g., socks5://user:pass@host:1080)")
-    timeout_seconds: int = Field(default=30, ge=1, le=300)
-
-    # Pool configuration (new)
-    pool: Optional[ProxyPoolConfig] = Field(default=None, description="Proxy pool configuration")
-
-    @model_validator(mode='before')
-    @classmethod
-    def _coerce_str(cls, value):
-        if isinstance(value, str):
-            return {'url': value}
-        return value
-    
-    @field_validator('url')
-    @classmethod
-    def validate_proxy_url(cls, v: Optional[str]) -> Optional[str]:
-        """Validate proxy URL format and scheme."""
-        if v is None:
-            return v
-            
-        parsed = urlparse(v)
-        
-        # Check for valid URL format - should have '://' for scheme
-        if '://' not in v:
-            raise ValueError("Proxy URL must include scheme (http, socks5, socks4)")
-            
-        if not parsed.scheme:
-            raise ValueError("Proxy URL must include scheme (http, socks5, socks4)")
-        if parsed.scheme not in ('http', 'https', 'socks4', 'socks5'):
-            raise ValueError(f"Unsupported proxy scheme: {parsed.scheme}")
-        if not parsed.hostname:
-            raise ValueError("Proxy URL must include hostname")
-        if not parsed.port:
-            raise ValueError("Proxy URL must include port")
-        return v
-    
-    @property
-    def scheme(self) -> Optional[str]:
-        """Extract proxy scheme."""
-        if self.url:
-            return urlparse(self.url).scheme
-        return None
-    
-    @property
-    def host(self) -> Optional[str]:
-        """Extract proxy hostname."""
-        if self.url:
-            return urlparse(self.url).hostname
-        return None
-    
-    @property
-    def port(self) -> Optional[int]:
-        """Extract proxy port."""
-        if self.url:
-            return urlparse(self.url).port
-        return None
-
-
-# Proxy Selection Strategies
-class ProxySelector(ABC):
-    """Abstract base class for proxy selection strategies."""
-    
-    @abstractmethod
-    def select(self, proxies: List[ProxyUrlConfig]) -> ProxyUrlConfig:
-        """Select a proxy from the list of available proxies."""
-        pass
-    
-    def record_connection(self, proxy: ProxyUrlConfig) -> None:
-        """Record that a connection was made to this proxy (for strategies that track usage)."""
-        pass
-    
-    def record_disconnection(self, proxy: ProxyUrlConfig) -> None:
-        """Record that a connection was closed to this proxy (for strategies that track usage)."""
-        pass
-
-
-class RoundRobinSelector(ProxySelector):
-    """Round-robin proxy selection strategy."""
-    
-    def __init__(self):
-        self._current_index = 0
-    
-    def select(self, proxies: List[ProxyUrlConfig]) -> ProxyUrlConfig:
-        """Select next proxy in round-robin order."""
-        if not proxies:
-            raise ValueError("No proxies available for selection")
-        
-        selected = proxies[self._current_index % len(proxies)]
-        self._current_index += 1
-        return selected
-
-
-class RandomSelector(ProxySelector):
-    """Random proxy selection strategy."""
-    
-    def select(self, proxies: List[ProxyUrlConfig]) -> ProxyUrlConfig:
-        """Select random proxy from available proxies."""
-        if not proxies:
-            raise ValueError("No proxies available for selection")
-        
-        return random.choice(proxies)
-
-
-class LeastConnectionsSelector(ProxySelector):
-    """Least connections proxy selection strategy."""
-    
-    def __init__(self):
-        self._connection_counts: Dict[str, int] = {}
-    
-    def select(self, proxies: List[ProxyUrlConfig]) -> ProxyUrlConfig:
-        """Select proxy with least connections."""
-        if not proxies:
-            raise ValueError("No proxies available for selection")
-        
-        # Find proxy with minimum connections
-        min_connections = float('inf')
-        selected_proxy = proxies[0]
-        
-        for proxy in proxies:
-            connections = self._connection_counts.get(proxy.url, 0)
-            if connections < min_connections:
-                min_connections = connections
-                selected_proxy = proxy
-        
-        return selected_proxy
-    
-    def record_connection(self, proxy: ProxyUrlConfig) -> None:
-        """Record a new connection to this proxy."""
-        self._connection_counts[proxy.url] = self._connection_counts.get(proxy.url, 0) + 1
-    
-    def record_disconnection(self, proxy: ProxyUrlConfig) -> None:
-        """Record a disconnection from this proxy."""
-        current = self._connection_counts.get(proxy.url, 0)
-        self._connection_counts[proxy.url] = max(0, current - 1)
-
-
-# Health Checking
 class HealthCheckConfig(BaseModel):
     """Health check configuration for proxy pools."""
     model_config = ConfigDict(extra='forbid')
@@ -238,207 +72,9 @@ class HealthCheckConfig(BaseModel):
     retry_count: int = Field(default=3, ge=1, le=10, description="Number of retries on failure")
 
 
-class HealthCheckResult(BaseModel):
-    """Result of a health check operation."""
-    model_config = ConfigDict(extra='forbid')
-    
-    healthy: bool = Field(..., description="Whether the proxy is healthy")
-    latency: Optional[float] = Field(default=None, description="Latency in milliseconds")
-    error: Optional[str] = Field(default=None, description="Error message if unhealthy")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Timestamp of check")
 
 
-class TCPHealthChecker:
-    """TCP-based health checker for proxies."""
-    
-    def __init__(self, timeout_seconds: int = 5):
-        self.timeout_seconds = timeout_seconds
-    
-    async def check_proxy(self, proxy: ProxyUrlConfig) -> HealthCheckResult:
-        """Check proxy health using TCP connection."""
-        start_time = datetime.now(UTC)
-        try:
-            endpoint = self._resolve_endpoint(proxy)
-            if endpoint is None:
-                return self._error_result("Invalid proxy URL - missing host or port", start_time)
-            host, port = endpoint
-            return await self._attempt_connection(host, port, start_time)
-        except Exception as exc:
-            return self._error_result(f"Health check error: {exc}", start_time)
 
-    def _resolve_endpoint(self, proxy: ProxyUrlConfig) -> Optional[tuple[str, int]]:
-        parsed = urlparse(proxy.url)
-        if not parsed.hostname or not parsed.port:
-            return None
-        return parsed.hostname, parsed.port
-
-    async def _attempt_connection(self, host: str, port: int, start_time: datetime) -> HealthCheckResult:
-        writer = None
-        error_message: Optional[str] = None
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=self.timeout_seconds,
-            )
-        except asyncio.TimeoutError:
-            error_message = f"Connection timeout after {self.timeout_seconds}s"
-        except ConnectionRefusedError:
-            error_message = "Connection refused"
-        except Exception as exc:
-            error_message = f"Connection error: {exc}"
-
-        if writer is not None:
-            writer.close()
-            with suppress(Exception):
-                await writer.wait_closed()
-
-        if error_message:
-            return self._error_result(error_message, start_time)
-
-        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-        return self._success_result(latency_ms, start_time)
-
-    def _success_result(self, latency_ms: float, timestamp: datetime) -> HealthCheckResult:
-        return HealthCheckResult(healthy=True, latency=latency_ms, timestamp=timestamp)
-
-    def _error_result(self, message: str, timestamp: datetime) -> HealthCheckResult:
-        return HealthCheckResult(healthy=False, error=message, timestamp=timestamp)
-
-
-# Proxy Pool Management
-class ProxyPool:
-    """Proxy pool management with selection strategies and health checking."""
-    
-    def __init__(self, pool_config: ProxyPoolConfig):
-        self.config = pool_config
-        self._unhealthy_proxies: set[str] = set()  # Track unhealthy proxy URLs
-        
-        # Initialize selector based on strategy
-        if pool_config.strategy == 'round_robin':
-            self._selector = RoundRobinSelector()
-        elif pool_config.strategy == 'random':
-            self._selector = RandomSelector()
-        elif pool_config.strategy == 'least_connections':
-            self._selector = LeastConnectionsSelector()
-        else:
-            raise ValueError(f"Unsupported selection strategy: {pool_config.strategy}")
-    
-    def get_all_proxies(self) -> List[ProxyUrlConfig]:
-        """Get all configured proxies."""
-        return self.config.proxies.copy()
-    
-    def get_healthy_proxies(self) -> List[ProxyUrlConfig]:
-        """Get only healthy (enabled and not marked unhealthy) proxies."""
-        return [
-            proxy for proxy in self.config.proxies 
-            if proxy.enabled and proxy.url not in self._unhealthy_proxies
-        ]
-    
-    def select_proxy(self) -> ProxyUrlConfig:
-        """Select a proxy using the configured strategy."""
-        # Try to select from healthy proxies first
-        healthy_proxies = self.get_healthy_proxies()
-        
-        if healthy_proxies:
-            selected = self._selector.select(healthy_proxies)
-        else:
-            # Fallback to all proxies if no healthy ones available
-            all_proxies = [proxy for proxy in self.config.proxies if proxy.enabled]
-            if not all_proxies:
-                raise RuntimeError("No enabled proxies available")
-            selected = self._selector.select(all_proxies)
-        
-        # Record connection for strategies that track usage
-        self._selector.record_connection(selected)
-        return selected
-    
-    def mark_unhealthy(self, proxy: ProxyUrlConfig) -> None:
-        """Mark a proxy as unhealthy."""
-        self._unhealthy_proxies.add(proxy.url)
-
-    def mark_healthy(self, proxy: ProxyUrlConfig) -> None:
-        """Mark a proxy as healthy (remove from unhealthy set)."""
-        self._unhealthy_proxies.discard(proxy.url)
-
-    def is_healthy(self, proxy: ProxyUrlConfig) -> bool:
-        """Check if a proxy is considered healthy."""
-        return proxy.enabled and proxy.url not in self._unhealthy_proxies
-
-    def release_proxy(self, proxy: ProxyUrlConfig) -> None:
-        """Release a previously leased proxy, updating selector accounting."""
-        if isinstance(self._selector, LeastConnectionsSelector):
-            self._selector.record_disconnection(proxy)
-
-
-class ConnectionProxies(BaseModel):
-    """Proxy configuration for different connection types."""
-    model_config = ConfigDict(extra='forbid')
-
-    @model_validator(mode='before')
-    @classmethod
-    def _coerce_aliases(cls, data):
-        if isinstance(data, str):
-            return {'http': data}
-        if isinstance(data, Mapping):
-            data = dict(data)
-            rest_value = data.pop('rest', None)
-            if rest_value is not None and 'http' not in data:
-                data['http'] = rest_value
-            ws_value = data.pop('ws', None)
-            if ws_value is not None and 'websocket' not in data:
-                data['websocket'] = ws_value
-            return data
-        return data
-
-    http: Optional[ProxyConfig] = Field(default=None, description="HTTP/REST proxy")
-    websocket: Optional[ProxyConfig] = Field(default=None, description="WebSocket proxy")
-
-
-class ProxySettings(BaseSettings):
-    """Proxy configuration using pydantic-settings."""
-    model_config = ConfigDict(
-        env_prefix='CRYPTOFEED_PROXY_',
-        env_nested_delimiter='__',
-        case_sensitive=False,
-        extra='forbid'
-    )
-    
-    enabled: bool = Field(default=False, description="Enable proxy functionality")
-    
-    # Default proxy for all exchanges
-    default: Optional[ConnectionProxies] = Field(
-        default=None, 
-        description="Default proxy configuration for all exchanges"
-    )
-    
-    # Exchange-specific overrides
-    exchanges: Dict[str, ConnectionProxies] = Field(
-        default_factory=dict,
-        description="Exchange-specific proxy overrides"
-    )
-
-    def model_post_init(self, __context) -> None:  # type: ignore[override]
-        # Normalize exchange keys for case-insensitive lookups
-        if self.exchanges:
-            self.exchanges = {key.casefold(): value for key, value in self.exchanges.items()}
-
-    def get_proxy(self, exchange_id: str, connection_type: Literal['http', 'websocket']) -> Optional[ProxyConfig]:
-        """Get proxy configuration for specific exchange and connection type."""
-        if not self.enabled:
-            return None
-
-        # Check exchange-specific override first
-        key = exchange_id.casefold() if exchange_id else exchange_id
-        if key in self.exchanges:
-            proxy = getattr(self.exchanges[key], connection_type, None)
-            if proxy is not None:
-                return proxy
-        
-        # Fall back to default
-        if self.default:
-            return getattr(self.default, connection_type, None)
-        
-        return None
 
 
 class ProxyInjector:

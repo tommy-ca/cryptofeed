@@ -9,7 +9,7 @@ import time
 import asyncio
 from asyncio import Queue, CancelledError
 from contextlib import asynccontextmanager, suppress
-from typing import List, Union, AsyncIterable, Callable
+from typing import List, Union, AsyncIterable, Callable, Optional
 from urllib.parse import urlparse
 from decimal import Decimal
 import atexit
@@ -205,10 +205,12 @@ class HTTPAsyncConn(AsyncConnection):
                     release_proxy()
                     raise
             else:
+                session_kwargs = {}
                 if proxy:
                     self._request_proxy_kwargs = {"proxy": proxy}
+                    session_kwargs["proxy"] = proxy
                 try:
-                    self.conn = aiohttp.ClientSession()
+                    self.conn = aiohttp.ClientSession(**session_kwargs)
                 except Exception:
                     release_proxy()
                     raise
