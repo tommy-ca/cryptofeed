@@ -1,7 +1,7 @@
 {
-  "generated_at": "2025-10-20T13:06:51.794999+00:00",
+  "generated_at": "2025-10-20T13:27:56.986807+00:00",
   "test_config": {
-    "events_file": "/tmp/tmp8q3e4dke.jsonl",
+    "events_file": "/tmp/tmpbz4f7ya9.jsonl",
     "use_protobuf": false,
     "tolerance": 1e-08
   },
@@ -16,7 +16,7 @@
       "event_type": "trade",
       "event_id": "test-trade-1",
       "source_exchange": "TEST",
-      "timestamp": 1760965611.795012,
+      "timestamp": 1760966876.98682,
       "field_checks": [
         {
           "field_name": "exchange",
