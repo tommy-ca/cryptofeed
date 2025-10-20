@@ -51,44 +51,57 @@ class ConnectionHandler:
         await asyncio.sleep(self.start_delay)
         retries = 0
         delay = 1
-        while (retries <= self.retries or self.retries == -1) and self.running:
+
+        while self._within_retry_budget(retries) and self.running:
             try:
-                async with self.conn.connect() as connection:
-                    await self.authenticate(connection)
-                    await self.subscribe(connection)
-                    # connection was successful, reset retry count and delay
-                    retries = 0
-                    delay = 1
-                    if self.timeout != -1:
-                        loop = asyncio.get_running_loop()
-                        loop.create_task(self._watcher())
-                    await self._handler(connection, self.handler)
-            except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
-                if self.exceptions:
-                    for ex in self.exceptions:
-                        if isinstance(e, ex):
-                            LOG.warning("%s: encountered exception %s, which is on the ignore list. Raising", self.conn.uuid, str(e))
-                            raise
-                LOG.warning("%s: encountered connection issue %s - reconnecting in %.1f seconds...", self.conn.uuid, str(e), delay, exc_info=True)
-                await asyncio.sleep(delay)
+                await self._establish_connection()
+                retries = 0
+                delay = 1
+            except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as exc:
+                await self._handle_retry(exc, delay, LOG.warning, include_exc_message=True)
                 retries += 1
                 delay *= 2
-            except Exception as e:
-                if self.exceptions:
-                    for ex in self.exceptions:
-                        if isinstance(e, ex):
-                            LOG.warning("%s: encountered exception %s, which is on the ignore list. Raising", self.conn.uuid, str(e))
-                            raise
-                LOG.error("%s: encountered an exception, reconnecting in %.1f seconds", self.conn.uuid, delay, exc_info=True)
-                await asyncio.sleep(delay)
+            except Exception as exc:  # pragma: no cover - defensive
+                await self._handle_retry(exc, delay, LOG.error, include_exc_message=False)
                 retries += 1
                 delay *= 2
 
         if not self.running:
             LOG.info('%s: terminate the connection handler because not running', self.conn.uuid)
+            return
+
+        LOG.error('%s: failed to reconnect after %d retries - exiting', self.conn.uuid, retries)
+        raise ExhaustedRetries()
+
+    def _within_retry_budget(self, retries: int) -> bool:
+        return self.retries == -1 or retries <= self.retries
+
+    async def _establish_connection(self) -> None:
+        async with self.conn.connect() as connection:
+            await self.authenticate(connection)
+            await self.subscribe(connection)
+            if self.timeout != -1:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._watcher())
+            await self._handler(connection, self.handler)
+
+    async def _handle_retry(self, exc: Exception, delay: float, log_method, *, include_exc_message: bool) -> None:
+        if self._should_raise(exc):
+            raise
+        if include_exc_message:
+            log_method("%s: encountered connection issue %s - reconnecting in %.1f seconds...", self.conn.uuid, str(exc), delay, exc_info=True)
         else:
-            LOG.error('%s: failed to reconnect after %d retries - exiting', self.conn.uuid, retries)
-            raise ExhaustedRetries()
+            log_method("%s: encountered an exception, reconnecting in %.1f seconds", self.conn.uuid, delay, exc_info=True)
+        await asyncio.sleep(delay)
+
+    def _should_raise(self, exc: Exception) -> bool:
+        if not self.exceptions:
+            return False
+        for ignored in self.exceptions:
+            if isinstance(exc, ignored):
+                LOG.warning("%s: encountered exception %s, which is on the ignore list. Raising", self.conn.uuid, str(exc))
+                return True
+        return False
 
     async def _handler(self, connection, handler):
         try:
