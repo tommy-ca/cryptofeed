@@ -54,6 +54,7 @@ class EventParity:
     field_checks: List[FieldParity] = field(default_factory=list)
     mismatch_count: int = 0
     warning_count: int = 0
+    notes: str = ""
 
     @property
     def is_clean(self) -> bool:
