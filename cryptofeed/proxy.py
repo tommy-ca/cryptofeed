@@ -16,6 +16,7 @@ import logging
 import asyncio
 import random
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from datetime import datetime, UTC
 from typing import Optional, Literal, Dict, Tuple, List, Mapping, Callable
 from urllib.parse import urlparse
@@ -256,64 +257,49 @@ class TCPHealthChecker:
     async def check_proxy(self, proxy: ProxyUrlConfig) -> HealthCheckResult:
         """Check proxy health using TCP connection."""
         start_time = datetime.now(UTC)
-        
         try:
-            # Extract host and port from proxy URL
-            parsed = urlparse(proxy.url)
-            host = parsed.hostname
-            port = parsed.port
-            
-            if not host or not port:
-                return HealthCheckResult(
-                    healthy=False,
-                    error="Invalid proxy URL - missing host or port",
-                    timestamp=start_time
-                )
-            
-            # Attempt TCP connection
-            try:
-                _, writer = await asyncio.wait_for(
-                    asyncio.open_connection(host, port),
-                    timeout=self.timeout_seconds
-                )
-                writer.close()
-                await writer.wait_closed()
-                
-                # Calculate latency
-                end_time = datetime.now(UTC)
-                latency_ms = (end_time - start_time).total_seconds() * 1000
-                
-                return HealthCheckResult(
-                    healthy=True,
-                    latency=latency_ms,
-                    timestamp=start_time
-                )
-                
-            except asyncio.TimeoutError:
-                return HealthCheckResult(
-                    healthy=False,
-                    error=f"Connection timeout after {self.timeout_seconds}s",
-                    timestamp=start_time
-                )
-            except ConnectionRefusedError:
-                return HealthCheckResult(
-                    healthy=False,
-                    error="Connection refused",
-                    timestamp=start_time
-                )
-            except Exception as e:
-                return HealthCheckResult(
-                    healthy=False,
-                    error=f"Connection error: {str(e)}",
-                    timestamp=start_time
-                )
-                
-        except Exception as e:
-            return HealthCheckResult(
-                healthy=False,
-                error=f"Health check error: {str(e)}",
-                timestamp=start_time
+            endpoint = self._resolve_endpoint(proxy)
+            if endpoint is None:
+                return self._error_result("Invalid proxy URL - missing host or port", start_time)
+            host, port = endpoint
+            return await self._attempt_connection(host, port, start_time)
+        except Exception as exc:
+            return self._error_result(f"Health check error: {exc}", start_time)
+
+    def _resolve_endpoint(self, proxy: ProxyUrlConfig) -> Optional[tuple[str, int]]:
+        parsed = urlparse(proxy.url)
+        if not parsed.hostname or not parsed.port:
+            return None
+        return parsed.hostname, parsed.port
+
+    async def _attempt_connection(self, host: str, port: int, start_time: datetime) -> HealthCheckResult:
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=self.timeout_seconds,
             )
+        except asyncio.TimeoutError:
+            return self._error_result(
+                f"Connection timeout after {self.timeout_seconds}s",
+                start_time,
+            )
+        except ConnectionRefusedError:
+            return self._error_result("Connection refused", start_time)
+        except Exception as exc:
+            return self._error_result(f"Connection error: {exc}", start_time)
+
+        writer.close()
+        with suppress(Exception):
+            await writer.wait_closed()
+
+        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
+        return self._success_result(latency_ms, start_time)
+
+    def _success_result(self, latency_ms: float, timestamp: datetime) -> HealthCheckResult:
+        return HealthCheckResult(healthy=True, latency=latency_ms, timestamp=timestamp)
+
+    def _error_result(self, message: str, timestamp: datetime) -> HealthCheckResult:
+        return HealthCheckResult(healthy=False, error=message, timestamp=timestamp)
 
 
 # Proxy Pool Management

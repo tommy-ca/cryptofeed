@@ -70,6 +70,26 @@ class BackpackTradeAdapter:
         )
 
 
+@dataclass(frozen=True)
+class OrderBookSnapshot:
+    symbol: str
+    bids: Iterable[Iterable]
+    asks: Iterable[Iterable]
+    timestamp: Optional[int | float] = None
+    sequence: Optional[int] = None
+    raw: Optional[dict] = None
+
+
+@dataclass(frozen=True)
+class OrderBookDelta:
+    symbol: str
+    bids: Optional[Iterable[Iterable]] = None
+    asks: Optional[Iterable[Iterable]] = None
+    timestamp: Optional[int | float] = None
+    sequence: Optional[int] = None
+    raw: Optional[dict] = None
+
+
 class BackpackOrderBookAdapter:
     """Maintain Backpack order book state and emit cryptofeed OrderBook objects."""
 
@@ -78,58 +98,58 @@ class BackpackOrderBookAdapter:
         self._max_depth = max_depth
         self._books: Dict[str, OrderBook] = {}
 
-    def apply_snapshot(
-        self,
-        *,
-        normalized_symbol: str,
-        bids: Iterable[Iterable],
-        asks: Iterable[Iterable],
-        timestamp: Optional[int | float] = None,
-        sequence: Optional[int] = None,
-        raw: Optional[dict] = None,
-    ) -> OrderBook:
-        bids_processed = self._levels_to_map(bids)
-        asks_processed = self._levels_to_map(asks)
+    def apply_snapshot(self, snapshot: OrderBookSnapshot | None = None, **legacy_kwargs) -> OrderBook:
+        if snapshot is None:
+            snapshot = OrderBookSnapshot(
+                symbol=legacy_kwargs.get("normalized_symbol") or legacy_kwargs["symbol"],
+                bids=legacy_kwargs.get("bids", []),
+                asks=legacy_kwargs.get("asks", []),
+                timestamp=legacy_kwargs.get("timestamp"),
+                sequence=legacy_kwargs.get("sequence"),
+                raw=legacy_kwargs.get("raw"),
+            )
+        bids_processed = self._levels_to_map(snapshot.bids)
+        asks_processed = self._levels_to_map(snapshot.asks)
 
         order_book = OrderBook(
             exchange=self._exchange,
-            symbol=normalized_symbol,
+            symbol=snapshot.symbol,
             bids=bids_processed,
             asks=asks_processed,
             max_depth=self._max_depth,
         )
-        order_book.timestamp = _microseconds_to_seconds(timestamp)
-        order_book.sequence_number = sequence
-        order_book.raw = raw
-        self._books[normalized_symbol] = order_book
+        order_book.timestamp = _microseconds_to_seconds(snapshot.timestamp)
+        order_book.sequence_number = snapshot.sequence
+        order_book.raw = snapshot.raw
+        self._books[snapshot.symbol] = order_book
         return order_book
 
-    def apply_delta(
-        self,
-        *,
-        normalized_symbol: str,
-        bids: Iterable[Iterable] | None,
-        asks: Iterable[Iterable] | None,
-        timestamp: Optional[int | float],
-        sequence: Optional[int],
-        raw: Optional[dict],
-    ) -> OrderBook:
-        if normalized_symbol not in self._books:
-            raise KeyError(f"No snapshot for symbol {normalized_symbol}")
+    def apply_delta(self, delta: OrderBookDelta | None = None, **legacy_kwargs) -> OrderBook:
+        if delta is None:
+            delta = OrderBookDelta(
+                symbol=legacy_kwargs.get("normalized_symbol") or legacy_kwargs["symbol"],
+                bids=legacy_kwargs.get("bids"),
+                asks=legacy_kwargs.get("asks"),
+                timestamp=legacy_kwargs.get("timestamp"),
+                sequence=legacy_kwargs.get("sequence"),
+                raw=legacy_kwargs.get("raw"),
+            )
+        if delta.symbol not in self._books:
+            raise KeyError(f"No snapshot for symbol {delta.symbol}")
 
-        book = self._books[normalized_symbol]
-        if bids:
-            self._update_levels(book, BID, bids)
-        if asks:
-            self._update_levels(book, ASK, asks)
+        book = self._books[delta.symbol]
+        if delta.bids:
+            self._update_levels(book, BID, delta.bids)
+        if delta.asks:
+            self._update_levels(book, ASK, delta.asks)
 
-        book.timestamp = _microseconds_to_seconds(timestamp)
-        book.sequence_number = sequence
+        book.timestamp = _microseconds_to_seconds(delta.timestamp)
+        book.sequence_number = delta.sequence
         book.delta = {
-            BID: [tuple(self._normalize_level(level)) for level in bids] if bids else [],
-            ASK: [tuple(self._normalize_level(level)) for level in asks] if asks else [],
+            BID: [tuple(self._normalize_level(level)) for level in delta.bids] if delta.bids else [],
+            ASK: [tuple(self._normalize_level(level)) for level in delta.asks] if delta.asks else [],
         }
-        book.raw = raw
+        book.raw = delta.raw
         return book
 
     def _normalize_level(self, level: Iterable) -> List[Decimal]:
