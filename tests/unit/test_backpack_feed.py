@@ -6,7 +6,7 @@ import pytest
 
 from cryptofeed.defines import L2_BOOK, TRADES
 from cryptofeed.exchanges.backpack.config import BackpackConfig
-from cryptofeed.exchanges.backpack.feed import BackpackFeed
+from cryptofeed.exchanges.backpack.feed import BackpackFeed, BackpackFeedDependencies
 from cryptofeed.proxy import ProxyConfig, ProxySettings, get_proxy_injector, init_proxy_system
 
 
@@ -69,11 +69,15 @@ async def test_feed_subscribe_initializes_session():
     symbols = StubSymbolService()
     ws = StubWsSession()
 
-    feed = BackpackFeed(
-        config=BackpackConfig(),
+    dependencies = BackpackFeedDependencies(
         rest_client_factory=lambda cfg: rest,
         ws_session_factory=lambda cfg: ws,
         symbol_service=symbols,
+    )
+
+    feed = BackpackFeed(
+        config=BackpackConfig(),
+        dependencies=dependencies,
         symbols=["BTC-USDT"],
         channels=[TRADES, L2_BOOK],
     )
@@ -94,10 +98,14 @@ async def test_feed_shutdown_closes_clients():
     rest = StubRestClient()
     ws = StubWsSession()
 
-    feed = BackpackFeed(
+    dependencies = BackpackFeedDependencies(
         rest_client_factory=lambda cfg: rest,
         ws_session_factory=lambda cfg: ws,
         symbol_service=StubSymbolService(),
+    )
+
+    feed = BackpackFeed(
+        dependencies=dependencies,
         symbols=["BTC-USDT"],
         channels=[TRADES],
     )
@@ -117,11 +125,15 @@ def test_feed_applies_proxy_override():
     config = BackpackConfig(proxies=ProxyConfig(url="socks5://override-proxy:1080"))
     rest = StubRestClient()
     ws = StubWsSession()
-    feed = BackpackFeed(
-        config=config,
+    dependencies = BackpackFeedDependencies(
         rest_client_factory=lambda cfg: rest,
         ws_session_factory=lambda cfg: ws,
         symbol_service=StubSymbolService(),
+    )
+
+    feed = BackpackFeed(
+        config=config,
+        dependencies=dependencies,
         symbols=["BTC-USDT"],
         channels=[TRADES],
     )

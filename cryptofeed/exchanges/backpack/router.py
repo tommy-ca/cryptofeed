@@ -2,11 +2,26 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional
 
 from cryptofeed.exchanges.native.router import NativeMessageRouter
 from .adapters import OrderBookDelta, OrderBookSnapshot
 from .metrics import BackpackMetrics
+
+
+@dataclass(frozen=True)
+class BackpackRouterAdapters:
+    trade: Any
+    order_book: Any
+    ticker: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class BackpackRouterCallbacks:
+    trade: Optional[Callable[[Any, float], Awaitable[None]]] = None
+    order_book: Optional[Callable[[Any, float], Awaitable[None]]] = None
+    ticker: Optional[Callable[[Any, float], Awaitable[None]]] = None
 
 LOG = logging.getLogger("feedhandler")
 
@@ -17,21 +32,18 @@ class BackpackMessageRouter(NativeMessageRouter):
     def __init__(
         self,
         *,
-        trade_adapter,
-        order_book_adapter,
-        ticker_adapter=None,
-        trade_callback: Optional[Callable[[Any, float], Awaitable[None]]] = None,
-        order_book_callback: Optional[Callable[[Any, float], Awaitable[None]]] = None,
-        ticker_callback: Optional[Callable[[Any, float], Awaitable[None]]] = None,
+        adapters: BackpackRouterAdapters,
+        callbacks: Optional[BackpackRouterCallbacks] = None,
         metrics: Optional[BackpackMetrics] = None,
     ) -> None:
         super().__init__(metrics=metrics, logger=LOG)
-        self._trade_adapter = trade_adapter
-        self._order_book_adapter = order_book_adapter
-        self._trade_callback = trade_callback
-        self._order_book_callback = order_book_callback
-        self._ticker_adapter = ticker_adapter
-        self._ticker_callback = ticker_callback
+        callbacks = callbacks or BackpackRouterCallbacks()
+        self._trade_adapter = adapters.trade
+        self._order_book_adapter = adapters.order_book
+        self._ticker_adapter = adapters.ticker
+        self._trade_callback = callbacks.trade
+        self._order_book_callback = callbacks.order_book
+        self._ticker_callback = callbacks.ticker
         self._metrics = metrics
         self.register_handlers(["trade", "trades"], self._handle_trade)
         self.register_handlers(
