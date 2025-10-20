@@ -141,6 +141,8 @@ class HTTPAsyncConn(AsyncConnection):
         """
         super().__init__(f'{conn_id}.http.{self.conn_count}')
         self.proxy = proxy
+        self._legacy_proxy = proxy
+        self._current_proxy: Optional[StrOrURL] = None
         self.exchange_id = exchange_id
         self._request_proxy_kwargs: dict = {}
         self._proxy_release: Callable[[], None] = lambda: None
@@ -148,17 +150,6 @@ class HTTPAsyncConn(AsyncConnection):
     @property
     def is_open(self) -> bool:
         return self.conn and not self.conn.closed
-
-    async def close(self):
-        if self.is_open:
-            conn = self.conn
-            self.conn = None
-            try:
-                await conn.close()
-            finally:
-                self._proxy_release()
-                self._proxy_release = lambda: None
-            LOG.info('%s: closed connection %r', self.id, conn.__class__.__name__)
 
     def _handle_error(self, resp: ClientResponse, data: bytes):
         if resp.status != 200:
@@ -180,9 +171,13 @@ class HTTPAsyncConn(AsyncConnection):
             if injector and self.exchange_id:
                 proxy_url, release_proxy = injector.lease_proxy(self.exchange_id, 'http')
 
-            # Use proxy URL if available, otherwise fall back to legacy proxy parameter
-            proxy = proxy_url if proxy_url is not None else self.proxy
-            self.proxy = proxy
+            if proxy_url is not None:
+                proxy = proxy_url
+                self._current_proxy = proxy_url
+            else:
+                proxy = self._legacy_proxy
+                self._current_proxy = None
+
             self._proxy_release = release_proxy
 
             if proxy:
@@ -221,6 +216,18 @@ class HTTPAsyncConn(AsyncConnection):
             self.sent = 0
             self.received = 0
             self.last_message = None
+
+    async def close(self):
+        if self.is_open:
+            conn = self.conn
+            self.conn = None
+            try:
+                await conn.close()
+            finally:
+                self._proxy_release()
+                self._proxy_release = lambda: None
+                self._current_proxy = None
+            LOG.info('%s: closed connection %r', self.id, conn.__class__.__name__)
 
     async def read(self, address: str, header=None, params=None, return_headers=False, retry_count=0, retry_delay=60) -> str:
         if not self.is_open:
