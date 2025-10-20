@@ -192,10 +192,10 @@ class BackpackFeed(Feed):
     # ------------------------------------------------------------------
     # Override connect to use Backpack session
     # ------------------------------------------------------------------
-    def connect(self) -> List[Tuple[AsyncConnection, callable, callable]]:
+    def connect(self) -> List[Tuple[AsyncConnection, callable, callable, callable]]:
         if not self._connection:
             self._connection = BackpackWsConnection(self)
-        return [(self._connection, self.subscribe, self.message_handler)]
+        return [(self._connection, self.subscribe, self.message_handler, self.authenticate)]
 
 
 class BackpackWsConnection(AsyncConnection):
