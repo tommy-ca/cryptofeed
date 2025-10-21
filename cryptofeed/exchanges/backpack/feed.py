@@ -192,6 +192,7 @@ class BackpackFeed(Feed):
         if self._ws_session:
             await self._ws_session.close()
         await self._rest_client.close()
+        await super().shutdown()
 
     def metrics_snapshot(self) -> dict:
         """Return current metrics snapshot."""
