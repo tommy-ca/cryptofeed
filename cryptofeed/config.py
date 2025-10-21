@@ -4,10 +4,14 @@ Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import logging
 import os
 from collections.abc import Mapping
 
 import yaml
+
+
+LOG = logging.getLogger('feedhandler')
 
 
 _default_config = {'uvloop': True, 'log': {'filename': 'feedhandler.log', 'level': 'WARNING'}}
@@ -63,6 +67,7 @@ class Config:
         else:
             self.log_msg = f'Config: Only accept str and dict but got {type(config)!r} => default config.'
 
+        self._legacy_backpack_warning_emitted = False
         self._assert_no_legacy_backpack(self.config)
 
     def __bool__(self):
@@ -84,9 +89,12 @@ class Config:
         if isinstance(value, Mapping):
             for key, nested in value.items():
                 if isinstance(key, str) and key.lower() == "backpack_ccxt":
-                    raise ValueError(
-                        "Backpack ccxt integration has been removed. Configure the native 'backpack' feed."
-                    )
+                    if not self._legacy_backpack_warning_emitted:
+                        LOG.warning(
+                            "Backpack ccxt integration has been removed. Configure the native 'backpack' feed."
+                        )
+                        self._legacy_backpack_warning_emitted = True
+                    continue
                 self._assert_no_legacy_backpack(nested)
         elif isinstance(value, (list, tuple, set)):
             for item in value:
