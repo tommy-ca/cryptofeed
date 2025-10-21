@@ -150,7 +150,15 @@ class FeedHandler:
                 )
 
             if feed_key in EXCHANGE_MAP:
-                self.feeds.append((EXCHANGE_MAP[feed_key](config=self.config, **kwargs)))
+                feed_cls = EXCHANGE_MAP[feed_key]
+                config_override = kwargs.pop("config", None)
+
+                if feed_key == "BACKPACK":
+                    config_value = self._resolve_backpack_config(config_override)
+                else:
+                    config_value = config_override if config_override is not None else self.config
+
+                self.feeds.append((feed_cls(config=config_value, **kwargs)))
             else:
                 raise ValueError("Invalid feed specified")
         else:
@@ -163,6 +171,91 @@ class FeedHandler:
                 loop = asyncio.get_event_loop()
 
             self.feeds[-1].start(loop)
+
+    def _resolve_backpack_config(self, explicit):
+        """
+        Derive a BackpackConfig instance from explicit overrides or handler config.
+        """
+        from cryptofeed.config import Config, AttrDict
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+
+        if isinstance(explicit, BackpackConfig):
+            return explicit
+
+        def _to_plain_mapping(value):
+            if isinstance(value, AttrDict):
+                return {k: _to_plain_mapping(v) for k, v in value.items()}
+            if isinstance(value, Config):
+                return _to_plain_mapping(value.config)
+            if isinstance(value, Mapping):
+                return {k: _to_plain_mapping(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [_to_plain_mapping(v) for v in value]
+            return value
+
+        def _candidate_from(value):
+            if value is None:
+                return None
+            if isinstance(value, BackpackConfig):
+                return value
+            if isinstance(value, Config):
+                value = value.config
+            if isinstance(value, AttrDict):
+                value = dict(value)
+            if isinstance(value, Mapping):
+                return value
+            return None
+
+        candidates = []
+        explicit_candidate = _candidate_from(explicit)
+        if explicit_candidate is not None:
+            candidates.append(explicit_candidate)
+
+        def _lookup_backpack_section(config_source):
+            if not isinstance(config_source, Mapping):
+                return None
+
+            def _match_key(source: Mapping, target: str):
+                for key, value in source.items():
+                    if isinstance(key, str) and key.casefold() == target:
+                        return value
+                return None
+
+            direct = _match_key(config_source, "backpack")
+            if direct:
+                return direct
+
+            exchanges = None
+            for key, value in config_source.items():
+                if isinstance(key, str) and key.casefold() == "exchanges":
+                    exchanges = value
+                    break
+            if isinstance(exchanges, Mapping):
+                return _match_key(exchanges, "backpack")
+
+            return None
+
+        root_plain = _to_plain_mapping(self.config.config if isinstance(self.config, Config) else self.config)
+        for section in (
+            _candidate_from(_lookup_backpack_section(explicit_candidate) if isinstance(explicit_candidate, Mapping) else None),
+            _candidate_from(_lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None),
+        ):
+            if section is not None and section not in candidates:
+                candidates.append(section)
+
+        from pydantic import ValidationError
+
+        for candidate in candidates:
+            if isinstance(candidate, BackpackConfig):
+                return candidate
+            plain_candidate = _to_plain_mapping(candidate)
+            if isinstance(plain_candidate, Mapping) and plain_candidate:
+                try:
+                    return BackpackConfig.model_validate(plain_candidate)
+                except ValidationError:
+                    continue
+
+        return BackpackConfig()
 
     def add_nbbo(self, feeds: List[Feed], symbols: List[str], callback, config=None):
         """
