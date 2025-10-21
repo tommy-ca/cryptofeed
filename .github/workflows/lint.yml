@@ -14,16 +14,8 @@ jobs:
 
       - name: Run ruff lint
         run: |
-          uvx ruff check \
-            cryptofeed/connection.py \
-            cryptofeed/proxy.py \
-            cryptofeed/exchanges/native/ws.py \
-            cryptofeed/exchanges/backpack/feed.py
+          uvx ruff check .
 
       - name: Run pyscn quality check
         run: |
-          uvx pyscn check --max-complexity 15 \
-            cryptofeed/connection.py \
-            cryptofeed/proxy.py \
-            cryptofeed/exchanges/native/ws.py \
-            cryptofeed/exchanges/backpack/feed.py
+          uvx pyscn check --max-complexity 15 cryptofeed

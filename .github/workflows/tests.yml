@@ -47,15 +47,7 @@ jobs:
             --events docs/schemas/examples/events/trades.jsonl \
             --output reports/parity-ci.json \
             --tolerance 1e-8 \
-            --verbose || echo "⚠ schema regression reported mismatches"
+            --verbose
       - name: Test with pytest
         run: |
-          uv run pytest \
-            tests/unit/test_proxy_mvp.py \
-            tests/unit/test_proxy_pool.py \
-            tests/unit/test_backpack_feed.py \
-            tests/unit/test_backpack_rest_client.py \
-            tests/unit/test_backpack_router.py \
-            tests/unit/test_backpack_auth.py \
-            tests/unit/test_native_toolkit.py \
-            -v --tb=short
+          uv run pytest tests -v --tb=short
