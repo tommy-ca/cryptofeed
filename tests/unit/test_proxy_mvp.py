@@ -44,6 +44,14 @@ class TestProxyConfig:
         assert config.host == "proxy.example.com" 
         assert config.port == 1080
         assert config.timeout_seconds == 30  # default
+
+    def test_valid_socks5h_and_socks4a_proxy(self):
+        """Extended SOCKS schemes should be accepted for remote DNS resolution."""
+        config = ProxyConfig(url="socks5h://proxy.example.com:1080")
+        assert config.scheme == "socks5h"
+
+        pool_entry = ProxyUrlConfig(url="socks4a://pool-proxy.example.com:1080")
+        assert pool_entry.scheme == "socks4a"
     
     def test_valid_http_proxy(self):
         """Test valid HTTP proxy configuration."""
