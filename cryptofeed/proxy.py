@@ -159,28 +159,72 @@ class ProxyInjector:
         if not resolved_proxy_url:
             return await websockets.connect(url, **kwargs)
 
-        scheme = urlparse(resolved_proxy_url).scheme
-
         log_proxy_usage(transport='websocket', exchange_id=exchange_id, proxy_url=resolved_proxy_url)
 
-        if scheme in ('socks4', 'socks5'):
-            try:
-                __import__('python_socks')
-            except ModuleNotFoundError as exc:
-                raise ImportError("python-socks library required for SOCKS proxy support. Install with: pip install python-socks") from exc
-        elif scheme in ('http', 'https'):
-            header_key = 'extra_headers' if 'extra_headers' in connect_kwargs else 'additional_headers'
-            existing_headers = connect_kwargs.get(header_key, {})
-            # Copy headers to avoid mutating caller-provided dicts
-            headers = dict(existing_headers) if existing_headers else {}
-            headers.setdefault('Proxy-Connection', 'keep-alive')
-            connect_kwargs[header_key] = headers
+        connect_kwargs.pop('proxy', None)
 
-        connect_kwargs['proxy'] = resolved_proxy_url
+        parsed_destination = urlparse(url)
+        if not parsed_destination.hostname:
+            release()
+            raise ValueError(f"Invalid WebSocket URL without hostname: {url}")
+
+        dest_port = parsed_destination.port
+        if dest_port is None:
+            dest_port = 443 if parsed_destination.scheme == 'wss' else 80
+
+        async def _create_proxied_socket():
+            parsed_proxy = urlparse(resolved_proxy_url)
+            if not parsed_proxy.hostname or not parsed_proxy.port:
+                raise ValueError(f"Invalid proxy URL: {resolved_proxy_url}")
+
+            scheme = (parsed_proxy.scheme or '').lower()
+
+            try:
+                from python_socks import ProxyType
+                from python_socks.async_.asyncio import Proxy as AsyncProxy
+            except ModuleNotFoundError as exc:
+                raise ImportError("python-socks library required for proxy WebSocket support. Install with: pip install python-socks") from exc
+
+            rdns = scheme.endswith('h') or scheme.endswith('4a')
+
+            if scheme.startswith('socks5'):
+                proxy_type = ProxyType.SOCKS5
+            elif scheme.startswith('socks4'):
+                proxy_type = ProxyType.SOCKS4
+            elif scheme in ('http', 'https'):
+                proxy_type = ProxyType.HTTP
+            else:
+                raise ValueError(f"Unsupported proxy scheme for WebSocket tunneling: {scheme}")
+
+            proxy = AsyncProxy(
+                proxy_type=proxy_type,
+                host=parsed_proxy.hostname,
+                port=parsed_proxy.port,
+                username=parsed_proxy.username,
+                password=parsed_proxy.password,
+                rdns=rdns,
+            )
+
+            timeout = connect_kwargs.get('open_timeout')
+            return await proxy.connect(
+                dest_host=parsed_destination.hostname,
+                dest_port=dest_port,
+                timeout=timeout,
+            )
+
         try:
-            connection = await websockets.connect(url, **connect_kwargs)
+            sock = await _create_proxied_socket()
         except Exception:
             release()
+            raise
+
+        try:
+            connection = await websockets.connect(url, sock=sock, **connect_kwargs)
+        except Exception:
+            try:
+                sock.close()
+            finally:
+                release()
             raise
 
         close_attr = getattr(connection, 'close', None)
