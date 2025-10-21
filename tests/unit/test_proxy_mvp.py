@@ -659,6 +659,7 @@ class TestFeedHandlerProxyInitialization:
             assert len(session.calls) == 2
             for _, kwargs in session.calls:
                 assert kwargs['proxy'] == 'http://env-proxy:8080'
+            assert conn.proxy == 'http://env-proxy:8080'
             assert conn._request_proxy_kwargs == {'proxy': 'http://env-proxy:8080'}
         finally:
             await conn.close()
@@ -767,6 +768,67 @@ class TestFeedHandlerProxyInitialization:
             assert isinstance(connector, DummyConnector)
             assert connector.url == 'socks5://proxy.example.com:1080'
             # Ensure per-request proxy kwargs are not applied for SOCKS
+            assert conn._request_proxy_kwargs == {}
+        finally:
+            await conn.close()
+            init_proxy_system(ProxySettings(enabled=False))
+
+    @pytest.mark.asyncio
+    async def test_http_async_conn_uses_remote_dns_socks_connector(self, monkeypatch):
+        """SOCKS proxies with remote DNS resolution use aiohttp-socks connector."""
+
+        class DummyConnector:
+            def __init__(self, url):
+                self.url = url
+
+        dummy_module = types.SimpleNamespace()
+        dummy_module.ProxyConnector = types.SimpleNamespace(
+            from_url=staticmethod(lambda url: DummyConnector(url))
+        )
+
+        class DummySession:
+            instances = []
+
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.calls = []
+                self.closed = False
+                DummySession.instances.append(self)
+
+            def get(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+                raise AssertionError("HTTP GET should not be executed in this test")
+
+            async def close(self):
+                self.closed = True
+
+            @property
+            def closed(self):
+                return getattr(self, '_closed', False)
+
+            @closed.setter
+            def closed(self, value):
+                self._closed = value
+
+        monkeypatch.setenv('CRYPTOFEED_PROXY_ENABLED', 'true')
+        monkeypatch.setenv('CRYPTOFEED_PROXY_DEFAULT__HTTP__URL', 'socks5h://proxy.example.com:1080')
+
+        monkeypatch.setitem(sys.modules, 'aiohttp_socks', dummy_module)
+        monkeypatch.setattr('cryptofeed.connection.aiohttp.ClientSession', DummySession)
+
+        init_proxy_system(load_proxy_settings())
+
+        conn = HTTPAsyncConn('test', exchange_id='binance')
+
+        try:
+            await conn._open()
+            assert len(DummySession.instances) == 1
+            session = DummySession.instances[0]
+            assert 'connector' in session.kwargs
+            connector = session.kwargs['connector']
+            assert isinstance(connector, DummyConnector)
+            assert connector.url == 'socks5h://proxy.example.com:1080'
+            assert conn.proxy == 'socks5h://proxy.example.com:1080'
             assert conn._request_proxy_kwargs == {}
         finally:
             await conn.close()

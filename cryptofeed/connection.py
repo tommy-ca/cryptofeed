@@ -178,6 +178,8 @@ class HTTPAsyncConn(AsyncConnection):
                 proxy = self._legacy_proxy
                 self._current_proxy = None
 
+            self.proxy = proxy
+
             self._proxy_release = release_proxy
 
             if proxy:
@@ -190,7 +192,7 @@ class HTTPAsyncConn(AsyncConnection):
             else:
                 scheme = ''
 
-            if proxy and scheme in {'socks4', 'socks5'}:
+            if proxy and scheme in {'socks4', 'socks4a', 'socks5', 'socks5h'}:
                 try:
                     from aiohttp_socks import ProxyConnector
                 except ModuleNotFoundError as exc:
