@@ -80,7 +80,6 @@ setup(
         "pyyaml",
         "aiohttp>=3.11.6",
         "aiohttp-socks>=0.10.0",
-        "python-socks>=2.4.3",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
         "pydantic>=2.0.0",
@@ -101,6 +100,7 @@ setup(
         "rabbit": ["aio_pika", "pika"],
         "redis": ["hiredis", "redis>=4.5.1"],
         "zmq": ["pyzmq"],
+        "socks": ["python-socks>=2.4.3"],
         "all": [
             "arctic",
             "google_cloud_pubsub>=2.4.1",
@@ -113,6 +113,7 @@ setup(
             "hiredis",
             "redis>=4.5.1",
             "pyzmq",
+            "python-socks>=2.4.3",
         ],
     },
 )
