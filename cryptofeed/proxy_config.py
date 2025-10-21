@@ -8,6 +8,16 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict, model_valida
 from pydantic_settings import BaseSettings
 
 
+_ALLOWED_PROXY_SCHEMES = {"http", "https", "socks4", "socks4a", "socks5", "socks5h"}
+
+
+def _validate_proxy_scheme(scheme: str) -> str:
+    scheme_lower = scheme.lower()
+    if scheme_lower in _ALLOWED_PROXY_SCHEMES:
+        return scheme_lower
+    raise ValueError(f"Unsupported proxy scheme: {scheme}")
+
+
 class ProxyUrlConfig(BaseModel):
     """Individual proxy URL configuration within pools."""
     model_config = ConfigDict(frozen=True, extra='forbid')
@@ -24,8 +34,7 @@ class ProxyUrlConfig(BaseModel):
             raise ValueError("Proxy URL must include scheme")
         if not parsed.scheme:
             raise ValueError("Proxy URL must include scheme")
-        if parsed.scheme not in ('http', 'https', 'socks4', 'socks5'):
-            raise ValueError(f"Unsupported proxy scheme: {parsed.scheme}")
+        _validate_proxy_scheme(parsed.scheme)
         if not parsed.hostname:
             raise ValueError("Proxy URL must include hostname")
         if not parsed.port:
@@ -81,8 +90,7 @@ class ProxyConfig(BaseModel):
             raise ValueError("Proxy URL must include scheme (http, socks5, socks4)")
         if not parsed.scheme:
             raise ValueError("Proxy URL must include scheme (http, socks5, socks4)")
-        if parsed.scheme not in ('http', 'https', 'socks4', 'socks5'):
-            raise ValueError(f"Unsupported proxy scheme: {parsed.scheme}")
+        _validate_proxy_scheme(parsed.scheme)
         if not parsed.hostname:
             raise ValueError("Proxy URL must include hostname")
         if not parsed.port:
