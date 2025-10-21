@@ -20,12 +20,12 @@ def test_backpack_ccxt_feed_identifier_rejected():
         handler.add_feed("BACKPACK_CCXT")
 
 
-def test_config_loader_rejects_backpack_ccxt_references():
+def test_config_loader_warns_backpack_ccxt_references():
     config_dict = {
         "exchanges": {
             "backpack_ccxt": {}
         }
     }
 
-    with pytest.raises(ValueError, match="Backpack ccxt integration has been removed"):
-        Config(config=config_dict)
+    cfg = Config(config=config_dict)
+    assert getattr(cfg, "_legacy_backpack_warning_emitted", False)
