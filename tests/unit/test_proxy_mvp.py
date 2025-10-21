@@ -337,14 +337,26 @@ class TestProxyInjector:
         async def mock_connect_coroutine(*args, **kwargs):
             return AsyncMock()
 
-        with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
-            result = await injector.create_websocket_connection("wss://example.com", "coinbase")
+        class DummySocket:
+            def close(self):
+                pass
 
-            mock_connect.assert_called_once()
-            args, kwargs = mock_connect.call_args
-            assert args == ("wss://example.com",)
-            assert kwargs["proxy"] == "socks5://default:1081"
-            assert result is not None
+        with patch('python_socks.async_.asyncio.Proxy.connect', new_callable=AsyncMock, return_value=DummySocket()) as mock_proxy_connect:
+            with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
+                result = await injector.create_websocket_connection("wss://example.com", "coinbase")
+
+                mock_proxy_connect.assert_awaited()
+                await_args = mock_proxy_connect.await_args
+                assert await_args.kwargs["dest_host"] == "example.com"
+                assert await_args.kwargs["dest_port"] == 443
+
+                mock_connect.assert_called_once()
+                connect_args, connect_kwargs = mock_connect.call_args
+                assert connect_args == ("wss://example.com",)
+                assert "sock" in connect_kwargs
+                assert connect_kwargs["sock"] is mock_proxy_connect.return_value
+                assert "proxy" not in connect_kwargs
+                assert result is not None
 
     @pytest.mark.asyncio
     async def test_create_websocket_connection_with_pool(self):
@@ -371,15 +383,20 @@ class TestProxyInjector:
         async def mock_connect_coroutine(*args, **kwargs):
             return AsyncMock()
 
-        with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
-            await injector.create_websocket_connection("wss://delta.example.com", "delta")
+        class DummySocket:
+            def close(self):
+                pass
 
-            mock_connect.assert_called_once()
-            args, kwargs = mock_connect.call_args
-            assert args == ("wss://delta.example.com",)
-            assert kwargs["proxy"] == "http://ws-proxy-1:8080"
-            headers = kwargs.get("extra_headers") or kwargs.get("additional_headers")
-            assert headers["Proxy-Connection"] == "keep-alive"
+        with patch('python_socks.async_.asyncio.Proxy.connect', new_callable=AsyncMock, return_value=DummySocket()) as mock_proxy_connect:
+            with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
+                await injector.create_websocket_connection("wss://delta.example.com", "delta")
+
+                mock_proxy_connect.assert_awaited()
+                connect_args, connect_kwargs = mock_connect.call_args
+                assert connect_args == ("wss://delta.example.com",)
+                assert "sock" in connect_kwargs
+                assert connect_kwargs["sock"] is mock_proxy_connect.return_value
+                assert "proxy" not in connect_kwargs
 
     @pytest.mark.asyncio
     async def test_create_websocket_connection_http_proxy(self):
@@ -397,17 +414,26 @@ class TestProxyInjector:
         async def mock_connect_coroutine(*args, **kwargs):
             return AsyncMock()
 
-        with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
-            result = await injector.create_websocket_connection("wss://alpha.example.com", "alpha")
+        class DummySocket:
+            def close(self):
+                pass
 
-            mock_connect.assert_called_once()
-            args, kwargs = mock_connect.call_args
-            assert args == ("wss://alpha.example.com",)
-            assert kwargs["proxy"] == "http://http-proxy:8080"
-            headers = kwargs.get("extra_headers") or kwargs.get("additional_headers")
-            assert headers is not None
-            assert headers["Proxy-Connection"] == "keep-alive"
-            assert result is not None
+        with patch('python_socks.async_.asyncio.Proxy.connect', new_callable=AsyncMock, return_value=DummySocket()) as mock_proxy_connect:
+            with patch('cryptofeed.proxy.websockets.connect', side_effect=mock_connect_coroutine) as mock_connect:
+                result = await injector.create_websocket_connection("wss://alpha.example.com", "alpha")
+
+                mock_proxy_connect.assert_awaited()
+                await_args = mock_proxy_connect.await_args
+                assert await_args.kwargs["dest_host"] == 'alpha.example.com'
+                assert await_args.kwargs["dest_port"] == 443
+
+                mock_connect.assert_called_once()
+                connect_args, connect_kwargs = mock_connect.call_args
+                assert connect_args == ("wss://alpha.example.com",)
+                assert "sock" in connect_kwargs
+                assert connect_kwargs["sock"] is mock_proxy_connect.return_value
+                assert "proxy" not in connect_kwargs
+                assert result is not None
 
     @pytest.mark.asyncio
     async def test_create_websocket_connection_socks_proxy_missing_dependency(self, monkeypatch, settings_with_proxies):
@@ -864,9 +890,6 @@ class TestFeedHandlerProxyInitialization:
 
 @pytest.mark.asyncio
 async def test_websocket_connector_uses_socks_proxy(monkeypatch, caplog):
-    dummy_python_socks = types.SimpleNamespace()
-    monkeypatch.setitem(sys.modules, 'python_socks', dummy_python_socks)
-
     ws_calls = []
 
     async def fake_connect(url, **kwargs):
@@ -886,14 +909,25 @@ async def test_websocket_connector_uses_socks_proxy(monkeypatch, caplog):
 
     injector = ProxyInjector(settings)
 
+    class DummySocket:
+        def close(self):
+            pass
+
     with caplog.at_level(logging.INFO, logger='feedhandler'):
-        conn = await injector.create_websocket_connection('wss://stream.example.com/ws', 'binance')
+        with patch('python_socks.async_.asyncio.Proxy.connect', new_callable=AsyncMock, return_value=DummySocket()) as mock_proxy_connect:
+            conn = await injector.create_websocket_connection('wss://stream.example.com/ws', 'binance')
 
     assert conn == 'dummy-connection'
     assert len(ws_calls) == 1
     url, kwargs = ws_calls[0]
     assert url == 'wss://stream.example.com/ws'
-    assert kwargs['proxy'] == 'socks5://user:secret@proxy.example.com:1080'
+    assert 'sock' in kwargs
+    assert kwargs['sock'] is mock_proxy_connect.return_value
+    assert 'proxy' not in kwargs
+
+    await_args = mock_proxy_connect.await_args
+    assert await_args.kwargs['dest_host'] == 'stream.example.com'
+    assert await_args.kwargs['dest_port'] == 443
 
 
 @pytest.mark.asyncio
