@@ -1,17 +1,53 @@
-name: flake8 Lint
+name: lint
 
 on: [push, pull_request]
 
 jobs:
-  flake8-lint:
+  lint:
     runs-on: ubuntu-latest
-    name: Lint
     steps:
       - name: Check out source repository
-        uses: actions/checkout@v3
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Run ruff lint
+        run: |
+          uvx ruff check cryptofeed/connection.py cryptofeed/proxy.py \
+            cryptofeed/exchanges/native/ws.py cryptofeed/exchanges/backpack/feed.py \
+            cryptofeed/__init__.py cryptofeed/exchanges/__init__.py \
+            tools/generate_test_data.py tools/bsr_metrics.py tools/backpack_auth_check.py \
+            examples/backpack_native_demo.py examples/demo_quasardb.py \
+            tests/conftest.py \
+            tests/integration/test_ccxt_feed_smoke.py \
+            tests/integration/test_ccxt_generic.py \
+            tests/integration/test_live_backpack.py \
+            tests/integration/test_live_binance.py \
+            tests/integration/test_proxy_http.py \
+            tests/integration/test_proxy_integration.py \
+            tests/integration/test_proxy_ws.py \
+            tests/proto_integration/test_bsr_metrics.py \
+            tests/proto_integration/test_dbn_alignment.py \
+            tests/proto_integration/test_governance.py \
+            tests/proto_integration/test_production_release.py \
+            tests/proto_integration/test_schema_parity.py \
+            tests/proto_integration/test_staging_publication.py \
+            tests/proto_integration/test_tardis_alignment.py \
+            tests/unit/test_backpack_auth.py \
+            tests/unit/test_backpack_feed.py \
+            tests/unit/test_backpack_rest_client.py \
+            tests/unit/test_backpack_router.py \
+            tests/unit/test_ccxt_feed_config_validation.py \
+            tests/unit/test_ccxt_feed_integration.py \
+            tests/unit/test_native_toolkit.py \
+            tests/unit/test_proxy_mvp.py \
+            tests/unit/test_proxy_pool.py
+
+      - name: Run pyscn quality check
+        run: |
+          uvx pyscn check --max-complexity 15 \
+            cryptofeed/connection.py cryptofeed/proxy.py \
+            cryptofeed/exchanges/native/ws.py cryptofeed/exchanges/backpack/feed.py \
+            tools/generate_test_data.py tools/bsr_metrics.py tools/backpack_auth_check.py \
+            examples/backpack_native_demo.py examples/demo_quasardb.py

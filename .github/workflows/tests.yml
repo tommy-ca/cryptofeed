@@ -12,9 +12,9 @@ jobs:
         python-socks: ['with', 'without']
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -31,17 +31,14 @@ jobs:
           buf --version
       - name: Validate Protobuf schemas
         run: |
-          cd proto
-          buf lint
+          buf lint proto
           echo "✓ Proto schemas pass linting"
       - name: Check for breaking changes
         run: |
-          cd proto
-          buf breaking --against 'buf.build/tommyk/crypto-market-data:main'
+          buf breaking proto --against 'buf.build/tommyk/crypto-market-data:main'
       - name: Generate Protobuf bindings
         run: |
-          cd proto
-          buf generate
+          buf generate --template buf.gen.yaml proto
           echo "✓ Protobuf bindings generated"
       - name: Run schema regression tests
         if: matrix.python-version == '3.12'
