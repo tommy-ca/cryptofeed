@@ -9,7 +9,6 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
-        python-socks: ['with', 'without']
 
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +20,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --extra socks
           uv pip install pytest pytest-asyncio
           uv pip install -e .
-          if [ "${{ matrix.python-socks }}" = "with" ]; then uv pip install python-socks; fi
       - name: Set up Buf CLI
         run: |
           mkdir -p /usr/local/bin

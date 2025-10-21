@@ -50,6 +50,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pyscn>=0.6.0"]
+socks = ["python-socks>=2.4.3"]
 arctic = ["arctic", "pandas"]
 gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
 kafka = ["aiokafka>=0.7.0"]

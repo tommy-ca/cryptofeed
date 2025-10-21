@@ -6,7 +6,6 @@ cchardet
 cython
 order_book==0.6.1
 ccxt==4.5.11
-python-socks>=2.4.3
 pyyaml
 PyNaCl>=1.5
 pyscn>=0.6.0
