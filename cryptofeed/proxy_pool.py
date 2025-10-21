@@ -5,7 +5,14 @@ import asyncio
 import random
 from abc import ABC, abstractmethod
 from contextlib import suppress
-from datetime import datetime, UTC
+from datetime import datetime
+
+try:  # Python >=3.11
+    from datetime import UTC  # type: ignore[attr-defined]
+except ImportError:  # Python 3.10 support
+    from datetime import timezone
+
+    UTC = timezone.utc
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
