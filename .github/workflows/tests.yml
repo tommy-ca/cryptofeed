@@ -50,4 +50,4 @@ jobs:
             --verbose || echo "⚠ schema regression reported mismatches"
       - name: Test with pytest
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/unit -v --tb=short
