@@ -184,10 +184,18 @@ class FeedHandler:
 
                     handler_config_arg = self.config
 
+                    backpack_config = None
+
                     if isinstance(config_override, BackpackConfig):
                         backpack_config = config_override
                     elif isinstance(config_override, Mapping):
-                        backpack_config = self._resolve_backpack_config(config_override)
+                        # Treat mappings without Backpack-specific keys as handler config overrides
+                        backpack_keys = {'exchange_id', 'enable_private_channels', 'window_ms', 'use_sandbox', 'proxies', 'auth'}
+                        if backpack_keys.isdisjoint(config_override.keys()):
+                            handler_config_arg = config_override
+                            backpack_config = self._resolve_backpack_config(None)
+                        else:
+                            backpack_config = self._resolve_backpack_config(config_override)
                     elif config_override is not None:
                         handler_config_arg = config_override
                         resolution_source = handler_config_arg
