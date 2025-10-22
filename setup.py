@@ -80,6 +80,7 @@ setup(
         "pyyaml",
         "aiohttp>=3.9.4",
         "aiohttp-socks>=0.10.0",
+        "python-socks>=2.4.3",
         "aiofile>=2.0.0",
         "yapic.json>=1.6.3",
         "pydantic>=2.0.0",
