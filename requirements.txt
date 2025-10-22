@@ -5,13 +5,13 @@ aiohttp-socks>=0.10.0
 python-socks>=2.4.3
 cchardet
 cython
-order_book==0.6.1
-ccxt==4.5.11
+order_book>=0.6.0
+ccxt>=4.5.11
 pyyaml
 PyNaCl>=1.5
 pyscn>=0.6.0
 requests>=2.18.4
-uvloop
+uvloop; platform_system!="Windows"
 websockets>=14.1
 yapic.json>=1.6.3
 pydantic>=2.0.0
