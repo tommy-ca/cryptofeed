@@ -146,11 +146,11 @@ class FeedHandler:
 
         settings = ProxySettings()
 
-        if explicit_proxy_settings is not None:
-            settings = _merge_settings(settings, explicit_proxy_settings)
-
         if config_settings is not None:
             settings = _merge_settings(settings, config_settings)
+
+        if explicit_proxy_settings is not None:
+            settings = _merge_settings(settings, explicit_proxy_settings)
 
         if env_settings.model_fields_set:
             settings = _merge_settings(settings, env_settings)

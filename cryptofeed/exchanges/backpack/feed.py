@@ -225,9 +225,13 @@ class BackpackFeed(Feed):
             return
 
         if not injector.settings.enabled:
-            raise ValueError(
-                "Backpack proxy override requested, but proxy system is disabled."
-            )
+            LOG.info("proxy: enabling proxy system for Backpack override")
+            updated = injector.settings.model_copy(update={"enabled": True})
+            init_proxy_system(updated)
+            injector = get_proxy_injector()
+            if injector is None or not injector.settings.enabled:
+                LOG.warning("proxy: unable to enable proxy system for Backpack override")
+                return
 
         key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
