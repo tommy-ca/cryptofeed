@@ -12,6 +12,27 @@ from setuptools import find_packages
 from setuptools.command.test import test as TestCommand
 from Cython.Build import cythonize
 
+_DEFAULT_REQUIREMENTS = [
+    "aiodns>=1.1",
+    "aiofile>=2.0.0",
+    "aiohttp>=3.11.6",
+    "aiohttp-socks>=0.10.0",
+    "python-socks>=2.4.3",
+    "cchardet",
+    "cython",
+    "order_book>=0.6.0",
+    "ccxt>=4.5.11",
+    "pyyaml",
+    "PyNaCl>=1.5",
+    "pyscn>=0.6.0",
+    "requests>=2.18.4",
+    'uvloop; platform_system!="Windows"',
+    "websockets>=14.1",
+    "yapic.json>=1.6.3",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
 
 def get_long_description():
     """Read the contents of README.md, INSTALL.md and CHANGES.md files."""
@@ -29,16 +50,20 @@ def load_requirements(filename: str = "requirements.txt") -> list[str]:
     repo_dir = os.path.abspath(os.path.dirname(__file__))
     path = os.path.join(repo_dir, filename)
     requirements: list[str] = []
-    with open(path, encoding="utf-8") as req_file:
-        for raw_line in req_file:
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "#" in line:
-                line = line.split("#", 1)[0].strip()
-            if line:
-                requirements.append(line)
-    return requirements
+    try:
+        with open(path, encoding="utf-8") as req_file:
+            for raw_line in req_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "#" in line:
+                    line = line.split("#", 1)[0].strip()
+                if line:
+                    requirements.append(line)
+    except FileNotFoundError:
+        return list(_DEFAULT_REQUIREMENTS)
+
+    return requirements or list(_DEFAULT_REQUIREMENTS)
 
 
 class Test(TestCommand):
