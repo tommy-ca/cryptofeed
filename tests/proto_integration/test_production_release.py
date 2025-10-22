@@ -57,6 +57,11 @@ class TestPreProductionValidation:
 
     def test_proto_linting_passes(self, project_root: Path):
         """Proto files should pass linting before production."""
+        import shutil
+
+        if shutil.which("buf") is None:
+            pytest.skip("buf CLI not available")
+
         result = subprocess.run(
             ["buf", "lint", "proto/"],
             cwd=project_root,
@@ -69,6 +74,11 @@ class TestPreProductionValidation:
         """Should check for breaking changes against baseline."""
         # Note: This would fail if there's a previous version to compare against
         # For v0.1.0, we just validate the check can be run
+        import shutil
+
+        if shutil.which("buf") is None:
+            pytest.skip("buf CLI not available")
+
         result = subprocess.run(
             ["buf", "breaking", "--help"],
             cwd=project_root,

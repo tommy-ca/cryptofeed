@@ -256,6 +256,9 @@ def get_proxy_injector() -> Optional[ProxyInjector]:
 def init_proxy_system(settings: ProxySettings) -> None:
     """Initialize proxy system with settings."""
     global _proxy_injector
+    if not settings.enabled:
+        _proxy_injector = None
+        return
     _proxy_injector = ProxyInjector(settings)
 
 
