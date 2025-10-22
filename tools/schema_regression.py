@@ -1,8 +1,7 @@
 """Schema parity regression tool.
 
-Validates that Cryptofeed dataclasses, Protobuf messages, tardis-node JSON, and
-DBN layouts maintain semantic equivalence. Replays sample events through
-Protobuf serialization/deserialization and compares field-level values to
+Validates that Cryptofeed dataclasses and reference JSON payloads maintain
+semantic equivalence. Replays sample events and compares field-level values to
 detect precision loss, missing fields, or scaling mismatches.
 
 Usage:
@@ -168,7 +167,7 @@ def _construct_dataclass_from_dict(event_dict: Dict[str, Any]) -> Optional[cf_ty
 
 def _check_event_parity(
     event_dict: Dict[str, Any],
-    use_protobuf: bool = False,
+    relative_tol: float = 1e-8,
 ) -> EventParity:
     """Check parity for a single event across representations."""
     event_type = event_dict.get("type") or event_dict.get("event_type", "unknown")
@@ -207,7 +206,7 @@ def _check_event_parity(
 
         # Special handling for Decimal/float precision
         if isinstance(expected_value, Decimal) and isinstance(actual_value, (float, str, int)):
-            match, tol, note = _compare_decimals(expected_value, actual_value, field_name)
+            match, tol, note = _compare_decimals(expected_value, actual_value, field_name, relative_tol)
         else:
             match = expected_value == actual_value
             tol = None
@@ -252,13 +251,12 @@ def run_regression(args: argparse.Namespace) -> Tuple[int, RegressionReport]:
         generated_at=datetime.now(timezone.utc).isoformat(),
         test_config={
             "events_file": str(events_path),
-            "use_protobuf": args.protobuf,
             "tolerance": args.tolerance,
         },
     )
 
     for event in events:
-        parity = _check_event_parity(event, use_protobuf=args.protobuf)
+        parity = _check_event_parity(event, relative_tol=args.tolerance)
         report.events.append(parity)
         report.events_processed += 1
 
@@ -303,7 +301,7 @@ def run_regression(args: argparse.Namespace) -> Tuple[int, RegressionReport]:
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate schema parity across Cryptofeed, Protobuf, tardis-node, and DBN"
+        description="Validate schema parity between Cryptofeed dataclasses and reference JSON payloads"
     )
     parser.add_argument(
         "--events",
@@ -313,11 +311,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         help="Output JSON report path (default: reports/parity-regression.json)",
-    )
-    parser.add_argument(
-        "--protobuf",
-        action="store_true",
-        help="Include Protobuf serialization tests (requires google-protobuf)",
     )
     parser.add_argument(
         "--tolerance",
