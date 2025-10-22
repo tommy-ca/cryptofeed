@@ -225,8 +225,9 @@ class BackpackFeed(Feed):
             return
 
         if not injector.settings.enabled:
-            LOG.info("proxy: Backpack override skipped because proxy system is disabled")
-            return
+            raise ValueError(
+                "Backpack proxy override requested, but proxy system is disabled."
+            )
 
         key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
