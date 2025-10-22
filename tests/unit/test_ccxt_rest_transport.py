@@ -69,12 +69,15 @@ def test_client_kwargs_prefers_context_proxy(monkeypatch, cache: DummyCache) -> 
 def test_client_kwargs_falls_back_to_injector(monkeypatch, cache: DummyCache) -> None:
     """When no proxy is in context the global injector should be consulted."""
 
-    recorded_exchange_ids: list[str] = []
+    recorded_calls: list[tuple[str, str]] = []
+    releases: list[tuple[str, str]] = []
 
     class DummyInjector:
-        def get_http_proxy_url(self, exchange_id: str) -> str | None:
-            recorded_exchange_ids.append(exchange_id)
-            return "http://injector-proxy:9090"
+        def lease_proxy(self, exchange_id: str, connection_type: str):
+            recorded_calls.append((exchange_id, connection_type))
+            if connection_type == 'http':
+                return "http://injector-proxy:9090", lambda: releases.append((connection_type, exchange_id))
+            return None, lambda: releases.append((connection_type, exchange_id))
 
     monkeypatch.setattr(
         "cryptofeed.exchanges.ccxt.transport.rest.get_proxy_injector",
@@ -85,12 +88,16 @@ def test_client_kwargs_falls_back_to_injector(monkeypatch, cache: DummyCache) ->
 
     kwargs = transport._client_kwargs()
 
-    assert recorded_exchange_ids == ["test-exchange"]
+    assert recorded_calls == [("test-exchange", "http")]
     assert kwargs["aiohttp_proxy"] == "http://injector-proxy:9090"
     assert kwargs["proxies"] == {
         "http": "http://injector-proxy:9090",
         "https": "http://injector-proxy:9090",
     }
+    assert releases == []
+
+    transport._release_http_proxy()
+    assert releases == [("http", "test-exchange")]
 
 
 def test_client_kwargs_uses_socks_proxy(cache: DummyCache) -> None:
@@ -161,9 +168,12 @@ async def test_close_cleans_up_client(cache: DummyCache) -> None:
 
     dummy_client = SimpleNamespace(close=AsyncMock())
     transport = CcxtRestTransport(cache, context=None)
+    released: list[bool] = []
+    transport._http_proxy_release = lambda: released.append(True)
     transport._client = dummy_client
 
     await transport.close()
 
     assert transport._client is None
     dummy_client.close.assert_awaited_once()
+    assert released == [True]

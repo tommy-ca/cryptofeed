@@ -43,6 +43,7 @@ class CcxtRestTransport:
         self._base_retry_delay = max(0.0, base_retry_delay)
         self._log = logger or logging.getLogger(__name__)
         self._sleep = asyncio.sleep
+        self._http_proxy_release: Callable[[], None] = lambda: None
 
     async def __aenter__(self) -> "CcxtRestTransport":
         await self._ensure_client()
@@ -72,10 +73,14 @@ class CcxtRestTransport:
                         self._client.__dict__.setdefault('_cryptofeed_init_kwargs', {}).update(kwargs)
                     except Exception:  # pragma: no cover - defensive fallback
                         pass
+                except Exception:
+                    self._release_http_proxy()
+                    raise
         return self._client
 
     def _client_kwargs(self) -> Dict[str, Any]:
         kwargs: Dict[str, Any] = {}
+        self._release_http_proxy()
         if self._context:
             kwargs.update(self._context.ccxt_options)
         proxy_url = None
@@ -84,7 +89,11 @@ class CcxtRestTransport:
         else:
             injector = get_proxy_injector()
             if injector is not None:
-                proxy_url = injector.get_http_proxy_url(self._cache.exchange_id)
+                proxy_url, release = injector.lease_proxy(self._cache.exchange_id, 'http')
+                if proxy_url:
+                    self._http_proxy_release = release
+                else:
+                    self._http_proxy_release = lambda: None
         if proxy_url:
             scheme = (urlparse(proxy_url).scheme or '').lower()
             if scheme in ('socks4', 'socks5'):
@@ -156,6 +165,15 @@ class CcxtRestTransport:
         if self._client is not None:
             await self._client.close()
             self._client = None
+        self._release_http_proxy()
+
+    def _release_http_proxy(self) -> None:
+        release = self._http_proxy_release
+        self._http_proxy_release = lambda: None
+        try:
+            release()
+        except Exception:  # pragma: no cover - defensive clean up
+            pass
 
 
 __all__ = ["CcxtRestTransport"]

@@ -46,6 +46,7 @@ class CcxtWsTransport:
         self._log = logger or logging.getLogger('feedhandler')
         self.connect_count = 0
         self.reconnect_count = 0
+        self._ws_proxy_release: Callable[[], None] = lambda: None
 
     def _ensure_client(self) -> Any:
         if self._client is None:
@@ -68,11 +69,15 @@ class CcxtWsTransport:
                         self._client.__dict__.setdefault('_cryptofeed_init_kwargs', {}).update(kwargs)
                     except Exception:  # pragma: no cover - defensive fallback
                         pass
+                except Exception:
+                    self._release_ws_proxy()
+                    raise
             self.connect_count += 1
         return self._client
 
     def _client_kwargs(self) -> Dict[str, Any]:
         kwargs: Dict[str, Any] = {}
+        self._release_ws_proxy()
         if self._context:
             kwargs.update(self._context.ccxt_options)
         proxy_url = None
@@ -83,7 +88,13 @@ class CcxtWsTransport:
         else:
             injector = get_proxy_injector()
             if injector is not None:
-                proxy_url = injector.get_http_proxy_url(self._cache.exchange_id)
+                proxy_url, release = injector.lease_proxy(self._cache.exchange_id, 'websocket')
+                if not proxy_url:
+                    proxy_url, release = injector.lease_proxy(self._cache.exchange_id, 'http')
+                if proxy_url:
+                    self._ws_proxy_release = release
+                else:
+                    self._ws_proxy_release = lambda: None
         if proxy_url:
             scheme = (urlparse(proxy_url).scheme or '').lower()
             if scheme in ('socks4', 'socks5'):
@@ -130,6 +141,7 @@ class CcxtWsTransport:
         if self._client is not None:
             await self._client.close()
             self._client = None
+        self._release_ws_proxy()
 
 
     async def _handle_disconnect(self, client: Any, exc: Exception, attempt: int) -> None:
@@ -147,6 +159,7 @@ class CcxtWsTransport:
                 'error': str(exc),
             },
         )
+        self._release_ws_proxy()
         if self._reconnect_delay > 0:
             await self._sleep(self._reconnect_delay)
 
@@ -161,6 +174,14 @@ class CcxtWsTransport:
             },
         )
         raise CcxtUnavailable(f"WebSocket unavailable for {self._cache.exchange_id}: {exc}") from exc
+
+    def _release_ws_proxy(self) -> None:
+        release = self._ws_proxy_release
+        self._ws_proxy_release = lambda: None
+        try:
+            release()
+        except Exception:  # pragma: no cover - defensive clean up
+            pass
 
     async def _watch_trade_batch(self, client: Any, request_symbol: str) -> Any:
         trades = await client.watch_trades(request_symbol)
