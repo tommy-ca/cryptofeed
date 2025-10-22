@@ -172,6 +172,10 @@ class FeedHandler:
 
                         backpack_config = self._resolve_backpack_config(resolution_source)
 
+                    backpack_override = kwargs.pop("backpack_config", None)
+                    if isinstance(backpack_override, BackpackConfig):
+                        backpack_config = backpack_override
+
                     self.feeds.append(
                         (
                             feed_cls(

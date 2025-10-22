@@ -218,13 +218,16 @@ class BackpackFeed(Feed):
 
         injector = get_proxy_injector()
         if injector is None:
-            init_proxy_system(ProxySettings())
+            settings = ProxySettings(enabled=True)
+            init_proxy_system(settings)
             injector = get_proxy_injector()
 
-        if injector is None or not injector.settings.enabled:
-            if self.metrics:
-                self.metrics.record_proxy_rotation()
+        if injector is None:
             return
+
+        if not injector.settings.enabled:
+            updated = injector.settings.model_copy(update={"enabled": True})
+            injector.settings = updated
 
         key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
