@@ -274,6 +274,7 @@ class FeedHandler:
 
         from pydantic import ValidationError
 
+        errors: list[ValidationError] = []
         for candidate in candidates:
             if isinstance(candidate, BackpackConfig):
                 return candidate
@@ -281,10 +282,14 @@ class FeedHandler:
             if isinstance(plain_candidate, Mapping) and plain_candidate:
                 try:
                     return BackpackConfig.model_validate(plain_candidate)
-                except ValidationError:
+                except ValidationError as exc:
+                    errors.append(exc)
                     continue
 
-        return BackpackConfig()
+        if errors:
+            raise errors[0]
+
+        raise ValueError("Backpack configuration could not be resolved from handler settings")
 
     def add_nbbo(self, feeds: List[Feed], symbols: List[str], callback, config=None):
         """
