@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional
 
@@ -254,6 +255,3 @@ class BackpackWsSession:
         elapsed = now_us - self._last_auth_timestamp_us
         if elapsed >= window_us // 2:
             await self._send_auth()
-
-
-from contextlib import suppress  # noqa: E402  (import after class definition for readability)
