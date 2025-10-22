@@ -221,6 +221,11 @@ class BackpackFeed(Feed):
             init_proxy_system(ProxySettings())
             injector = get_proxy_injector()
 
+        if injector is None or not injector.settings.enabled:
+            if self.metrics:
+                self.metrics.record_proxy_rotation()
+            return
+
         key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)
         new_entry = ConnectionProxies(http=proxies, websocket=proxies)
@@ -228,7 +233,6 @@ class BackpackFeed(Feed):
             self.metrics.record_proxy_rotation()
         exchanges[key] = new_entry
         injector.settings.exchanges = {k.casefold(): v for k, v in exchanges.items()}
-        injector.settings.enabled = True
 
     # ------------------------------------------------------------------
     # Override connect to use Backpack session
