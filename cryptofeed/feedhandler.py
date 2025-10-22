@@ -157,20 +157,23 @@ class FeedHandler:
                     from cryptofeed.config import Config as FeedConfig
                     from cryptofeed.exchanges.backpack.config import BackpackConfig
 
+                    handler_config_arg = self.config
+
                     if isinstance(config_override, BackpackConfig):
                         backpack_config = config_override
-                        handler_config_arg = self.config
-                    else:
-                        handler_config_arg = config_override if config_override is not None else self.config
-
+                    elif isinstance(config_override, Mapping):
+                        backpack_config = self._resolve_backpack_config(config_override)
+                    elif config_override is not None:
+                        handler_config_arg = config_override
                         resolution_source = handler_config_arg
                         if not isinstance(resolution_source, FeedConfig):
                             try:
                                 resolution_source = FeedConfig(config=resolution_source)
                             except Exception:
                                 resolution_source = self.config
-
                         backpack_config = self._resolve_backpack_config(resolution_source)
+                    else:
+                        backpack_config = self._resolve_backpack_config(None)
 
                     backpack_override = kwargs.pop("backpack_config", None)
                     if isinstance(backpack_override, BackpackConfig):
@@ -235,10 +238,16 @@ class FeedHandler:
                 return value
             return None
 
-        candidates = []
+        candidates: list[tuple[object, bool]] = []
+        seen_candidates: set[int] = set()
+
         explicit_candidate = _candidate_from(explicit)
-        if explicit_candidate is not None:
-            candidates.append(explicit_candidate)
+        explicit_is_mapping = isinstance(explicit, Mapping) and not isinstance(explicit, Config)
+        if isinstance(explicit_candidate, BackpackConfig):
+            return explicit_candidate
+        if explicit_candidate is not None and explicit_is_mapping and id(explicit_candidate) not in seen_candidates:
+            candidates.append((explicit_candidate, True))
+            seen_candidates.add(id(explicit_candidate))
 
         def _lookup_backpack_section(config_source):
             if not isinstance(config_source, Mapping):
@@ -265,31 +274,51 @@ class FeedHandler:
             return None
 
         root_plain = _to_plain_mapping(self.config.config if isinstance(self.config, Config) else self.config)
-        for section in (
-            _candidate_from(_lookup_backpack_section(explicit_candidate) if isinstance(explicit_candidate, Mapping) else None),
-            _candidate_from(_lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None),
-        ):
-            if section is not None and section not in candidates:
-                candidates.append(section)
+        section_from_explicit = _candidate_from(
+            _lookup_backpack_section(explicit_candidate) if isinstance(explicit_candidate, Mapping) else None
+        )
+        if section_from_explicit is not None and id(section_from_explicit) not in seen_candidates:
+            candidates.append((section_from_explicit, True))
+            seen_candidates.add(id(section_from_explicit))
+
+        section_from_root = _candidate_from(
+            _lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None
+        )
+        if section_from_root is not None and id(section_from_root) not in seen_candidates:
+            candidates.append((section_from_root, False))
+            seen_candidates.add(id(section_from_root))
 
         from pydantic import ValidationError
 
+        if not candidates:
+            return BackpackConfig()
+
+        allowed_keys = set(BackpackConfig.model_fields.keys())
         errors: list[ValidationError] = []
-        for candidate in candidates:
+        for candidate, is_explicit in candidates:
             if isinstance(candidate, BackpackConfig):
                 return candidate
             plain_candidate = _to_plain_mapping(candidate)
             if isinstance(plain_candidate, Mapping) and plain_candidate:
+                invalid_keys = set(plain_candidate.keys()).difference(allowed_keys)
+                if invalid_keys:
+                    if is_explicit:
+                        raise ValueError(
+                            f"Backpack configuration contains unsupported keys: {sorted(invalid_keys)}"
+                        )
+                    continue
                 try:
                     return BackpackConfig.model_validate(plain_candidate)
                 except ValidationError as exc:
+                    if is_explicit:
+                        raise exc
                     errors.append(exc)
                     continue
 
         if errors:
             raise errors[0]
 
-        raise ValueError("Backpack configuration could not be resolved from handler settings")
+        return BackpackConfig()
 
     def add_nbbo(self, feeds: List[Feed], symbols: List[str], callback, config=None):
         """
