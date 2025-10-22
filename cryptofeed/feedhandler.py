@@ -154,11 +154,36 @@ class FeedHandler:
                 config_override = kwargs.pop("config", None)
 
                 if feed_key == "BACKPACK":
-                    config_value = self._resolve_backpack_config(config_override)
+                    from cryptofeed.config import Config as FeedConfig
+                    from cryptofeed.exchanges.backpack.config import BackpackConfig
+
+                    if isinstance(config_override, BackpackConfig):
+                        backpack_config = config_override
+                        handler_config_arg = self.config
+                    else:
+                        handler_config_arg = config_override if config_override is not None else self.config
+
+                        resolution_source = handler_config_arg
+                        if not isinstance(resolution_source, FeedConfig):
+                            try:
+                                resolution_source = FeedConfig(config=resolution_source)
+                            except Exception:
+                                resolution_source = self.config
+
+                        backpack_config = self._resolve_backpack_config(resolution_source)
+
+                    self.feeds.append(
+                        (
+                            feed_cls(
+                                config=handler_config_arg,
+                                backpack_config=backpack_config,
+                                **kwargs,
+                            )
+                        )
+                    )
                 else:
                     config_value = config_override if config_override is not None else self.config
-
-                self.feeds.append((feed_cls(config=config_value, **kwargs)))
+                    self.feeds.append((feed_cls(config=config_value, **kwargs)))
             else:
                 raise ValueError("Invalid feed specified")
         else:

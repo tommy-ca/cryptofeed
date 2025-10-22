@@ -53,12 +53,21 @@ class BackpackFeed(Feed):
     def __init__(
         self,
         *,
-        config: Optional[BackpackConfig] = None,
+        config: Optional[object] = None,
+        backpack_config: Optional[BackpackConfig] = None,
         dependencies: Optional[BackpackFeedDependencies] = None,
         max_depth: int = 0,
         **kwargs,
     ) -> None:
-        self.exchange_config = config or BackpackConfig()
+        handler_config = config
+        if backpack_config is None and isinstance(handler_config, BackpackConfig):
+            backpack_config = handler_config
+            handler_config = None
+
+        if backpack_config is None:
+            backpack_config = BackpackConfig()
+
+        self.exchange_config = backpack_config
         self.metrics = BackpackMetrics()
 
         self._apply_proxy_override()
@@ -86,7 +95,7 @@ class BackpackFeed(Feed):
         self._ws_session: Optional[BackpackWsSession] = None
         self._connection: Optional["BackpackWsConnection"] = None
 
-        super().__init__(**kwargs)
+        super().__init__(config=handler_config, **kwargs)
 
     # ------------------------------------------------------------------
     # Symbol handling

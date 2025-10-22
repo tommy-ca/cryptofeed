@@ -2,6 +2,7 @@ aiodns>=1.1  # aiodns speeds up DNS resolving
 aiofile>=2.0.0
 aiohttp>=3.9.4
 aiohttp-socks>=0.10.0
+python-socks>=2.4.3
 cchardet
 cython
 order_book==0.6.1
