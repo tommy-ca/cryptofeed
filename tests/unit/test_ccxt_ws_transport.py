@@ -62,12 +62,15 @@ def test_client_kwargs_prefers_websocket_proxy(monkeypatch, cache: DummyCache) -
 
 
 def test_client_kwargs_uses_injector_when_context_missing(monkeypatch, cache: DummyCache) -> None:
-    requested: list[str] = []
+    requested: list[tuple[str, str]] = []
+    releases: list[tuple[str, str]] = []
 
     class DummyInjector:
-        def get_http_proxy_url(self, exchange_id: str) -> str | None:
-            requested.append(exchange_id)
-            return "http://injector-proxy:8080"
+        def lease_proxy(self, exchange_id: str, connection_type: str):
+            requested.append((exchange_id, connection_type))
+            if connection_type == 'websocket':
+                return None, lambda: releases.append((connection_type, exchange_id))
+            return "http://injector-proxy:8080", lambda: releases.append((connection_type, exchange_id))
 
     monkeypatch.setattr(
         "cryptofeed.exchanges.ccxt.transport.ws.get_proxy_injector",
@@ -77,10 +80,17 @@ def test_client_kwargs_uses_injector_when_context_missing(monkeypatch, cache: Du
     transport = CcxtWsTransport(cache, context=None)
     kwargs = transport._client_kwargs()
 
-    assert requested == ["test-exchange"]
+    assert requested == [
+        ("test-exchange", "websocket"),
+        ("test-exchange", "http"),
+    ]
     assert kwargs["wsProxy"] == "http://injector-proxy:8080"
     assert kwargs["aiohttp_proxy"] == "http://injector-proxy:8080"
     assert kwargs["proxies"]["https"] == "http://injector-proxy:8080"
+    assert releases == []
+
+    transport._release_ws_proxy()
+    assert releases == [("http", "test-exchange")]
 
 
 @pytest.mark.asyncio
