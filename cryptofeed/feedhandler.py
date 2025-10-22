@@ -121,14 +121,39 @@ class FeedHandler:
             else:
                 raise TypeError('proxy_settings must be a ProxySettings instance or mapping')
 
+        def _merge_settings(base: ProxySettings, override: ProxySettings) -> ProxySettings:
+            data = {
+                'enabled': base.enabled,
+                'default': base.default,
+                'exchanges': dict(base.exchanges),
+            }
+
+            fields_set = override.model_fields_set
+
+            if 'enabled' in fields_set:
+                data['enabled'] = override.enabled
+
+            if 'default' in fields_set:
+                data['default'] = override.default
+
+            if 'exchanges' in fields_set:
+                merged = {k.casefold(): v for k, v in data['exchanges'].items()}
+                for key, value in override.exchanges.items():
+                    merged[key.casefold()] = value
+                data['exchanges'] = merged
+
+            return ProxySettings(**data)
+
+        settings = ProxySettings()
+
+        if explicit_proxy_settings is not None:
+            settings = _merge_settings(settings, explicit_proxy_settings)
+
+        if config_settings is not None:
+            settings = _merge_settings(settings, config_settings)
+
         if env_settings.model_fields_set:
-            settings = env_settings
-        elif config_settings is not None:
-            settings = config_settings
-        elif explicit_proxy_settings is not None:
-            settings = explicit_proxy_settings
-        else:
-            settings = env_settings
+            settings = _merge_settings(settings, env_settings)
 
         init_proxy_system(settings)
 
