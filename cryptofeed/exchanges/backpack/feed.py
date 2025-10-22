@@ -11,7 +11,7 @@ from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BACKPACK, L2_BOOK, TRADES, TICKER
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol, Symbols
-from cryptofeed.proxy import ConnectionProxies, ProxySettings, get_proxy_injector, init_proxy_system
+from cryptofeed.proxy import ConnectionProxies, ProxyConfig, ProxySettings, get_proxy_injector, init_proxy_system
 
 from .adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
 from .auth import BackpackAuthHelper
@@ -95,7 +95,7 @@ class BackpackFeed(Feed):
         self._ws_session: Optional[BackpackWsSession] = None
         self._connection: Optional["BackpackWsConnection"] = None
 
-        super().__init__(config=handler_config, **kwargs)
+        super().__init__(config=handler_config, max_depth=depth, **kwargs)
 
     # ------------------------------------------------------------------
     # Symbol handling
@@ -218,16 +218,15 @@ class BackpackFeed(Feed):
 
         injector = get_proxy_injector()
         if injector is None:
-            settings = ProxySettings(enabled=True)
-            init_proxy_system(settings)
+            init_proxy_system(ProxySettings())
             injector = get_proxy_injector()
 
         if injector is None:
             return
 
         if not injector.settings.enabled:
-            updated = injector.settings.model_copy(update={"enabled": True})
-            injector.settings = updated
+            LOG.info("proxy: Backpack override skipped because proxy system is disabled")
+            return
 
         key = self.exchange_config.exchange_id.casefold()
         exchanges = dict(injector.settings.exchanges)

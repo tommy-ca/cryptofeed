@@ -325,7 +325,8 @@ class FeedHandler:
                 return candidate
             plain_candidate = _to_plain_mapping(candidate)
             if isinstance(plain_candidate, Mapping) and plain_candidate:
-                invalid_keys = set(plain_candidate.keys()).difference(allowed_keys)
+                candidate_data = dict(plain_candidate)
+                invalid_keys = set(candidate_data.keys()).difference(allowed_keys)
                 if invalid_keys:
                     if is_explicit:
                         raise ValueError(
@@ -333,7 +334,17 @@ class FeedHandler:
                         )
                     continue
                 try:
-                    return BackpackConfig.model_validate(plain_candidate)
+                    proxies_value = candidate_data.get('proxies')
+                    if isinstance(proxies_value, str):
+                        candidate_data['proxies'] = ProxyConfig(url=proxies_value)
+                    elif isinstance(proxies_value, Mapping):
+                        candidate_data['proxies'] = ProxyConfig(**proxies_value)
+                    elif proxies_value is not None and not isinstance(proxies_value, ProxyConfig):
+                        if is_explicit:
+                            raise ValueError("Backpack proxies must be a URL or mapping with url/pool")
+                        continue
+
+                    return BackpackConfig.model_validate(candidate_data)
                 except ValidationError as exc:
                     if is_explicit:
                         raise exc
