@@ -562,8 +562,8 @@ class TestFeedHandlerProxyInitialization:
         assert injector.settings.enabled is True
         assert injector.get_http_proxy_url('kraken') == 'http://code-proxy:8080'
 
-    def test_yaml_overrides_direct_proxy_settings(self):
-        """YAML configuration takes precedence over explicit ProxySettings argument."""
+    def test_explicit_proxy_settings_override_yaml(self):
+        """Explicit ProxySettings argument takes precedence over YAML configuration."""
         proxy_settings = ProxySettings(
             enabled=True,
             default=ConnectionProxies(
@@ -590,7 +590,7 @@ class TestFeedHandlerProxyInitialization:
 
         injector = get_proxy_injector()
         assert injector is not None
-        assert injector.get_http_proxy_url('binance') == 'http://yaml-proxy:8080'
+        assert injector.get_http_proxy_url('binance') == 'http://code-proxy:8080'
 
     @pytest.mark.asyncio
     async def test_http_async_conn_reuses_session_with_proxy(self, monkeypatch):
