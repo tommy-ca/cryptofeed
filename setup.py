@@ -25,6 +25,22 @@ def get_long_description():
     return "\n\n----\n\n".join(markdown)
 
 
+def load_requirements(filename: str = "requirements.txt") -> list[str]:
+    repo_dir = os.path.abspath(os.path.dirname(__file__))
+    path = os.path.join(repo_dir, filename)
+    requirements: list[str] = []
+    with open(path, encoding="utf-8") as req_file:
+        for raw_line in req_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "#" in line:
+                line = line.split("#", 1)[0].strip()
+            if line:
+                requirements.append(line)
+    return requirements
+
+
 class Test(TestCommand):
     def run_tests(self):
         import pytest
@@ -74,23 +90,7 @@ setup(
         "Framework :: AsyncIO",
     ],
     tests_require=["pytest"],
-    install_requires=[
-        "requests>=2.18.4",
-        "websockets>=14.1",
-        "pyyaml",
-        "aiohttp>=3.9.4",
-        "aiohttp-socks>=0.10.0",
-        "python-socks>=2.4.3",
-        "aiofile>=2.0.0",
-        "yapic.json>=1.6.3",
-        "pydantic>=2.0.0",
-        "pydantic-settings>=2.0.0",
-        "PyNaCl>=1.5",
-        'uvloop ; platform_system!="Windows"',
-        "order_book>=0.6.0",
-        "aiodns>=1.1",  # aiodns speeds up DNS resolving
-        "ccxt>=4.5.11"
-    ],
+    install_requires=load_requirements(),
     extras_require={
         "arctic": ["arctic", "pandas"],
         "gcp_pubsub": ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"],
