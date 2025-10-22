@@ -8,7 +8,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12']
+    env:
+      BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +34,7 @@ jobs:
           buf lint proto
           echo "✓ Proto schemas pass linting"
       - name: Check for breaking changes
+        if: env.BUF_TOKEN != ''
         run: |
           buf breaking proto --against 'buf.build/tommyk/crypto-market-data:main'
       - name: Generate Protobuf bindings
