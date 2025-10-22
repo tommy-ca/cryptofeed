@@ -20,7 +20,7 @@ _DEFAULT_REQUIREMENTS = [
     "python-socks>=2.4.3",
     "cchardet",
     "cython",
-    "order_book>=0.6.0",
+    "order_book>=0.6.1",
     "ccxt>=4.5.11",
     "pyyaml",
     "PyNaCl>=1.5",
