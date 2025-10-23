@@ -1,6 +1,7 @@
 ## Changelog
 
 ### Unreleased (2025-10-05)
+ * Change: Replaced `yapic.json` with unified `cryptofeed.json_utils` abstraction backed by `orjson` + stdlib for Decimal-safe parsing; removed `cchardet` in favour of `charset-normalizer`; monitor hot-path performance and extend benchmarks if throughput regresses
  * Feature: Complete `ccxt-generic-pro-exchange` refactor (spec `ccxt-generic-pro-exchange`)
    * Consolidated CCXT modules under `cryptofeed/exchanges/ccxt/` with typed contexts and proxy-aware transports
    * Added adapter hook decorators and registry fallbacks for exchange-specific normalization
