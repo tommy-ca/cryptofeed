@@ -1,9 +1,10 @@
-'''
+"""
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
-'''
+"""
+
 import asyncio
 import atexit
 from collections import defaultdict
@@ -11,7 +12,6 @@ import functools
 import ast
 from contextlib import contextmanager
 
-from cryptofeed.json_utils import json
 from aiofile import AIOFile
 
 from cryptofeed.defines import HUOBI, UPBIT, OKX, OKCOIN
@@ -21,18 +21,18 @@ from cryptofeed.json_utils import loads as json_loads, dumps as json_dumps
 
 class _PlaybackFakeWS:
     def __init__(self, filenames):
-        self.conn_type = 'wss'
+        self.conn_type = "wss"
         self.uuid = "1"
         self.cache = defaultdict(list)
 
         for filename in filenames:
-            if 'http' not in filename:
+            if "http" not in filename:
                 continue
-            with open(filename, 'r', encoding='utf-8') as fp:
+            with open(filename, "r", encoding="utf-8") as fp:
                 for line in fp.readlines():
-                    if not line.startswith('http'):
+                    if not line.startswith("http"):
                         continue
-                    file_url, data = line.split(' -> ')
+                    file_url, data = line.split(" -> ")
                     _, msg = data.split(": ", 1)
                     self.cache[file_url].append(msg)
 
@@ -52,11 +52,11 @@ def _load_subscription_data(filenames):
     subscription = None
 
     for path in filenames:
-        if 'ws' in path or 'http' in path:
+        if "ws" in path or "http" in path:
             continue
-        with open(path, 'r', encoding='utf-8') as fp:
+        with open(path, "r", encoding="utf-8") as fp:
             for line in fp.readlines():
-                if 'configuration' in line:
+                if "configuration" in line:
                     subscription = json_loads(line.split(": ", 1)[1])
                 if line == "\n":
                     continue
@@ -75,7 +75,7 @@ def _make_symbol_helper(symbol_data):
 
 def _augment_callbacks(subscription, callbacks, callback_stats):
     async def internal_cb(*args, **kwargs):
-        callback_stats[kwargs['cb_type']] += 1
+        callback_stats[kwargs["cb_type"]] += 1
 
     def tracker(cb_type):
         return functools.partial(internal_cb, cb_type=cb_type)
@@ -107,13 +107,15 @@ def _convert_subscription(feed, ws_subscription, subscription):
     exchange_sub = {}
     for chan in ws_subscription:
         exchange_channel = feed.std_channel_to_exchange(chan)
-        symbols = [feed.std_symbol_to_exchange_symbol(symbol) for symbol in subscription[chan]]
+        symbols = [
+            feed.std_symbol_to_exchange_symbol(symbol) for symbol in subscription[chan]
+        ]
         exchange_sub[exchange_channel] = symbols
     return exchange_sub
 
 
 def _filter_ws_files(filenames):
-    return [filename for filename in filenames if '.ws.' in filename]
+    return [filename for filename in filenames if ".ws." in filename]
 
 
 @contextmanager
@@ -142,14 +144,14 @@ async def _replay_ws_files(filenames, handler, ws, feed) -> int:
 
 
 async def _replay_ws_file(filename, handler, ws, feed, counter: int) -> int:
-    with open(filename, 'r') as fp:
+    with open(filename, "r") as fp:
         for line in fp:
             if line == "\n":
                 continue
             prefix = line[:3]
-            if prefix == 'wss':
+            if prefix == "wss":
                 continue
-            if prefix == 'htt':
+            if prefix == "htt":
                 counter += 1
                 continue
 
@@ -184,7 +186,9 @@ def bytes_string_to_bytes(string):
     return tree.body[0].value.s
 
 
-def playback(feed: str, filenames: list, callbacks: dict = None, config: str = 'config.yaml'):
+def playback(
+    feed: str, filenames: list, callbacks: dict = None, config: str = "config.yaml"
+):
     return asyncio.run(_playback(feed, filenames, callbacks, config))
 
 
@@ -206,7 +210,9 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
             callbacks=callbacks,
         )
 
-        ws.subscription = _convert_subscription(feed_instance, ws.subscription, subscription)
+        ws.subscription = _convert_subscription(
+            feed_instance, ws.subscription, subscription
+        )
         connections = feed_instance.connect()
 
         handler = None
@@ -221,7 +227,7 @@ async def _playback(feed: str, filenames: list, callbacks: dict, config: str):
             feed_instance.stop()
             await feed_instance.shutdown()
 
-    return {'messages_processed': counter, 'callbacks': dict(callback_stats)}
+    return {"messages_processed": counter, "callbacks": dict(callback_stats)}
 
 
 class AsyncFileCallback:
@@ -239,20 +245,22 @@ class AsyncFileCallback:
 
     def stop(self):
         for uuid in list(self.data.keys()):
-            with open(f"{self.path}/{uuid}.{self.count[uuid]}", 'a') as fp:
+            with open(f"{self.path}/{uuid}.{self.count[uuid]}", "a") as fp:
                 fp.write("\n".join(self.data[uuid]) + "\n")
                 self.data[uuid] = []
                 fp.flush()
 
     def write_header(self, uuid, data):
-        with open(f"{self.path}/{uuid}.{0}", 'a') as fp:
+        with open(f"{self.path}/{uuid}.{0}", "a") as fp:
             fp.write(f"configuration: {data}\n")
             fp.flush()
 
     async def write(self, uuid):
         p = f"{self.path}/{uuid}.{self.count[uuid]}"
-        async with AIOFile(p, mode='a') as fp:
-            r = await fp.write("\n".join(self.data[uuid]) + "\n", offset=self.pointer[uuid])
+        async with AIOFile(p, mode="a") as fp:
+            r = await fp.write(
+                "\n".join(self.data[uuid]) + "\n", offset=self.pointer[uuid]
+            )
             self.pointer[uuid] += r
             self.data[uuid] = []
             await fp.fsync()
@@ -261,10 +269,21 @@ class AsyncFileCallback:
             self.count[uuid] += 1
             self.pointer[uuid] = 0
 
-    async def __call__(self, data: str, timestamp: float, uuid: str, endpoint: str = None, send: str = None, connect: str = None, header: str = None):
+    async def __call__(
+        self,
+        data: str,
+        timestamp: float,
+        uuid: str,
+        endpoint: str = None,
+        send: str = None,
+        connect: str = None,
+        header: str = None,
+    ):
         if endpoint:
             if header:
-                self.data[uuid].append(f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}")
+                self.data[uuid].append(
+                    f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}"
+                )
             else:
                 data = data.replace("\n", "")
                 self.data[uuid].append(f"{endpoint} -> {timestamp}: {data}")
@@ -278,10 +297,21 @@ class AsyncFileCallback:
         if len(self.data[uuid]) >= self.length:
             await asyncio.create_task(self.write(uuid))
 
-    def sync_callback(self, data: str, timestamp: float, uuid: str, endpoint: str = None, send: str = None, connect: str = None, header: str = None):
+    def sync_callback(
+        self,
+        data: str,
+        timestamp: float,
+        uuid: str,
+        endpoint: str = None,
+        send: str = None,
+        connect: str = None,
+        header: str = None,
+    ):
         if endpoint:
             if header:
-                w = w = f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}"
+                w = w = (
+                    f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}"
+                )
             else:
                 data = data.replace("\n", "")
                 w = f"{endpoint} -> {timestamp}: {data}"
@@ -292,6 +322,6 @@ class AsyncFileCallback:
         else:
             w = f"{timestamp}: {data}"
 
-        with open(f"{self.path}/{uuid}.{0}", 'a') as fp:
+        with open(f"{self.path}/{uuid}.{0}", "a") as fp:
             fp.write(w + "\n")
             fp.flush()
