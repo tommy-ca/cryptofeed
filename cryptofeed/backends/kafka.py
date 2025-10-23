@@ -11,7 +11,7 @@ from typing import Optional, ByteString
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import RequestTimedOutError, KafkaConnectionError, NodeNotReadyError
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
 

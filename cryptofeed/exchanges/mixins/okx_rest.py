@@ -8,7 +8,7 @@ import asyncio
 from decimal import Decimal
 import logging
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.exchange import RestExchange
 from cryptofeed.types import Candle

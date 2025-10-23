@@ -6,7 +6,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Callable
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import WSAsyncConn
 from cryptofeed.exchanges.native.metrics import NativeExchangeMetrics

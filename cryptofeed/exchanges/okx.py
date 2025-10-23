@@ -7,7 +7,7 @@ associated with this software.
 from collections import defaultdict
 from decimal import Decimal
 from typing import Dict, Tuple
-from yapic import json
+from cryptofeed.json_utils import json
 import asyncio
 import base64
 import hmac

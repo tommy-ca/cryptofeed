@@ -20,7 +20,7 @@ try:
 except ImportError:
     SIGNALS = (SIGABRT, SIGINT, SIGTERM)
 
-from yapic import json
+from cryptofeed.json_utils import dumps as json_dumps
 
 from cryptofeed.config import Config
 from cryptofeed.defines import L2_BOOK
@@ -28,7 +28,7 @@ from cryptofeed.feed import Feed
 from cryptofeed.log import get_logger
 from cryptofeed.nbbo import NBBO
 from cryptofeed.exchanges import EXCHANGE_MAP
-from cryptofeed.proxy import ProxySettings, init_proxy_system, load_proxy_settings
+from cryptofeed.proxy import ProxyConfig, ProxySettings, init_proxy_system, load_proxy_settings
 
 
 LOG = logging.getLogger('feedhandler')
@@ -229,7 +229,7 @@ class FeedHandler:
         else:
             self.feeds.append((feed))
         if self.raw_data_collection:
-            self.raw_data_collection.write_header(self.feeds[-1].id, json.dumps(self.feeds[-1]._feed_config))
+            self.raw_data_collection.write_header(self.feeds[-1].id, json_dumps(self.feeds[-1]._feed_config))
 
         if self.running:
             if loop is None:

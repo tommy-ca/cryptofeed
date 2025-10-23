@@ -9,7 +9,7 @@ import asyncio
 import logging
 from textwrap import wrap
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendQueue, BackendBookCallback, BackendCallback
 

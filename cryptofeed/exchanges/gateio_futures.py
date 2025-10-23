@@ -8,7 +8,7 @@ associated with this software.
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from yapic import json
+from cryptofeed.json_utils import json
 import time
 
 from cryptofeed.connection import RestEndpoint, Routes, WebsocketEndpoint

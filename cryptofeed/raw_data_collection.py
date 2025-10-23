@@ -11,11 +11,12 @@ import functools
 import ast
 from contextlib import contextmanager
 
-from yapic import json
+from cryptofeed.json_utils import json
 from aiofile import AIOFile
 
 from cryptofeed.defines import HUOBI, UPBIT, OKX, OKCOIN
 from cryptofeed.exchanges import EXCHANGE_MAP
+from cryptofeed.json_utils import loads as json_loads, dumps as json_dumps
 
 
 class _PlaybackFakeWS:
@@ -42,7 +43,7 @@ class _PlaybackFakeWS:
         data = self.cache[url].pop(0)
         if "header:" in data:
             payload, header = data.split(" header: ")
-            return payload, json.loads(header.strip())
+            return payload, json_loads(header.strip())
         return data
 
 
@@ -56,11 +57,11 @@ def _load_subscription_data(filenames):
         with open(path, 'r', encoding='utf-8') as fp:
             for line in fp.readlines():
                 if 'configuration' in line:
-                    subscription = json.loads(line.split(": ", 1)[1])
+                    subscription = json_loads(line.split(": ", 1)[1])
                 if line == "\n":
                     continue
                 payload = line.split(": ", 1)[1]
-                symbol_data.append(json.loads(payload.strip()))
+                symbol_data.append(json_loads(payload.strip()))
 
     return symbol_data, subscription
 
@@ -263,7 +264,7 @@ class AsyncFileCallback:
     async def __call__(self, data: str, timestamp: float, uuid: str, endpoint: str = None, send: str = None, connect: str = None, header: str = None):
         if endpoint:
             if header:
-                self.data[uuid].append(f"{endpoint} -> {timestamp}: {data} header: {json.dumps(header)}")
+                self.data[uuid].append(f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}")
             else:
                 data = data.replace("\n", "")
                 self.data[uuid].append(f"{endpoint} -> {timestamp}: {data}")
@@ -280,7 +281,7 @@ class AsyncFileCallback:
     def sync_callback(self, data: str, timestamp: float, uuid: str, endpoint: str = None, send: str = None, connect: str = None, header: str = None):
         if endpoint:
             if header:
-                w = w = f"{endpoint} -> {timestamp}: {data} header: {json.dumps(header)}"
+                w = w = f"{endpoint} -> {timestamp}: {data} header: {json_dumps(header)}"
             else:
                 data = data.replace("\n", "")
                 w = f"{endpoint} -> {timestamp}: {data}"
