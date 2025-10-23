@@ -15,7 +15,7 @@ from typing import AnyStr
 import aiohttp
 import google.api_core.exceptions
 from google.cloud import pubsub_v1
-from yapic import json
+from cryptofeed.json_utils import json
 
 # Use gcloud.aio.pubsub for asyncio
 # https://github.com/talkiq/gcloud-aio

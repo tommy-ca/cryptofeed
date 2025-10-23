@@ -8,7 +8,7 @@ import ast
 import sys
 import zlib
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 
 def bytes_string_to_bytes(string):

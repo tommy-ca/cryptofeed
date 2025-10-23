@@ -9,7 +9,7 @@ from decimal import Decimal
 import logging
 from datetime import datetime, timezone
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.defines import CANDLES
 from cryptofeed.exchange import RestExchange

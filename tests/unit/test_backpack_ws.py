@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.exchanges.backpack.config import BackpackConfig, BackpackAuthSettings
 from cryptofeed.exchanges.backpack.ws import BackpackSubscription, BackpackWsSession

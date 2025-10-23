@@ -11,7 +11,7 @@ from typing import Dict, Tuple
 from collections import defaultdict
 from time import time
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import BID, BUY, ASK, INDEPENDENT_RESERVE, L3_BOOK, SELL, TRADES

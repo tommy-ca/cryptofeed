@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Callable
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import HTTPAsyncConn
 
@@ -46,7 +46,7 @@ class NativeRestClient:
         text = await self._conn.read(url, params=params)
         try:
             return json.loads(text)
-        except Exception as exc:  # pragma: no cover - yapic JSON raises generic Exception types
+        except Exception as exc:  # pragma: no cover - JSON backend may raise generic Exception types
             raise NativeRestError(f"Unable to parse JSON payload from {url}: {exc}") from exc
 
     async def __aenter__(self) -> "NativeRestClient":

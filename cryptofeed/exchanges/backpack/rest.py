@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import HTTPAsyncConn
 from cryptofeed.exchanges.backpack.config import BackpackConfig
@@ -46,7 +46,7 @@ class BackpackRestClient:
         text = await self._conn.read(url)
         try:
             data = json.loads(text)
-        except Exception as exc:  # pragma: no cover - yapic JSON raises generic Exception types
+        except Exception as exc:  # pragma: no cover - JSON backend may raise generic Exception types
             raise BackpackRestError(f"Unable to parse markets payload: {exc}") from exc
         if not isinstance(data, (list, tuple)):
             raise BackpackRestError("Markets endpoint returned unexpected payload")

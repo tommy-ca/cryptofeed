@@ -21,7 +21,7 @@ from websockets.asyncio.client import connect, ClientConnection
 from websockets.protocol import State
 import aiohttp
 from aiohttp.typedefs import StrOrURL
-from yapic import json as json_parser
+from cryptofeed.json_utils import loads as json_loads
 
 from cryptofeed.exceptions import ConnectionClosed
 from cryptofeed.symbols import str_to_symbol
@@ -48,7 +48,7 @@ class HTTPSync(Connection):
 
         r.raise_for_status()
         if json:
-            return json_parser.loads(r.text, parse_float=Decimal)
+            return json_loads(r.text, parse_float=Decimal)
         if text:
             return r.text
         return r
