@@ -18,7 +18,7 @@ _DEFAULT_REQUIREMENTS = [
     "aiohttp>=3.9.5",
     "aiohttp-socks>=0.9.2",
     "python-socks>=2.4.3",
-    "cchardet",
+    "charset-normalizer>=3.3.0",
     "cython",
     "order_book>=0.6.1",
     "ccxt>=4.5.9",
@@ -28,7 +28,7 @@ _DEFAULT_REQUIREMENTS = [
     "requests>=2.18.4",
     'uvloop; platform_system!="Windows"',
     "websockets>=14.1",
-    "yapic.json>=1.6.3",
+    "orjson>=3.10.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
 ]
@@ -140,6 +140,8 @@ setup(
             "redis>=4.5.1",
             "pyzmq",
             "python-socks>=2.4.3",
+            "orjson>=3.10.0",
+            "charset-normalizer>=3.3.0",
         ],
     },
 )
