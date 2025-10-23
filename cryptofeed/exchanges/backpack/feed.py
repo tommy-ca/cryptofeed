@@ -1,4 +1,5 @@
 """Native Backpack feed integrating configuration, transports, and adapters."""
+
 from __future__ import annotations
 
 import json
@@ -11,9 +12,18 @@ from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BACKPACK, L2_BOOK, TRADES, TICKER
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol, Symbols
-from cryptofeed.proxy import ConnectionProxies, ProxyConfig, ProxySettings, get_proxy_injector, init_proxy_system
+from cryptofeed.proxy import (
+    ConnectionProxies,
+    ProxySettings,
+    get_proxy_injector,
+    init_proxy_system,
+)
 
-from .adapters import BackpackOrderBookAdapter, BackpackTickerAdapter, BackpackTradeAdapter
+from .adapters import (
+    BackpackOrderBookAdapter,
+    BackpackTickerAdapter,
+    BackpackTradeAdapter,
+)
 from .auth import BackpackAuthHelper
 from .config import BackpackConfig
 from .health import BackpackHealthReport, evaluate_health
@@ -84,11 +94,15 @@ class BackpackFeed(Feed):
         self._rest_client_factory = deps.rest_client_factory
         self._ws_session_factory = deps.ws_session_factory
         self._rest_client = self._rest_client_factory(self.exchange_config)
-        self._symbol_service = deps.symbol_service or BackpackSymbolService(rest_client=self._rest_client)
+        self._symbol_service = deps.symbol_service or BackpackSymbolService(
+            rest_client=self._rest_client
+        )
 
         depth = kwargs.pop("max_depth", max_depth)
         self._trade_adapter = BackpackTradeAdapter(exchange=self.id)
-        self._order_book_adapter = BackpackOrderBookAdapter(exchange=self.id, max_depth=depth)
+        self._order_book_adapter = BackpackOrderBookAdapter(
+            exchange=self.id, max_depth=depth
+        )
         self._ticker_adapter = BackpackTickerAdapter(exchange=self.id)
 
         self._router: Optional[BackpackMessageRouter] = None
@@ -150,17 +164,26 @@ class BackpackFeed(Feed):
 
     async def _ensure_symbol_metadata(self) -> None:
         await self._symbol_service.ensure()
-        mapping = {market.normalized_symbol: market.native_symbol for market in self._symbol_service.all_markets()}
+        mapping = {
+            market.normalized_symbol: market.native_symbol
+            for market in self._symbol_service.all_markets()
+        }
         if mapping:
             info = {
                 "symbols": list(mapping.keys()),
             }
             Symbols.set(self.id, mapping, info)
             self.normalized_symbol_mapping = mapping
-            self.exchange_symbol_mapping = {value: key for key, value in mapping.items()}
+            self.exchange_symbol_mapping = {
+                value: key for key, value in mapping.items()
+            }
 
     def _build_ws_session(self) -> BackpackWsSession:
-        auth_helper = BackpackAuthHelper(self.exchange_config) if self.exchange_config.requires_auth else None
+        auth_helper = (
+            BackpackAuthHelper(self.exchange_config)
+            if self.exchange_config.requires_auth
+            else None
+        )
         session = self._ws_session_factory(self.exchange_config)
         if auth_helper and getattr(session, "_auth_helper", None) is None:
             session._auth_helper = auth_helper
@@ -174,13 +197,18 @@ class BackpackFeed(Feed):
             self._ws_session = connection.session
 
         if not self._ws_session:
-            raise RuntimeError("Backpack websocket session unavailable during subscribe")
+            raise RuntimeError(
+                "Backpack websocket session unavailable during subscribe"
+            )
 
         subscriptions = []
         for std_channel, exchange_channel in self.websocket_channels.items():
             if exchange_channel not in self.subscription:
                 continue
-            symbols = [self.std_symbol_to_exchange_symbol(symbol) for symbol in self.subscription[exchange_channel]]
+            symbols = [
+                self.std_symbol_to_exchange_symbol(symbol)
+                for symbol in self.subscription[exchange_channel]
+            ]
             subscriptions.append(
                 BackpackSubscription(
                     channel=exchange_channel,
@@ -191,7 +219,11 @@ class BackpackFeed(Feed):
 
         if subscriptions:
             await self._ws_session.subscribe(subscriptions)
-            LOG.info("%s: subscribed to %s", self.id, ",".join(sub.channel for sub in subscriptions))
+            LOG.info(
+                "%s: subscribed to %s",
+                self.id,
+                ",".join(sub.channel for sub in subscriptions),
+            )
 
     async def message_handler(self, msg: str, conn: AsyncConnection, timestamp: float):
         if self._router:
@@ -230,7 +262,9 @@ class BackpackFeed(Feed):
             init_proxy_system(updated)
             injector = get_proxy_injector()
             if injector is None or not injector.settings.enabled:
-                LOG.warning("proxy: unable to enable proxy system for Backpack override")
+                LOG.warning(
+                    "proxy: unable to enable proxy system for Backpack override"
+                )
                 return
 
         key = self.exchange_config.exchange_id.casefold()
@@ -247,7 +281,9 @@ class BackpackFeed(Feed):
     def connect(self) -> List[Tuple[AsyncConnection, callable, callable, callable]]:
         if not self._connection:
             self._connection = BackpackWsConnection(self)
-        return [(self._connection, self.subscribe, self.message_handler, self.authenticate)]
+        return [
+            (self._connection, self.subscribe, self.message_handler, self.authenticate)
+        ]
 
 
 class BackpackWsConnection(AsyncConnection):
