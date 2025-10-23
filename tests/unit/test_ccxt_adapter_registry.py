@@ -1,4 +1,5 @@
 """Tests for the CCXT adapter registry and base adapters."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -16,7 +17,6 @@ from cryptofeed.exchanges.ccxt.adapters import (
     CcxtTradeAdapter,
     FallbackOrderBookAdapter,
     FallbackTradeAdapter,
-    ccxt_orderbook_hook,
     ccxt_trade_hook,
 )
 from cryptofeed.types import OrderBook, Trade
@@ -122,7 +122,9 @@ class TestBaseAdapters:
 
         adapter = SimpleBookAdapter()
         with pytest.raises(AdapterValidationError):
-            adapter.validate_orderbook({"symbol": "BTC/USDT", "bids": "bad", "asks": []})
+            adapter.validate_orderbook(
+                {"symbol": "BTC/USDT", "bids": "bad", "asks": []}
+            )
 
 
 class TestConcreteAdapters:
@@ -131,7 +133,7 @@ class TestConcreteAdapters:
     def test_trade_adapter_returns_none_on_missing_fields(self, caplog):
         adapter = CcxtTradeAdapter()
         assert adapter.convert_trade({"symbol": "BTC/USDT", "side": "buy"}) is None
-        assert any("R3 trade validation failed" in msg for msg in caplog.messages)
+        assert any("R3 trade conversion failed" in msg for msg in caplog.messages)
 
     def test_orderbook_adapter_handles_sequence(self):
         adapter = CcxtOrderBookAdapter(exchange="demo")
