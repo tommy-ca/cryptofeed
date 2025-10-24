@@ -99,6 +99,34 @@ fh.run()
 
 Please see the [examples](https://github.com/bmoscon/cryptofeed/tree/master/examples) for more code samples and the [documentation](https://github.com/bmoscon/cryptofeed/blob/master/docs/README.md) for more information about the library usage.
 
+## E2E Testing
+
+Comprehensive end-to-end testing infrastructure with reproducible environments:
+
+**Quick Start**:
+```bash
+# Setup environment (uv-based, 10-100x faster than pip)
+./tests/e2e/setup_e2e_env.sh
+source .venv-e2e/bin/activate
+
+# Run tests
+pytest tests/unit/test_proxy_mvp.py -v                    # Smoke tests (52 tests)
+pytest tests/integration/test_live_*.py -v -m live_proxy  # Live tests (26 tests)
+```
+
+**Test Coverage**: 70/78 tests passing (89.7%)
+- Phase 1: Smoke tests (52/52 = 100%)
+- Phase 2: Live connectivity (7/8 = 87.5%)
+- Phase 2.5: Backpack enhanced (11/18 = 61%)
+
+**Features**:
+- ⚡ Fast reproducible setup (~25 seconds)
+- 🔒 Locked dependencies for consistency
+- 🌍 Proxy routing validation (HTTP + WebSocket)
+- ✅ Live exchange testing (Binance, Hyperliquid, Backpack)
+
+**Documentation**: See [docs/e2e/](docs/e2e/) for detailed guides
+
 
 For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
 
