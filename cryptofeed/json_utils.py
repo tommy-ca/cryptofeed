@@ -48,6 +48,9 @@ def dumps(
     def _default(value: Any) -> Any:
         if isinstance(value, Decimal):
             return str(value)
+        # Support common non-JSON types used in payloads
+        if isinstance(value, (set, frozenset)):
+            return list(value)
         if default is not None:
             return default(value)
         raise TypeError(f"Type is not JSON serializable: {type(value)!r}")
