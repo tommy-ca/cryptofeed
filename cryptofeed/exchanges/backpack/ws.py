@@ -120,24 +120,17 @@ class BackpackWsSession:
         if not self._connected:
             raise BackpackWebsocketError("Websocket not open")
 
-        channels = []
+        # Build params as simple array of "channel.symbol" strings per Backpack API spec
         params: list[str] = []
         for sub in subscriptions:
             prefix = self._CHANNEL_PREFIX.get(sub.channel, sub.channel)
-            entry = {
-                "name": prefix,
-                "symbols": list(sub.symbols),
-                "private": sub.private,
-            }
-            channels.append(entry)
             for symbol in sub.symbols:
                 params.append(f"{prefix}.{symbol}")
 
+        # Backpack API expects: {"method": "SUBSCRIBE", "params": ["channel.symbol", ...], "id": N}
         payload = {
-            "op": "subscribe",
             "method": "SUBSCRIBE",
-            "params": {"channels": channels, "raw": params},
-            "channels": channels,
+            "params": params,
             "id": self._next_id(),
         }
         await self._send(payload)
