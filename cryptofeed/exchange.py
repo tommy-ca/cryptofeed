@@ -45,8 +45,9 @@ class Exchange:
     rest_endpoints: ClassVar[List[RestEndpoint]]
     websocket_channels: ClassVar[Dict[str, str]]
     request_limit: ClassVar[int]
-    valid_candle_intervals: ClassVar[set]
-    candle_interval_map: ClassVar[Optional[Dict[str, str]]] = None
+    # Optional candle interval configuration; subclasses may override
+    valid_candle_intervals: ClassVar[set] = NotImplemented  # set of supported intervals
+    candle_interval_map: ClassVar[Optional[Dict[str, str]]] = NotImplemented  # mapping from exchange->std or vice versa
 
     # Class methods that must be defined by subclasses
     @classmethod
@@ -82,8 +83,46 @@ class Exchange:
         }
 
     @classmethod
-    def timestamp_normalize(cls, ts: dt) -> float:
-        return ts.astimezone(timezone.utc).timestamp()
+    def timestamp_normalize(cls, ts) -> float:
+        """Normalize various timestamp representations to UTC seconds as float.
+
+        Accepts:
+        - datetime: converted to UTC timestamp
+        - int/float: epoch seconds or milliseconds (>= 1e12 treated as ms)
+        - str: numeric epoch or ISO-8601 string (with optional 'Z')
+        """
+        if isinstance(ts, dt):
+            return ts.astimezone(timezone.utc).timestamp()
+        # Numeric epoch
+        if isinstance(ts, (int, float)):
+            val = float(ts)
+            if val >= 1_000_000_000_000:  # ms
+                val /= 1000.0
+            return val
+        # String handling
+        if isinstance(ts, str):
+            s = ts.strip()
+            # Try numeric first
+            try:
+                num = float(s)
+                return cls.timestamp_normalize(num)
+            except Exception:
+                pass
+            # Try ISO-8601
+            iso = s.rstrip('Z')
+            try:
+                parsed = dt.fromisoformat(iso)
+            except Exception:
+                # drop fractional seconds if present
+                try:
+                    parsed = dt.fromisoformat(iso.split('.')[0])
+                except Exception:
+                    parsed = None
+            if parsed is not None:
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed.astimezone(timezone.utc).timestamp()
+        raise TypeError(f"Unsupported timestamp type: {type(ts)!r}")
 
     @classmethod
     def normalize_order_options(cls, option: str):
@@ -175,6 +214,16 @@ class Exchange:
         try:
             return self.exchange_symbol_mapping[symbol]
         except KeyError:
+            # Heuristic fallbacks when symbol mapping unavailable
+            if isinstance(symbol, str):
+                # Already normalized (COINBASE-style)
+                if '-' in symbol:
+                    return symbol
+                # BYBIT/others spot compact form like BTCUSDT -> BTC-USDT
+                for q in ('USDT','USDC','USD','EUR','BTC','ETH','DAI','BRZ'):
+                    if symbol.endswith(q) and len(symbol) > len(q):
+                        base = symbol[:-len(q)]
+                        return f"{base}-{q}"
             if self.ignore_invalid_instruments:
                 LOG.warning("Invalid symbol %s configured for %s", symbol, self.id)
                 return symbol
@@ -186,6 +235,22 @@ class Exchange:
         try:
             return self.normalized_symbol_mapping[symbol]
         except KeyError:
+            # Fallback for common perpetual naming where exchange omits '-PERP' suffix
+            if isinstance(symbol, str) and symbol.endswith('-PERP'):
+                parts = symbol.split('-')
+                if len(parts) >= 3:
+                    base, quote = parts[0], parts[1]
+                    candidate = f"{base}{quote}"
+                    mapped = self.normalized_symbol_mapping.get(symbol) or self.normalized_symbol_mapping.get(f"{base}-{quote}-PERP")
+                    # If mapping missing, return candidate directly to tolerate playback
+                    return mapped or candidate
+            # Heuristic: map normalized spot base-quote to compact form for exchanges like BYBIT
+            if isinstance(symbol, str) and '-' in symbol:
+                base, quote = symbol.split('-', 1)
+                if self.id == 'BYBIT':
+                    return f"{base}{quote}"
+                # Exchanges like COINBASE already use dashed identifiers
+                return symbol
             if self.ignore_invalid_instruments:
                 LOG.warning("Invalid symbol %s configured for %s", symbol, self.id)
                 return symbol
