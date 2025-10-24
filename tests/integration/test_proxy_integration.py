@@ -155,7 +155,8 @@ class TestProxySystemIntegration:
             assert conn_binance.is_open
             assert conn_binance.exchange_id == "binance"
             assert conn_binance.proxy == "http://region-asia.proxy.company.com:8080"
-            assert str(conn_binance.conn._default_proxy) == "http://region-asia.proxy.company.com:8080"
+            # HTTP proxies are passed via _request_proxy_kwargs, not _default_proxy
+            assert conn_binance._request_proxy_kwargs.get("proxy") == "http://region-asia.proxy.company.com:8080"
             
             # Test connection with default proxy fallback
             conn_unknown = HTTPAsyncConn("test-unknown", exchange_id="unknown_exchange")
