@@ -52,6 +52,24 @@ class Symbol:
             day = date.day
             return f"{year}{month}{day}"
 
+        # Handle ISO 8601 formats like "YYYY-MM-DDTHH:MM:SS(.fff)Z"
+        if isinstance(date, str) and ("-" in date and "T" in date):
+            iso = date.rstrip("Z")
+            try:
+                parsed = dt.fromisoformat(iso)
+            except Exception:
+                # Fallback: try without fractional seconds
+                try:
+                    parsed = dt.fromisoformat(iso.split(".")[0])
+                except Exception:
+                    parsed = None
+            if parsed is not None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+                year = str(parsed.year)[2:]
+                month = Symbol.month_code(parsed.month)
+                day = parsed.day
+                return f"{year}{month}{day}"
+
         if len(date) == 4:
             year = str(dt.utcnow().year)[2:]
             date = year + date
