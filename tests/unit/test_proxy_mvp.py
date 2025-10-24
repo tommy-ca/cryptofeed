@@ -478,8 +478,8 @@ class TestProxySystemGlobals:
         init_proxy_system(settings)
 
         injector = get_proxy_injector()
-        assert injector is not None
-        assert injector.settings.enabled is False
+        # When disabled, injector should be None to avoid overhead
+        assert injector is None
     
     def test_load_proxy_settings(self):
         """Test loading proxy settings from environment."""
