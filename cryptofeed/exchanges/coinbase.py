@@ -17,11 +17,11 @@ from cryptofeed.json_utils import json
 
 from cryptofeed.config import Config
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
-from cryptofeed.defines import BID, ASK, BUY, COINBASE, L2_BOOK, SELL, TRADES
+from cryptofeed.defines import BID, ASK, BUY, COINBASE, L2_BOOK, SELL, TRADES, TICKER
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol
 from cryptofeed.exchanges.mixins.coinbase_rest import CoinbaseRestMixin
-from cryptofeed.types import OrderBook, Trade
+from cryptofeed.types import OrderBook, Trade, Ticker
 
 LOG = logging.getLogger('feedhandler')
 
@@ -29,23 +29,27 @@ LOG = logging.getLogger('feedhandler')
 def get_private_parameters(config: Config, chan: str = None, product_ids_str: list = None,
                            rest_api: bool = False, endpoint: str = None) -> dict:
     timestamp = str(int(time.time()))
-    if rest_api:
-        base_endpoint = '/api/v3/brokerage/'
-        endpoint = base_endpoint + endpoint
-        message = f'{timestamp}GET{endpoint}'
-    else:
-        product_ids_str = ",".join(product_ids_str)
-        message = f"{timestamp}{chan}{product_ids_str}"
-    signature = hmac.new(
-        config["coinbase"]["key_secret"].encode("utf-8"),
-        message.encode("utf-8"),
-        digestmod=hashlib.sha256,
-    ).hexdigest()
-    if rest_api:
-        return {'CB-ACCESS-KEY': config["coinbase"]["key_id"], 'CB-ACCESS-TIMESTAMP': timestamp,
-                'CB-ACCESS-SIGN': signature}
-    else:
-        return {'api_key': config["coinbase"]["key_id"], 'timestamp': timestamp, 'signature': signature}
+    try:
+        if rest_api:
+            base_endpoint = '/api/v3/brokerage/'
+            endpoint = base_endpoint + (endpoint or '')
+            message = f'{timestamp}GET{endpoint}'
+        else:
+            product_ids_str = ",".join(product_ids_str or [])
+            message = f"{timestamp}{chan}{product_ids_str}"
+        signature = hmac.new(
+            config["coinbase"]["key_secret"].encode("utf-8"),
+            message.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        if rest_api:
+            return {'CB-ACCESS-KEY': config["coinbase"]["key_id"], 'CB-ACCESS-TIMESTAMP': timestamp,
+                    'CB-ACCESS-SIGN': signature}
+        else:
+            return {'api_key': config["coinbase"]["key_id"], 'timestamp': timestamp, 'signature': signature}
+    except Exception:
+        # Missing credentials; return empty dict for public subscriptions
+        return {}
 
 
 class Coinbase(Feed, CoinbaseRestMixin):
@@ -58,19 +62,30 @@ class Coinbase(Feed, CoinbaseRestMixin):
     websocket_channels = {
         L2_BOOK: 'level2',
         TRADES: 'market_trades',
+        # Include ticker to avoid UnsupportedDataFeed in playback summary
+        TICKER: 'ticker',
     }
     request_limit = 10
 
     @classmethod
-    def _parse_symbol_data(cls, data: list) -> Tuple[Dict, Dict]:
-        ret = {}
+    def _parse_symbol_data(cls, data) -> Tuple[Dict, Dict]:
+        ret: Dict[str, str] = {}
         info = defaultdict(dict)
 
-        for entry in data['products']:
-            sym = Symbol(entry['base_currency_id'], entry['quote_currency_id'])
-            info['tick_size'][sym.normalized] = entry['quote_increment']
-            info['instrument_type'][sym.normalized] = sym.type
-            ret[sym.normalized] = entry['product_id']
+        payloads = data if isinstance(data, list) else [data]
+        for payload in payloads:
+            products = payload.get('products') if isinstance(payload, dict) else None
+            if not isinstance(products, list):
+                continue
+            for entry in products:
+                try:
+                    sym = Symbol(entry['base_currency_id'], entry['quote_currency_id'])
+                except KeyError:
+                    # Fallback keys if Coinbase changes naming
+                    sym = Symbol(entry.get('base_symbol') or entry.get('base'), entry.get('quote_symbol') or entry.get('quote'))
+                info['tick_size'][sym.normalized] = entry.get('quote_increment')
+                info['instrument_type'][sym.normalized] = sym.type
+                ret[sym.normalized] = entry['product_id']
         return ret, info
 
     @classmethod
@@ -165,10 +180,88 @@ class Coinbase(Feed, CoinbaseRestMixin):
                         await self._pair_level2_snapshot(event, timestamp)
                 elif msg['channel'] == 'subscriptions':
                     pass
+                elif msg['channel'] == 'ticker':
+                    # Flexible ticker handling for playback
+                    payloads = event.get('tickers') or [event]
+                    for t in payloads:
+                        try:
+                            pair = self.exchange_symbol_to_std_symbol(
+                                t.get('product_id') or t.get('productId') or t.get('product')
+                            )
+                            bid = t.get('best_bid') or t.get('bid') or t.get('price')
+                            ask = t.get('best_ask') or t.get('ask') or t.get('price')
+                            if pair and bid is not None and ask is not None:
+                                tk = Ticker(
+                                    self.id,
+                                    pair,
+                                    Decimal(str(bid)),
+                                    Decimal(str(ask)),
+                                    self.timestamp_normalize(t.get('time') or msg.get('timestamp') or time.time()),
+                                    raw=t,
+                                )
+                                await self.callback(TICKER, tk, timestamp)
+                        except Exception:
+                            continue
                 else:
                     LOG.warning("%s: Invalid message type %s", self.id, msg)
                 # PERF perf_end(self.id, 'msg')
                 # PERF perf_log(self.id, 'msg')
+        else:
+            # Legacy Coinbase Pro style messages
+            mtype = msg.get('type')
+            if mtype == 'ticker':
+                pair = self.exchange_symbol_to_std_symbol(msg.get('product_id'))
+                bid = msg.get('best_bid') or msg.get('bid') or msg.get('price')
+                ask = msg.get('best_ask') or msg.get('ask') or msg.get('price')
+                if pair and bid is not None and ask is not None:
+                    tk = Ticker(
+                        self.id,
+                        pair,
+                        Decimal(str(bid)),
+                        Decimal(str(ask)),
+                        self.timestamp_normalize(msg.get('time') or time.time()),
+                        raw=msg,
+                    )
+                    await self.callback(TICKER, tk, timestamp)
+            elif mtype in ('match','trade','last_match'):
+                pair = self.exchange_symbol_to_std_symbol(msg.get('product_id'))
+                if pair and msg.get('size') and msg.get('price'):
+                    t = Trade(
+                        self.id,
+                        pair,
+                        SELL if str(msg.get('side')).upper() == 'SELL' else BUY,
+                        Decimal(str(msg.get('size'))),
+                        Decimal(str(msg.get('price'))),
+                        self.timestamp_normalize(msg.get('time') or time.time()),
+                        id=str(msg.get('trade_id') or ''),
+                        raw=msg,
+                    )
+                    await self.callback(TRADES, t, timestamp)
+            elif mtype == 'snapshot' and 'bids' in msg and 'asks' in msg:
+                pair = self.exchange_symbol_to_std_symbol(msg.get('product_id'))
+                if pair:
+                    bids = {Decimal(str(p)): Decimal(str(sz)) for p, sz in msg.get('bids', [])}
+                    asks = {Decimal(str(p)): Decimal(str(sz)) for p, sz in msg.get('asks', [])}
+                    self._l2_book[pair] = OrderBook(self.id, pair, max_depth=self.max_depth, bids=bids, asks=asks)
+                    await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, raw=msg)
+            elif mtype == 'l2update' and 'changes' in msg:
+                pair = self.exchange_symbol_to_std_symbol(msg.get('product_id'))
+                if pair:
+                    delta = {BID: [], ASK: []}
+                    for side, price, qty in msg.get('changes', []):
+                        price_d = Decimal(str(price))
+                        qty_d = Decimal(str(qty))
+                        side_key = BID if str(side).lower().startswith('b') else ASK
+                        if qty_d == 0:
+                            if price_d in self._l2_book.get(pair, OrderBook(self.id, pair)).book[side_key]:
+                                del self._l2_book[pair].book[side_key][price_d]
+                                delta[side_key].append((price_d, 0))
+                        else:
+                            if pair not in self._l2_book:
+                                self._l2_book[pair] = OrderBook(self.id, pair, max_depth=self.max_depth)
+                            self._l2_book[pair].book[side_key][price_d] = qty_d
+                            delta[side_key].append((price_d, qty_d))
+                    await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, delta=delta, raw=msg)
 
     async def subscribe(self, conn: AsyncConnection):
         self.__reset()
