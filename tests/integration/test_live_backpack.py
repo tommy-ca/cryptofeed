@@ -146,10 +146,6 @@ async def test_backpack_native_rest_trades():
 
     client = BackpackRestClient(BackpackConfig())
     
-    # Check if client has fetch_trades method
-    if not hasattr(client, 'fetch_trades'):
-        pytest.skip("Backpack native REST client does not have fetch_trades method")
-    
     try:
         trades = await asyncio.wait_for(
             client.fetch_trades(native_symbol=symbol, limit=10),
@@ -179,10 +175,6 @@ async def test_backpack_native_rest_klines():
     _init_proxy(proxy_url)
 
     client = BackpackRestClient(BackpackConfig())
-    
-    # Check if client has fetch_klines method
-    if not hasattr(client, 'fetch_klines'):
-        pytest.skip("Backpack native REST client does not have fetch_klines method")
     
     try:
         klines = await asyncio.wait_for(
