@@ -23,6 +23,16 @@ from cryptofeed.proxy import (
 from cryptofeed.connection import HTTPAsyncConn, WSAsyncConn
 
 
+@pytest.fixture(autouse=True)
+def cleanup_proxy_state():
+    """Ensure clean proxy state before and after each test."""
+    # Cleanup before test
+    init_proxy_system(ProxySettings(enabled=False))
+    yield
+    # Cleanup after test
+    init_proxy_system(ProxySettings(enabled=False))
+
+
 class TestProxyConfigurationLoading:
     """Test proxy configuration loading from environment and files."""
     
