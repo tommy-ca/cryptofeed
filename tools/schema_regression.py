@@ -189,7 +189,13 @@ def _check_event_parity(
     dataclass_dict = dataclass_obj.to_dict() if hasattr(dataclass_obj, "to_dict") else {}
 
     for field_name, expected_value in dataclass_dict.items():
+        # Ignore the synthetic 'type' field for parity; event_type is validated separately
+        if field_name == "type":
+            continue
         if field_name not in event_dict:
+            # Treat absent optional fields (None) as acceptable
+            if expected_value is None:
+                continue
             parity.mismatch_count += 1
             check = FieldParity(
                 field_name=field_name,
