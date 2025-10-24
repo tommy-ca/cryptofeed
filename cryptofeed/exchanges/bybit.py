@@ -55,11 +55,9 @@ class Bybit(Feed):
     tickers = {}
 
     @classmethod
-    def timestamp_normalize(cls, ts: Union[int, dt]) -> float:
-        if isinstance(ts, int):
-            return ts / 1000.0
-        else:
-            return ts.timestamp()
+    def timestamp_normalize(cls, ts) -> float:
+        from cryptofeed.exchange import Exchange
+        return Exchange.timestamp_normalize(ts)
 
     @staticmethod
     def convert_to_spot_name(cls, pair):
@@ -73,49 +71,62 @@ class Bybit(Feed):
 
     @classmethod
     def _parse_symbol_data(cls, data: dict) -> Tuple[Dict, Dict]:
-        ret = {}
+        ret: Dict[str, str] = {}
         info = defaultdict(dict)
 
-        for msg in data:
-            if isinstance(msg['result'], dict):
-                for symbol in msg['result']['list']:
+        messages = data if isinstance(data, list) else [data]
+        for msg in messages:
+            # Bybit responses typically: {'result': {'list': [...]}}
+            container = msg.get('result', msg) if isinstance(msg, dict) else msg
+            items = None
+            if isinstance(container, dict):
+                items = container.get('list') or container.get('data') or container.get('result')
+                # If 'items' is still a dict with 'list'
+                if isinstance(items, dict):
+                    items = items.get('list')
+            if not isinstance(items, list):
+                continue
 
-                    if 'contractType' not in symbol:
-                        stype = SPOT
-                    elif 'contractType' in symbol:
-                        if symbol['contractType'] == 'LinearPerpetual':
-                            stype = PERPETUAL
-                        elif symbol['contractType'] == 'LinearFutures':
-                            stype = FUTURES
+            for symbol in items:
+                # Determine instrument type
+                stype = SPOT
+                ctype = symbol.get('contractType')
+                if ctype == 'LinearPerpetual':
+                    stype = PERPETUAL
+                elif ctype == 'LinearFutures':
+                    stype = FUTURES
 
-                    base = symbol['baseCoin']
-                    quote = symbol['quoteCoin']
+                base = symbol.get('baseCoin') or symbol.get('baseCurrency') or symbol.get('base')
+                quote = symbol.get('quoteCoin') or symbol.get('quoteCurrency') or symbol.get('quote')
+                if not base or not quote:
+                    continue
 
-                    expiry = None
+                expiry = None
+                sym_name = symbol.get('symbol') or f"{base}{quote}"
+                if stype is FUTURES:
+                    if not sym_name.endswith(quote) and '-' in sym_name:
+                        expiry = sym_name.split('-')[-1]
 
-                    if stype is FUTURES:
-                        if not symbol['symbol'].endswith(quote):
-                            # linear futures
-                            if '-' in symbol['symbol']:
-                                expiry = symbol['symbol'].split('-')[-1]
+                s = Symbol(base, quote, type=stype, expiry_date=expiry)
 
-                    s = Symbol(base, quote, type=stype, expiry_date=expiry)
+                # Normalized exchange symbol mapping
+                if stype == SPOT:
+                    ret[s.normalized] = f'{base}/{quote}'
+                elif stype == PERPETUAL and sym_name.endswith('PERP'):
+                    ret[s.normalized] = sym_name
+                elif stype == PERPETUAL:
+                    ret[s.normalized] = f'{base}{quote}'
+                elif stype == FUTURES:
+                    ret[s.normalized] = sym_name
 
-                    # Bybit spot and USDT perps share the same symbol name, so
-                    # here it is formed using the base and quote coins, separated
-                    # by a slash. This is consistent with the UI.
-                    # https://bybit-exchange.github.io/docs/v5/enum#symbol
-                    if stype == SPOT:
-                        ret[s.normalized] = f'{base}/{quote}'
-                    elif stype == PERPETUAL and symbol['symbol'].endswith('PERP'):
-                        ret[s.normalized] = symbol['symbol']
-                    elif stype == PERPETUAL:
-                        ret[s.normalized] = f'{base}{quote}'
-                    elif stype == FUTURES:
-                        ret[s.normalized] = symbol['symbol']
-
-                    info['tick_size'][s.normalized] = Decimal(symbol['priceFilter']['tickSize'])
-                    info['instrument_type'][s.normalized] = stype
+                # Metadata
+                try:
+                    tick = symbol.get('priceFilter', {}).get('tickSize')
+                    if tick is not None:
+                        info['tick_size'][s.normalized] = Decimal(str(tick))
+                except Exception:
+                    pass
+                info['instrument_type'][s.normalized] = stype
 
         return ret, info
 
@@ -181,6 +192,48 @@ class Bybit(Feed):
                        raw=entry)
             await self.callback(CANDLES, c, timestamp)
 
+    async def _book_legacy_l2(self, msg: dict, timestamp: float):
+        """Handle legacy orderBookL2_* topics from older recordings."""
+        symbol = msg['topic'].split('.')[-1]
+        std_symbol = self.exchange_symbol_to_std_symbol(symbol)
+        data = msg.get('data')
+        # Derive list of entries
+        if isinstance(data, dict) and 'order_book' in data:
+            entries = data['order_book']
+            mode = 'snapshot'
+        else:
+            entries = data if isinstance(data, list) else [data]
+            mode = msg.get('type') or 'update'
+        if std_symbol not in self._l2_book:
+            self._l2_book[std_symbol] = OrderBook(self.id, std_symbol, max_depth=self.max_depth)
+        delta = {BID: [], ASK: []}
+        for e in entries or []:
+            if isinstance(e, dict):
+                price = e.get('price') or e.get('p')
+                size = e.get('size') or e.get('q')
+                side = e.get('side') or e.get('s')
+            elif isinstance(e, (list, tuple)) and len(e) >= 3:
+                price, size, side = e[0], e[1], e[2]
+            else:
+                continue
+            try:
+                price = Decimal(str(price))
+                size = Decimal(str(size))
+            except Exception:
+                continue
+            side_key = BID if str(side).lower() in ('buy','bid','b') else ASK
+            if mode == 'snapshot':
+                self._l2_book[std_symbol].book[side_key][price] = size
+            else:
+                if size == 0:
+                    if price in self._l2_book[std_symbol].book[side_key]:
+                        del self._l2_book[std_symbol].book[side_key][price]
+                        delta[side_key].append((price, 0))
+                else:
+                    self._l2_book[std_symbol].book[side_key][price] = size
+                    delta[side_key].append((price, size))
+        await self.book_callback(L2_BOOK, self._l2_book[std_symbol], timestamp, delta=delta if any(delta.values()) else None, raw=msg)
+
     async def _liquidation(self, msg: dict, timestamp: float):
         '''
         {
@@ -216,7 +269,8 @@ class Bybit(Feed):
         # Bybit spot and USDT perps share the same symbol name, so to help to distinguish spot pairs from USDT perps,
         # pick the market from the WebSocket address URL and pass it to the functions.
         # 'linear' - futures, perpetual, 'spot' - spot
-        market = conn.address.split('/')[-1]
+        addr = getattr(conn, 'address', '')
+        market = addr.split('/')[-1] if isinstance(addr, str) else ''
         if "success" in msg:
             if msg['success']:
                 if 'request' in msg:
@@ -239,6 +293,10 @@ class Bybit(Feed):
             await self._liquidation(msg, timestamp)
         elif msg['topic'].startswith('tickers'):
             await self._ticker_open_interest_funding_index(msg, timestamp, conn)
+        elif msg['topic'].startswith('orderBookL2') or msg['topic'].startswith('orderBookL2_'):
+            await self._book_legacy_l2(msg, timestamp)
+        elif msg['topic'].startswith('trade.'):
+            await self._trade_legacy(msg, timestamp)
         elif "order" in msg["topic"]:
             await self._order(msg, timestamp)
         elif "execution" in msg["topic"]:
@@ -331,7 +389,33 @@ class Bybit(Feed):
                     id=trade['i'],
                     raw=trade
                 )
-                await self.callback(TRADES, t, timestamp)
+            await self.callback(TRADES, t, timestamp)
+
+    async def _trade_legacy(self, msg: dict, timestamp: float):
+        """Handle legacy trade.* topic payloads from older recordings."""
+        symbol = msg['topic'].split('.')[-1]
+        data = msg.get('data')
+        records = data if isinstance(data, list) else [data]
+        for rec in records:
+            if not isinstance(rec, dict):
+                continue
+            side = rec.get('side') or rec.get('S')
+            qty = rec.get('size') or rec.get('qty') or rec.get('v')
+            price = rec.get('price') or rec.get('p')
+            ts = rec.get('trade_time_ms') or rec.get('T') or rec.get('timestamp') or msg.get('ts')
+            if qty is None or price is None:
+                continue
+            t = Trade(
+                self.id,
+                self.exchange_symbol_to_std_symbol(symbol),
+                BUY if (str(side).lower() in ('buy','b')) else SELL,
+                Decimal(str(qty)),
+                Decimal(str(price)),
+                self.timestamp_normalize(ts) if ts is not None else None,
+                id=str(rec.get('trade_id') or rec.get('i') or ''),
+                raw=rec,
+            )
+            await self.callback(TRADES, t, timestamp)
 
     async def _book(self, msg: dict, timestamp: float, market: str):
         '''
