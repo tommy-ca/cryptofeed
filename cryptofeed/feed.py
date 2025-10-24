@@ -100,11 +100,16 @@ class Feed(Exchange):
         return []
 
     def _configure_candle_intervals(self, candle_interval: str) -> None:
-        if self.valid_candle_intervals != NotImplemented and candle_interval not in self.valid_candle_intervals:
-            raise ValueError(f"Candle interval must be one of {self.valid_candle_intervals}")
+        valid = getattr(self, "valid_candle_intervals", NotImplemented)
+        if valid is not NotImplemented and candle_interval not in valid:
+            raise ValueError(f"Candle interval must be one of {valid}")
 
-        if self.candle_interval_map != NotImplemented:
-            self.normalize_candle_interval = {value: key for key, value in self.candle_interval_map.items()}
+        cmap = getattr(self, "candle_interval_map", NotImplemented)
+        if cmap is not NotImplemented and cmap is not None:
+            self.normalize_candle_interval = {value: key for key, value in cmap.items()}
+        else:
+            # Default empty mapping to avoid attribute errors downstream
+            self.normalize_candle_interval = {}
 
     def _initialize_subscription(self, subscription, symbols, channels) -> None:
         if subscription is not None and (symbols is not None or channels is not None):
