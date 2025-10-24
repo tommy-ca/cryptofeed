@@ -237,130 +237,126 @@ class FeedHandler:
 
             self.feeds[-1].start(loop)
 
+    def _bp_to_plain_mapping(self, value):
+        from cryptofeed.config import Config, AttrDict
+        if isinstance(value, AttrDict):
+            return {k: self._bp_to_plain_mapping(v) for k, v in value.items()}
+        if isinstance(value, Config):
+            return self._bp_to_plain_mapping(value.config)
+        if isinstance(value, Mapping):
+            return {k: self._bp_to_plain_mapping(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._bp_to_plain_mapping(v) for v in value]
+        return value
+
+    def _bp_candidate_from(self, value):
+        from cryptofeed.config import Config, AttrDict
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+        if value is None:
+            return None
+        if isinstance(value, BackpackConfig):
+            return value
+        if isinstance(value, Config):
+            value = value.config
+        if isinstance(value, AttrDict):
+            value = dict(value)
+        if isinstance(value, Mapping):
+            return value
+        return None
+
+    def _bp_lookup_backpack_section(self, config_source):
+        if not isinstance(config_source, Mapping):
+            return None
+        def _match_key(source: Mapping, target: str):
+            for key, value in source.items():
+                if isinstance(key, str) and key.casefold() == target:
+                    return value
+            return None
+        direct = _match_key(config_source, "backpack")
+        if direct:
+            return direct
+        exchanges = None
+        for key, value in config_source.items():
+            if isinstance(key, str) and key.casefold() == "exchanges":
+                exchanges = value
+                break
+        if isinstance(exchanges, Mapping):
+            return _match_key(exchanges, "backpack")
+        return None
+
+    def _bp_validate_and_build(self, candidate_data, is_explicit):
+        from pydantic import ValidationError
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+        if candidate_data is None:
+            return None
+        allowed_keys = set(BackpackConfig.model_fields.keys())
+        if not isinstance(candidate_data, Mapping) or not candidate_data:
+            return None
+        data = dict(candidate_data)
+        invalid = set(data.keys()).difference(allowed_keys)
+        if invalid:
+            if is_explicit:
+                raise ValueError(
+                    f"Backpack configuration contains unsupported keys: {sorted(invalid)}"
+                )
+            return None
+        proxies_value = data.get('proxies')
+        if isinstance(proxies_value, str):
+            data['proxies'] = ProxyConfig(url=proxies_value)
+        elif isinstance(proxies_value, Mapping):
+            data['proxies'] = ProxyConfig(**proxies_value)
+        elif proxies_value is not None and not isinstance(proxies_value, ProxyConfig):
+            if is_explicit:
+                raise ValueError("Backpack proxies must be a URL or mapping with url/pool")
+            return None
+        try:
+            return BackpackConfig.model_validate(data)
+        except ValidationError as exc:
+            if is_explicit:
+                raise exc
+            return None
+
     def _resolve_backpack_config(self, explicit):
         """
         Derive a BackpackConfig instance from explicit overrides or handler config.
         """
-        from cryptofeed.config import Config, AttrDict
+        from cryptofeed.config import Config
         from cryptofeed.exchanges.backpack.config import BackpackConfig
 
         if isinstance(explicit, BackpackConfig):
             return explicit
 
-        def _to_plain_mapping(value):
-            if isinstance(value, AttrDict):
-                return {k: _to_plain_mapping(v) for k, v in value.items()}
-            if isinstance(value, Config):
-                return _to_plain_mapping(value.config)
-            if isinstance(value, Mapping):
-                return {k: _to_plain_mapping(v) for k, v in value.items()}
-            if isinstance(value, list):
-                return [_to_plain_mapping(v) for v in value]
-            return value
-
-        def _candidate_from(value):
-            if value is None:
-                return None
-            if isinstance(value, BackpackConfig):
-                return value
-            if isinstance(value, Config):
-                value = value.config
-            if isinstance(value, AttrDict):
-                value = dict(value)
-            if isinstance(value, Mapping):
-                return value
-            return None
-
         candidates: list[tuple[object, bool]] = []
-        seen_candidates: set[int] = set()
+        seen: set[int] = set()
 
-        explicit_candidate = _candidate_from(explicit)
-        explicit_is_mapping = isinstance(explicit, Mapping) and not isinstance(explicit, Config)
+        explicit_candidate = self._bp_candidate_from(explicit)
         if isinstance(explicit_candidate, BackpackConfig):
             return explicit_candidate
-        if explicit_candidate is not None and explicit_is_mapping and id(explicit_candidate) not in seen_candidates:
+        if isinstance(explicit, Mapping) and not isinstance(explicit, Config) and explicit_candidate is not None and id(explicit_candidate) not in seen:
             candidates.append((explicit_candidate, True))
-            seen_candidates.add(id(explicit_candidate))
+            seen.add(id(explicit_candidate))
 
-        def _lookup_backpack_section(config_source):
-            if not isinstance(config_source, Mapping):
-                return None
-
-            def _match_key(source: Mapping, target: str):
-                for key, value in source.items():
-                    if isinstance(key, str) and key.casefold() == target:
-                        return value
-                return None
-
-            direct = _match_key(config_source, "backpack")
-            if direct:
-                return direct
-
-            exchanges = None
-            for key, value in config_source.items():
-                if isinstance(key, str) and key.casefold() == "exchanges":
-                    exchanges = value
-                    break
-            if isinstance(exchanges, Mapping):
-                return _match_key(exchanges, "backpack")
-
-            return None
-
-        root_plain = _to_plain_mapping(self.config.config if isinstance(self.config, Config) else self.config)
-        section_from_explicit = _candidate_from(
-            _lookup_backpack_section(explicit_candidate) if isinstance(explicit_candidate, Mapping) else None
-        )
-        if section_from_explicit is not None and id(section_from_explicit) not in seen_candidates:
-            candidates.append((section_from_explicit, True))
-            seen_candidates.add(id(section_from_explicit))
-
-        section_from_root = _candidate_from(
-            _lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None
-        )
-        if section_from_root is not None and id(section_from_root) not in seen_candidates:
-            candidates.append((section_from_root, False))
-            seen_candidates.add(id(section_from_root))
-
-        from pydantic import ValidationError
+        root_plain = self._bp_to_plain_mapping(self.config.config if isinstance(self.config, Config) else self.config)
+        if isinstance(explicit_candidate, Mapping):
+            section = self._bp_candidate_from(self._bp_lookup_backpack_section(explicit_candidate))
+            if section is not None and id(section) not in seen:
+                candidates.append((section, True))
+                seen.add(id(section))
+        section_root = self._bp_candidate_from(self._bp_lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None)
+        if section_root is not None and id(section_root) not in seen:
+            candidates.append((section_root, False))
+            seen.add(id(section_root))
 
         if not candidates:
             return BackpackConfig()
 
-        allowed_keys = set(BackpackConfig.model_fields.keys())
-        errors: list[ValidationError] = []
         for candidate, is_explicit in candidates:
             if isinstance(candidate, BackpackConfig):
                 return candidate
-            plain_candidate = _to_plain_mapping(candidate)
-            if isinstance(plain_candidate, Mapping) and plain_candidate:
-                candidate_data = dict(plain_candidate)
-                invalid_keys = set(candidate_data.keys()).difference(allowed_keys)
-                if invalid_keys:
-                    if is_explicit:
-                        raise ValueError(
-                            f"Backpack configuration contains unsupported keys: {sorted(invalid_keys)}"
-                        )
-                    continue
-                try:
-                    proxies_value = candidate_data.get('proxies')
-                    if isinstance(proxies_value, str):
-                        candidate_data['proxies'] = ProxyConfig(url=proxies_value)
-                    elif isinstance(proxies_value, Mapping):
-                        candidate_data['proxies'] = ProxyConfig(**proxies_value)
-                    elif proxies_value is not None and not isinstance(proxies_value, ProxyConfig):
-                        if is_explicit:
-                            raise ValueError("Backpack proxies must be a URL or mapping with url/pool")
-                        continue
-
-                    return BackpackConfig.model_validate(candidate_data)
-                except ValidationError as exc:
-                    if is_explicit:
-                        raise exc
-                    errors.append(exc)
-                    continue
-
-        if errors:
-            raise errors[0]
+            plain = self._bp_to_plain_mapping(candidate)
+            built = self._bp_validate_and_build(plain, is_explicit)
+            if built is not None:
+                return built
 
         return BackpackConfig()
 
