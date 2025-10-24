@@ -473,8 +473,13 @@ class CcxtFeed(Feed):
         await self._handle_trade(bootstrap_trade)
 
     def _trade_update_to_payload(self, trade_data: Any) -> Dict[str, Any]:
-        if hasattr(trade_data, '__dict__'):
+        # Convert dataclass to dict (handles both slots=True and regular dataclasses)
+        from dataclasses import is_dataclass, asdict
+        if is_dataclass(trade_data):
+            trade_data = asdict(trade_data)
+        elif hasattr(trade_data, '__dict__'):
             trade_data = trade_data.__dict__
+        
         symbol = trade_data.get('symbol', '')
         normalized_symbol = symbol.replace('-', '/')
         amount = trade_data.get('amount')
@@ -497,8 +502,13 @@ class CcxtFeed(Feed):
         return payload
 
     def _orderbook_snapshot_to_payload(self, book_data: Any) -> Dict[str, Any]:
-        if hasattr(book_data, '__dict__'):
+        # Convert dataclass to dict (handles both slots=True and regular dataclasses)
+        from dataclasses import is_dataclass, asdict
+        if is_dataclass(book_data):
+            book_data = asdict(book_data)
+        elif hasattr(book_data, '__dict__'):
             book_data = book_data.__dict__
+        
         symbol = book_data.get('symbol', '')
         normalized_symbol = symbol.replace('-', '/')
 
