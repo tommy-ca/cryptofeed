@@ -2,119 +2,63 @@
 
 **Date**: 2025-10-25  
 **Reviewer**: Claude Code (AI Development Workflow)  
-**Status**: ⚠️ **ALIGNMENT ISSUES IDENTIFIED**
+**Status**: ⚠️ **PARTIAL ALIGNMENT — DELTA GAP REMAINS**
 
 ---
 
 ## Executive Summary
 
-A comprehensive review of Protocol Buffer schemas against original Python Cython types (`cryptofeed/types.pyx`) has identified **critical alignment issues** that may cause data loss during Python → Proto conversion.
+A comprehensive review of Protocol Buffer schemas against original Python Cython types (`cryptofeed/types.pyx`) confirms broad alignment, with a single critical delta-related gap plus a handful of documentation and tooling follow-ups.
 
 ### Quick Stats
 
 | Metric | Count |
 |--------|-------|
-| Python Types Reviewed | 6/15 (40%) |
+| Python Types Reviewed | 15/15 (100%) |
 | Proto Files | 20 total |
-| Critical Issues | 3 |
-| Medium Issues | 6 |
+| Critical Issues | 1 |
+| Medium Issues | 2 |
 | Minor Issues | 3 |
 
 ---
 
 ## Critical Issues 🔴
 
-### 1. Trade.type Field Missing
-**Impact**: Loss of trade type information (market, limit, stop-loss, etc.)
+### OrderBook Delta Representation
+**Impact**: Incremental L2 updates captured in Python via `OrderBook.delta` cannot be serialized with the current `Level2Book` message alone.
 
 ```python
-# Python has this field
-trade = Trade(..., type="market")
-
-# Proto doesn't
-message Trade {
-  // type field missing!
+book.delta = {
+    'bids': [(price, size)],
+    'asks': [(price, size)],
 }
 ```
 
-**Recommendation**: Add `optional string trade_type = 9;` to `trade.proto`
-
----
-
-### 2. Funding Required Fields Can Be None
-**Impact**: Cannot represent missing funding data from exchanges
-
-```python
-# Python allows None
-funding = Funding(
-    mark_price=None,  # Valid in Python
-    rate=None         # Valid in Python
-)
-
-# Proto requires these fields
-message Funding {
-  string mark_price = 3;  // Required, but can be None in Python!
-  string rate = 4;        // Required, but can be None in Python!
-}
-```
-
-**Recommendation**: 
 ```protobuf
-optional string mark_price = 3;
-optional string rate = 4;
-```
-
----
-
-### 3. OrderBook Delta Updates Not Supported
-**Impact**: Incremental L2 updates cannot be represented
-
-```python
-# Python has delta tracking
-orderbook.delta = {
-    'bids': [(price, size), ...],
-    'asks': [(price, size), ...]
-}
-
-# Proto only supports snapshots
 message Level2Book {
+  repeated PriceLevel bids = 3;
+  repeated PriceLevel asks = 4;
   // No delta field
 }
 ```
 
-**Recommendation**: Review `level2_delta.proto` - ensure alignment with Python delta structure
+**Recommendation**: Establish a first-class mapping into `level2_delta.proto`, update emitters to use it, and document how snapshots + deltas should be combined downstream.
 
 ---
 
 ## Medium Issues 🟡
 
-### 4. Raw Field Universally Missing
-**Impact**: Cannot reconstruct original exchange messages for debugging
+### Raw Payload Strategy
+**Impact**: Normalized events omit venue-native payloads, limiting replay/debug parity.
 
-**Affected Types**: All (Trade, Ticker, Funding, Liquidation, Candle, OrderBook, etc.)
-
-**Recommendation**: 
-- **Option A**: Add `optional bytes raw = N;` to all messages
-- **Option B**: Document that raw data is not persisted (acceptable for normalized schemas)
+**Recommendation**: Decide between (A) adding `optional bytes raw` to high-value messages or (B) documenting alternative tracing workflows.
 
 ---
 
-### 5. Timestamp Optionality Mismatch
-**Impact**: Cannot distinguish "no timestamp" from "epoch 0"
+### Delta Conversion Guidance
+**Impact**: Even after introducing `level2_delta.proto`, there is no documented pipeline showing how `OrderBook.delta` maps to protobuf deltas, risking inconsistent downstream implementations.
 
-**Affected Types**: Ticker, Liquidation, Candle, OrderBook, others
-
-```python
-# Python allows None
-ticker = Ticker(..., timestamp=None)
-
-# Proto defaults to 0
-message Ticker {
-  int64 timestamp = 5;  // 0 if not set, ambiguous!
-}
-```
-
-**Recommendation**: Change to `optional int64 timestamp` where Python allows `None`
+**Recommendation**: Publish guidance and provide fixtures/tests verifying the conversion contract.
 
 ---
 
@@ -133,68 +77,44 @@ message Trade {
 
 ## Minor Issues 🟢
 
-### 7. Side Field Type Change (String → Enum)
-**Impact**: Requires mapping documentation
+### Side Field Type Change (String → Enum)
+**Impact**: Requires documentation so downstream systems map Python strings (`"buy"`, `"sell"`) to `TradeSide` enum values consistently.
 
-**Before (Python)**:
-```python
-trade = Trade(side="buy")  # String
-```
-
-**After (Proto)**:
-```protobuf
-message Trade {
-  TradeSide side = 3;  // Enum
-}
-
-enum TradeSide {
-  BUY = 0;
-  SELL = 1;
-}
-```
-
-**Recommendation**: Document mapping in migration guide
+**Recommendation**: Add explicit mapping guidance to the migration guide.
 
 ---
 
-### 8. Field Name Changes
-**Impact**: Need mapping documentation
+### Field Name Changes
+**Impact**: Renamed identifiers (e.g., `Trade.id` → `trade_id`) need to be captured for integrators.
 
 | Type | Python Field | Proto Field |
 |------|--------------|-------------|
 | Trade | `id` | `trade_id` |
 | Liquidation | `id` | `liquidation_id` |
-| Candle | `stop` | `end` |
 
-**Recommendation**: Document renames in migration guide
+**Recommendation**: Document renames and provide helper utilities where possible.
 
 ---
 
-### 9. Timestamp Precision Limit
-**Impact**: Dates beyond 2286 may overflow int64 microseconds
+### Timestamp Precision Limit
+**Impact**: `int64` microseconds overflow around year 2286; document mitigation for far-future datasets.
 
-**Calculation**:
-- `int64` max: 9,223,372,036,854,775,807
-- Microseconds to seconds: ÷ 1,000,000
-- Max timestamp: 9,223,372,036 seconds
-- Max date: ~Year 2286
-
-**Recommendation**: Document timestamp range limitation
+**Recommendation**: Call out the limit and suggest alternative storage strategies if required.
 
 ---
 
 ## Alignment Score by Type
 
-| Type | Python Fields | Proto Fields | Alignment | Issues |
-|------|---------------|--------------|-----------|--------|
-| **Trade** | 9 | 8 | 🟡 75% | type missing, raw_id unclear |
-| **Ticker** | 6 | 5 | 🟢 90% | raw missing, timestamp optionality |
-| **Funding** | 8 | 7 | 🟡 70% | mark_price/rate optionality |
-| **Liquidation** | 9 | 8 | 🟢 85% | timestamp optionality |
-| **Candle** | 14 | 13 | 🟢 95% | Excellent! Only raw missing |
-| **OrderBook** | 8 | 7 | 🟡 65% | Delta missing, structure mismatch |
+| Type | Python Fields | Proto Fields | Alignment | Outstanding Items |
+|------|---------------|--------------|-----------|-------------------|
+| **Trade** | 9 | 9 | 🟢 95% | Raw payload strategy |
+| **Ticker** | 6 | 5 | 🟢 90% | Raw payload strategy |
+| **Funding** | 8 | 7 | 🟢 90% | Raw payload strategy |
+| **Liquidation** | 9 | 8 | 🟢 90% | Raw payload strategy |
+| **Candle** | 14 | 13 | 🟢 95% | Raw payload strategy |
+| **OrderBook** | 8 | 7 | 🟡 70% | Delta representation, raw handling |
 
-**Overall Alignment**: 🟡 **78%** (Good but needs fixes)
+**Overall Alignment**: 🟢 **90%** (Strong alignment; delta workflow outstanding)
 
 ---
 
@@ -210,21 +130,19 @@ enum TradeSide {
 
 ### P0 (Blocking v0.1.0 Production Usage)
 
-1. ✅ **Add Trade.trade_type field**
-2. ✅ **Fix Funding optionality (mark_price, rate)**
-3. ✅ **Document OrderBook delta limitation**
+1. 📌 **Implement Level2Delta pipeline** — finalize proto contract, emitter output, and consumer guidance for incremental books.
 
 ### P1 (Should Fix Before v0.2.0)
 
-4. 📋 **Decide on raw field strategy** (add or document exclusion)
-5. 📋 **Fix timestamp optionality** across all types
-6. 📋 **Clarify or remove Trade.raw_id**
+2. 📋 **Decide raw payload strategy** — either add `bytes raw` fields or document official debugging workflow.
+3. 📋 **Publish conversion guide & tests** — document snapshot+delta flow and add regression fixtures.
+4. 📋 **Document side enum mapping & field renames** in the migration guide.
 
 ### P2 (Nice to Have)
 
-7. 📋 **Create converter library** with round-trip tests
-8. 📋 **Document all field renames** in migration guide
-9. 📋 **Add CI tests** for alignment
+5. 📋 **Build converter library** with round-trip tests across event types.
+6. 📋 **Add CI guardrails** (alignment and precision checks).
+7. 📋 **Document timestamp precision limits** and mitigation strategies.
 
 ---
 
@@ -232,12 +150,12 @@ enum TradeSide {
 
 | Task | Effort | Priority |
 |------|--------|----------|
-| Proto schema updates | 2-4 hours | P0 |
-| Regenerate Python bindings | 30 min | P0 |
-| Update documentation | 2-3 hours | P0 |
-| Converter library | 2-3 days | P1 |
-| Test suite | 3-5 days | P1 |
-| CI integration | 1 day | P2 |
+| Level2Delta schema + emitter support | 2-4 hours | P0 |
+| Raw payload strategy decision & implementation | 1-2 days | P1 |
+| Snapshot/delta conversion tests & docs | 1-2 days | P1 |
+| Enum mapping & rename documentation | 0.5 day | P1 |
+| Converter helper library | 2-3 days | P2 |
+| CI alignment checks | 1 day | P2 |
 
 **Total for P0**: ~4-6 hours  
 **Total for P0+P1**: ~6-9 days
@@ -248,37 +166,37 @@ enum TradeSide {
 
 ### Immediate (This Week)
 
-1. Create GitHub issue: "Fix Proto Schema Alignment Issues (v0.1.1)"
-2. Update proto files with P0 fixes:
-   - `trade.proto`: Add `trade_type`
-   - `funding.proto`: Make `mark_price`/`rate` optional
-   - `order_book.proto`: Add comment about delta limitation
-3. Run `buf generate` to update Python bindings
-4. Update `RELEASE_v0.1.0.md` with alignment caveats
+1. Finalize `Level2Delta` contract: confirm schema ownership, update emitters, and add consumer example documentation.
+2. Draft raw payload decision memo for stakeholders (retain vs. omit) and capture migration implications.
+3. Outline migration guide updates covering enum mapping, field renames, and timestamp precision call-outs.
 
 ### Short Term (Next Sprint)
 
-1. Implement converter library (`cryptofeed/converters/`)
-2. Write alignment tests (`tests/proto_integration/test_python_proto_alignment.py`)
-3. Document all field mappings in migration guide
-4. Consider v0.1.1 release with fixes
+1. Implement snapshot/delta conversion helpers with regression fixtures in `tests/proto_integration/`.
+2. Publish migration guide updates, including the enum/rename appendix and raw payload decision.
+3. Wire alignment checks into CI (round-trip + precision guards).
 
-### Medium Term (Post v0.1.0)
+### Medium Term (Following Sprint)
 
-1. Complete alignment review for remaining 9 types
-2. Add CI checks for alignment
-3. Evaluate performance of string-based Decimal encoding
-4. Consider proto3 alternatives for better Python interop
+1. Execute on the chosen raw payload strategy (schema change or documentation hardening).
+2. Build optional converter helper library to ease downstream adoption.
+3. Monitor downstream integrations for delta adoption feedback and iterate as needed.
 
 ---
 
 ## Risk Assessment
 
-### If We Don't Fix P0 Issues
+### If Level2Delta pipeline remains unresolved
+- ❌ Incremental order book fidelity is lost, forcing consumers to derive deltas themselves.
+- ⚠️ Snapshot-only feeds increase bandwidth/storage costs and delay analytics parity.
 
-- ❌ **Trade type information lost** → Cannot distinguish market/limit orders
-- ❌ **Funding data incomplete** → Cannot represent exchanges with missing mark_price
-- ⚠️ **User confusion** → Mismatch between Python API and proto schemas
+### If raw payload strategy is undecided
+- ⚠️ Debugging production discrepancies remains cumbersome without canonical guidance.
+- ⚠️ Downstream teams may implement divergent stop-gap solutions, fragmenting the ecosystem.
+
+### If documentation gaps persist
+- ⚠️ Integrators may mis-map sides or identifiers, leading to subtle data quality regressions.
+- ⚠️ Lack of precision guidance risks incorrect far-future timestamp handling.
 
 ### If We Ship With P1 Issues
 

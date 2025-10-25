@@ -2,7 +2,7 @@
 
 **Date**: 2025-10-25  
 **Purpose**: Comprehensive review of Protocol Buffer schemas against original Python Cython types  
-**Status**: 🔍 In Progress
+**Status**: ✅ Complete (15/15 types reviewed)
 
 ---
 
@@ -46,7 +46,8 @@ message Trade {
   string price = 5;           // Decimal as string
   string amount = 6;          // Decimal as string
   int64 timestamp = 7;        // microseconds
-  string raw_id = 8;          // Was: type (?)
+  string raw_id = 8;          // Optional trace identifier
+  optional string trade_type = 9; // Venue trade type when provided
 }
 ```
 
@@ -60,23 +61,15 @@ message Trade {
 | `amount` | `amount` | ✅ Match | Decimal → string with scale 1e-8 |
 | `side` | `side` | ⚠️ Type Change | Python: `str` → Proto: `TradeSide` enum |
 | `id` | `trade_id` | ✅ Match | Field renamed for clarity |
-| `type` | ❌ **MISSING** | ⚠️ Not Mapped | Python `type` field not in proto |
+| `type` | `trade_type` | ✅ Match | Field present as optional string |
 | `timestamp` | `timestamp` | ✅ Match | float seconds → int64 microseconds |
 | `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw data not persisted in proto |
 
 ### 🔍 Discrepancies
 
-1. **`type` Field Missing**: Python has `type` (e.g., "market", "limit"), proto doesn't include it
-   - **Impact**: Loss of trade type information
-   - **Recommendation**: Add `optional string trade_type = 9;` to proto
-
-2. **`raw` Field Not Persisted**: Proto doesn't include raw exchange data
+1. **`raw` Field Not Persisted**: Proto doesn't include raw exchange data
    - **Impact**: Cannot reconstruct original exchange message
    - **Recommendation**: Consider adding `optional bytes raw = 10;` if needed for debugging
-
-3. **`raw_id` Unclear Mapping**: Proto has `raw_id` but Python doesn't have equivalent
-   - **Impact**: Unclear what this field represents
-   - **Recommendation**: Clarify field purpose or remove if unused
 
 ---
 
@@ -100,7 +93,7 @@ message Ticker {
   string symbol = 2;
   string bid = 3;           // Decimal as string
   string ask = 4;           // Decimal as string
-  int64 timestamp = 5;      // microseconds
+  optional int64 timestamp = 5;      // microseconds
 }
 ```
 
@@ -112,14 +105,12 @@ message Ticker {
 | `symbol` | `symbol` | ✅ Match | Both `string` |
 | `bid` | `bid` | ✅ Match | Decimal → string with scale 1e-8 |
 | `ask` | `ask` | ✅ Match | Decimal → string with scale 1e-8 |
-| `timestamp` | `timestamp` | ✅ Match | float seconds → int64 microseconds |
+| `timestamp` | `timestamp` | ✅ Match | float seconds → optional int64 microseconds |
 | `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw data not persisted in proto |
 
 ### 🔍 Discrepancies
 
-1. **Timestamp Optionality**: Python allows `None`, proto `int64` defaults to `0`
-   - **Impact**: Cannot distinguish missing timestamp from epoch 0
-   - **Recommendation**: Consider `optional int64 timestamp = 5;` if `None` is meaningful
+**No remaining discrepancies.**
 
 ---
 
@@ -143,8 +134,8 @@ cdef class Funding:
 message Funding {
   string exchange = 1;
   string symbol = 2;
-  string mark_price = 3;
-  string rate = 4;
+  optional string mark_price = 3;
+  optional string rate = 4;
   optional string predicted_rate = 5;
   optional int64 next_funding_time = 6;  // microseconds
   int64 timestamp = 7;                   // microseconds
@@ -157,8 +148,8 @@ message Funding {
 |--------------|-------------|--------|-------|
 | `exchange` | `exchange` | ✅ Match | Both `string` |
 | `symbol` | `symbol` | ✅ Match | Both `string` |
-| `mark_price` | `mark_price` | ⚠️ Optionality | Python allows `None`, proto required field |
-| `rate` | `rate` | ⚠️ Optionality | Python allows `None`, proto required field |
+| `mark_price` | `mark_price` | ✅ Match | Optional Decimal → optional string |
+| `rate` | `rate` | ✅ Match | Optional Decimal → optional string |
 | `predicted_rate` | `predicted_rate` | ✅ Match | Both optional |
 | `next_funding_time` | `next_funding_time` | ✅ Match | Both optional, float → int64 µs |
 | `timestamp` | `timestamp` | ✅ Match | float seconds → int64 microseconds |
@@ -166,13 +157,7 @@ message Funding {
 
 ### 🔍 Discrepancies
 
-1. **`mark_price` Optionality**: Python allows `None`, proto field is required
-   - **Impact**: Cannot represent missing mark price
-   - **Recommendation**: Change to `optional string mark_price = 3;`
-
-2. **`rate` Optionality**: Python allows `None`, proto field is required
-   - **Impact**: Cannot represent missing funding rate
-   - **Recommendation**: Change to `optional string rate = 4;`
+**No remaining discrepancies.**
 
 ---
 
@@ -202,7 +187,7 @@ message Liquidation {
   string price = 5;
   optional string liquidation_id = 6;
   optional string status = 7;
-  int64 timestamp = 8;  // microseconds
+  optional int64 timestamp = 8;  // microseconds
 }
 ```
 
@@ -217,14 +202,12 @@ message Liquidation {
 | `price` | `price` | ✅ Match | Decimal → string |
 | `id` | `liquidation_id` | ✅ Match | Field renamed, marked optional |
 | `status` | `status` | ✅ Match | Both optional string |
-| `timestamp` | `timestamp` | ⚠️ Optionality | Python allows `None`, proto required |
+| `timestamp` | `timestamp` | ✅ Match | Optional float seconds → optional int64 µs |
 | `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw dict not persisted |
 
 ### 🔍 Discrepancies
 
-1. **Timestamp Optionality**: Python allows `None`, proto `int64` defaults to `0`
-   - **Impact**: Cannot distinguish missing timestamp from epoch 0
-   - **Recommendation**: Consider `optional int64 timestamp = 8;`
+**No remaining discrepancies.**
 
 ---
 
@@ -317,7 +300,7 @@ message OrderBook {
   repeated PriceLevel asks = 4;
   optional int64 sequence_number = 5;
   optional string checksum = 6;
-  int64 timestamp = 7;  // microseconds
+  optional int64 timestamp = 7;  // microseconds
 }
 ```
 
@@ -331,7 +314,7 @@ message OrderBook {
 | `delta` | ❌ **MISSING** | ⚠️ Not Mapped | Delta updates not in proto |
 | `sequence_number` | `sequence_number` | ✅ Match | Both optional |
 | `checksum` | `checksum` | ✅ Match | Both optional |
-| `timestamp` | `timestamp` | ⚠️ Optionality | Python allows `None`, proto required |
+| `timestamp` | `timestamp` | ✅ Match | Optional float seconds → optional int64 µs |
 | `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw data not persisted |
 
 ### 🔍 Discrepancies
@@ -342,10 +325,9 @@ message OrderBook {
 
 2. **Delta Field Missing**: Python has `delta` dict for incremental updates
    - **Impact**: Cannot represent L2 deltas, only snapshots
-   - **Recommendation**: Review `level2_delta.proto` - may need alignment
+   - **Recommendation**: Emit `Level2Delta` messages via `cryptofeed.proto_mappers.level2_delta_from_order_book` to serialize incremental updates
 
-3. **Timestamp Optionality**: Python allows `None`, proto required
-   - **Recommendation**: Consider `optional int64 timestamp = 7;`
+3. **Timestamp Optionality**: ✅ Resolved (proto now marks timestamp optional)
 
 ---
 
@@ -353,21 +335,18 @@ message OrderBook {
 
 ### 🔴 Critical Issues (Block Migration)
 
-1. **Trade.type Missing**: Loss of trade type information (market/limit)
-2. **Funding Mark Price/Rate Not Optional**: Cannot represent missing values
-3. **OrderBook Delta Not Represented**: Incremental updates unsupported
+1. **OrderBook Delta Not Represented**: Incremental updates still require `Level2Delta` adoption.
 
 ### 🟡 Medium Issues (May Cause Data Loss)
 
-1. **Raw Field Universally Missing**: Cannot reconstruct original exchange messages
-2. **Timestamp Optionality**: Several types allow `None` but proto uses required `int64`
-3. **Trade.raw_id Unclear**: Field exists in proto but not in Python
+1. **Raw Field Universally Missing**: Cannot reconstruct original exchange messages without venue payloads.
+2. **Delta Conversion Guidance**: Need explicit documentation/tests for translating `OrderBook.delta` into `Level2Delta` events.
 
 ### 🟢 Minor Issues (Documentation Needed)
 
-1. **Side Field Type Change**: String → Enum (requires mapping documentation)
-2. **Field Renames**: `id` → `trade_id`, `id` → `liquidation_id` (consistent pattern)
-3. **Timestamp Precision**: float seconds → int64 microseconds (lossy for >2^53 µs)
+1. **Side Field Type Change**: Document mapping from Python strings to `TradeSide` enum values.
+2. **Field Renames**: Clarify renamed identifiers (e.g., `id` → `trade_id`, `liquidation_id`).
+3. **Timestamp Precision**: Float seconds → int64 microseconds (lossy for >2^53 µs) — capture guidance and mitigation.
 
 ---
 
@@ -375,34 +354,25 @@ message OrderBook {
 
 ### Immediate Actions
 
-1. **Add Missing Fields to Proto**:
-   ```protobuf
-   // trade.proto
-   optional string trade_type = 9;  // e.g., "market", "limit"
-   
-   // funding.proto
-   optional string mark_price = 3;  // Change from required
-   optional string rate = 4;        // Change from required
-   ```
+1. **Define Raw Payload Strategy**:
+   - Option A: Introduce `optional bytes raw = N;` on messages where debugging parity is critical.
+   - Option B: Publish explicit rationale for omission and provide alternative tracing guidance.
 
-2. **Add Raw Field Strategy**:
-   - Option A: Add `optional bytes raw = N;` to all messages
-   - Option B: Document that raw data is not persisted in normalized schemas
+2. **OrderBook Delta Mapping**: Document and validate how `OrderBook.delta` should flow into `Level2Delta` protobuf events; add conversion helpers if needed.
 
-3. **Fix Timestamp Optionality**:
-   - Change all required `int64 timestamp` to `optional` where Python allows `None`
+3. **Enum Mapping Guide**: Capture canonical mapping from Python string sides (e.g., "buy", "sell") to `TradeSide` enum values across events.
 
 ### Testing Actions
 
-1. **Create Conversion Tests**: Validate Python → Proto → Python round-trip
-2. **Field Coverage Tests**: Ensure all Python fields mapped or documented as excluded
-3. **Precision Tests**: Verify Decimal scale (1e-8) sufficient for all exchanges
+1. **Conversion Round-Trips**: Validate Python → Proto → Python conversions for snapshots, deltas, and liquidation events with missing timestamps.
+2. **Delta Coverage**: Add regression tests ensuring `Level2Delta` parity against `OrderBook.delta` fixtures.
+3. **Precision Tests**: Verify Decimal scale (1e-8) suffices for exchanges with extreme precision.
 
 ### Documentation Actions
 
-1. **Migration Guide**: Document field mappings and type conversions
-2. **Precision Policy**: Document Decimal scale rationale and edge cases
-3. **Raw Data Policy**: Clarify why raw exchange data is not persisted
+1. **Migration Guide**: Update with resolved optionality changes and outstanding raw payload policy.
+2. **Precision Policy**: Clarify timestamp precision limits and provide mitigation tactics.
+3. **Raw Data Policy**: Clarify omission reasoning and recommended debugging workflows.
 
 ---
 
@@ -595,6 +565,251 @@ message OrderInfo {
 
 ---
 
+## 11. Fill
+
+### Python Type (`types.pyx`)
+```python
+cdef class Fill:
+    cdef readonly str exchange
+    cdef readonly str symbol
+    cdef readonly object price
+    cdef readonly object amount
+    cdef readonly str side
+    cdef readonly object fee
+    cdef readonly str id
+    cdef readonly str order_id
+    cdef readonly str liquidity
+    cdef readonly str type
+    cdef readonly str account
+    cdef readonly double timestamp
+    cdef readonly object raw  # can be dict or list
+```
+
+### Proto Schema (`fill.proto`)
+```protobuf
+message Fill {
+  string exchange = 1;
+  string symbol = 2;
+  TradeSide side = 3;
+  string amount = 4;
+  string price = 5;
+  optional string fee = 6;
+  optional string liquidity = 7;
+  optional string fill_id = 8;
+  optional string order_id = 9;
+  optional string type = 10;
+  optional string account = 11;
+  int64 timestamp = 12;
+}
+```
+
+### ✅ Alignment Status: **WELL ALIGNED**
+
+| Python Field | Proto Field | Status | Notes |
+|--------------|-------------|--------|-------|
+| `exchange` | `exchange` | ✅ Match | Both `string` |
+| `symbol` | `symbol` | ✅ Match | Both `string` |
+| `side` | `side` | ⚠️ Type Change | Python `str` → Proto `TradeSide` enum |
+| `amount` | `amount` | ✅ Match | Decimal → string |
+| `price` | `price` | ✅ Match | Decimal → string |
+| `fee` | `fee` | ✅ Match | Optional Decimal → optional string |
+| `liquidity` | `liquidity` | ⚠️ Optionality | Python constructor expects value; proto marks optional |
+| `id` | `fill_id` | ✅ Match | Field renamed, remains optional |
+| `order_id` | `order_id` | ✅ Match | Optional string in both |
+| `type` | `type` | ✅ Match | Optional descriptor |
+| `account` | `account` | ✅ Match | Optional string |
+| `timestamp` | `timestamp` | ✅ Match | Float seconds → int64 µs |
+| `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw payload excluded |
+
+### 🔍 Discrepancies
+
+1. **Enum Conversion**: Ensure fill sides map to `TradeSide` enum values.
+2. **Liquidity Defaults**: Document how missing liquidity strings are handled when proto omits the field.
+3. **Raw Data**: As elsewhere, raw exchange payload is not serialized.
+
+---
+
+## 12. Balance
+
+### Python Type (`types.pyx`)
+```python
+cdef class Balance:
+    cdef readonly str exchange
+    cdef readonly str currency
+    cdef readonly object balance
+    cdef readonly object reserved
+    cdef readonly dict raw
+```
+
+### Proto Schema (`balance.proto`)
+```protobuf
+message Balance {
+  string exchange = 1;
+  string currency = 2;
+  string balance = 3;
+  optional string reserved = 4;
+}
+```
+
+### ✅ Alignment Status: **FULLY ALIGNED**
+
+| Python Field | Proto Field | Status | Notes |
+|--------------|-------------|--------|-------|
+| `exchange` | `exchange` | ✅ Match | Both `string` |
+| `currency` | `currency` | ✅ Match | Both `string` |
+| `balance` | `balance` | ✅ Match | Decimal → string |
+| `reserved` | `reserved` | ✅ Match | Optional Decimal → optional string |
+| `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw wallet payload excluded |
+
+### 🔍 Discrepancies
+
+1. **Raw Data**: Raw wallet snapshots are intentionally omitted from normalized schema.
+
+---
+
+## 13. Position
+
+### Python Type (`types.pyx`)
+```python
+cdef class Position:
+    cdef readonly str exchange
+    cdef readonly str symbol
+    cdef readonly object position
+    cdef readonly object entry_price
+    cdef readonly object side
+    cdef readonly object unrealised_pnl
+    cdef readonly object timestamp
+    cdef readonly object raw
+```
+
+### Proto Schema (`position.proto`)
+```protobuf
+message Position {
+  string exchange = 1;
+  string symbol = 2;
+  string position = 3;
+  string entry_price = 4;
+  optional string side = 5;
+  optional string unrealised_pnl = 6;
+  optional int64 timestamp = 7;
+}
+```
+
+### ✅ Alignment Status: **FULLY ALIGNED**
+
+| Python Field | Proto Field | Status | Notes |
+|--------------|-------------|--------|-------|
+| `exchange` | `exchange` | ✅ Match | Both `string` |
+| `symbol` | `symbol` | ✅ Match | Both `string` |
+| `position` | `position` | ✅ Match | Decimal → string |
+| `entry_price` | `entry_price` | ✅ Match | Decimal → string |
+| `side` | `side` | ✅ Match | Optional direction |
+| `unrealised_pnl` | `unrealised_pnl` | ✅ Match | Optional Decimal → string |
+| `timestamp` | `timestamp` | ✅ Match | Optional float seconds → int64 µs |
+| `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw exchange payload excluded |
+
+### 🔍 Discrepancies
+
+1. **Raw Data**: Position raw metadata is not preserved in normalized events.
+
+---
+
+## 14. Transaction
+
+### Python Type (`types.pyx`)
+```python
+cdef class Transaction:
+    cdef readonly str exchange
+    cdef readonly str currency
+    cdef readonly str type
+    cdef readonly str status
+    cdef readonly object amount
+    cdef readonly double timestamp
+    cdef readonly dict raw
+```
+
+### Proto Schema (`transaction.proto`)
+```protobuf
+message Transaction {
+  string exchange = 1;
+  string currency = 2;
+  string type = 3;
+  string status = 4;
+  string amount = 5;
+  int64 timestamp = 6;
+}
+```
+
+### ✅ Alignment Status: **FULLY ALIGNED**
+
+| Python Field | Proto Field | Status | Notes |
+|--------------|-------------|--------|-------|
+| `exchange` | `exchange` | ✅ Match | Both `string` |
+| `currency` | `currency` | ✅ Match | Both `string` |
+| `type` | `type` | ✅ Match | Both `string` |
+| `status` | `status` | ✅ Match | Both `string` |
+| `amount` | `amount` | ✅ Match | Decimal → string |
+| `timestamp` | `timestamp` | ✅ Match | Float seconds → int64 µs |
+| `raw` | ❌ **MISSING** | ⚠️ Not Mapped | Raw transaction payload excluded |
+
+### 🔍 Discrepancies
+
+1. **Raw Data**: Raw deposit/withdrawal metadata is not serialized.
+
+---
+
+## 15. NBBO
+
+### Python Callback (`nbbo.py`)
+```python
+async def __call__(self, book, receipt_timestamp: float):
+    update = self._update(book)
+    if update is None or update == self.last_update:
+        return
+    bid, ask, bid_feed, ask_feed = update
+    await self.callback(
+        book.symbol,
+        bid['price'], bid['size'],
+        ask['price'], ask['size'],
+        bid_feed, ask_feed,
+    )
+```
+
+### Proto Schema (`nbbo.proto`)
+```protobuf
+message Nbbo {
+  string symbol = 1;
+  string best_bid_exchange = 2;
+  string best_bid_price = 3;
+  string best_bid_size = 4;
+  string best_ask_exchange = 5;
+  string best_ask_price = 6;
+  string best_ask_size = 7;
+  int64 timestamp = 8;
+}
+```
+
+### ✅ Alignment Status: **WELL ALIGNED**
+
+| Python Value | Proto Field | Status | Notes |
+|--------------|-------------|--------|-------|
+| `book.symbol` | `symbol` | ✅ Match | Normalized trading pair |
+| `bid_feed` | `best_bid_exchange` | ✅ Match | Exchange identifier |
+| `bid['price']` | `best_bid_price` | ✅ Match | Decimal → string |
+| `bid['size']` | `best_bid_size` | ✅ Match | Decimal → string |
+| `ask_feed` | `best_ask_exchange` | ✅ Match | Exchange identifier |
+| `ask['price']` | `best_ask_price` | ✅ Match | Decimal → string |
+| `ask['size']` | `best_ask_size` | ✅ Match | Decimal → string |
+| `receipt_timestamp` | `timestamp` | ⚠️ Derived | Float seconds converted to int64 µs |
+
+### 🔍 Discrepancies
+
+1. **Callback Shape**: Python emits positional arguments, so normalization must package fields before encoding.
+2. **Timestamp Handling**: Ensure `receipt_timestamp` is always available; otherwise emit zero or adopt optional semantics.
+3. **Raw Data**: Underlying order book snapshots driving NBBO are not stored in the proto message.
+
+---
+
 ## Summary Update: Alignment Issues by Category
 
 ### 🔴 Critical Issues (Block Migration) - **RESOLVED**
@@ -605,30 +820,30 @@ message OrderInfo {
 
 ### 🟡 Medium Issues (May Cause Data Loss)
 
-1. **Raw Field Universally Missing**: Cannot reconstruct original exchange messages (10 types affected)
-2. **Timestamp Optionality**: Several types allow `None` but proto uses required `int64` (Order, OrderInfo, possibly others)
+1. **Raw Field Universally Missing**: Cannot reconstruct original exchange messages (15 types affected)
+2. **Timestamp Optionality**: Python allows `None` but proto uses required `int64` for Order and OrderInfo events
 3. ~~Trade.raw_id Unclear~~ → Clarified as CCXT/tardis trace identifier
 
 ### 🟢 Minor Issues (Documentation Needed)
 
 1. **Side Field Type Change**: String → Enum (requires mapping documentation)
 2. **Field Renames**: Consistent pattern across types
-3. **Timestamp Precision**: float seconds → int64 microseconds
+3. **Timestamp Precision**: Float seconds → int64 microseconds
 
 ---
 
 ## Next Steps
 
 1. ✅ **COMPLETED**: P0 fixes (trade_type, funding optionality, orderbook docs)
-2. ✅ **COMPLETED**: Review 10/15 core types (67% complete)
-3. 🔄 **IN PROGRESS**: Complete remaining 5 types (Fill, Balance, Position, Transaction, NBBO)
+2. ✅ **COMPLETED**: Review 15/15 core types (100% complete)
+3. ✅ **COMPLETED**: Document remaining 5 types (Fill, Balance, Position, Transaction, NBBO)
 4. 🔄 Create GitHub issue for P1/P2 improvements
 5. 🔄 Update RELEASE_v0.1.0.md with migration notes
 6. 🔄 Implement conversion library with tests
 
 ---
 
-**Review Status**: 10/15 core types reviewed (67%)  
+**Review Status**: 15/15 core types reviewed (100%)  
 **P0 Issues**: 3/3 resolved ✅  
 **Last Updated**: 2025-10-25  
 **Reviewer**: Claude Code (AI Development Workflow)
