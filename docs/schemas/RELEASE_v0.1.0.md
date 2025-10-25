@@ -174,10 +174,48 @@ Check message definitions for `optional` markers.
 
 ## Known Limitations
 
+### Schema Coverage
 1. **tardis-node Alignment**: Not yet aligned with tardis-node JSON schemas (planned for v0.2.0)
 2. **DBN Alignment**: Not yet mapped to DBN fixed layouts (planned for v1.0.0)
 3. **Governance**: Monitoring and governance infrastructure planned for v1.x+
 4. **Account Data**: Limited to essential fields; portfolio data deferred
+
+### Python-Proto Alignment (78%+ aligned)
+
+For detailed alignment analysis, see `docs/schemas/PYTHON_PROTO_ALIGNMENT.md`.
+
+#### 1. Raw Exchange Data Not Persisted
+All Python types include a `raw` field containing the original exchange message. **Proto schemas do not include this field** to keep normalized data lean.
+
+**Impact**: Cannot reconstruct original exchange messages from proto data.
+
+**Workaround**: Store raw messages separately if needed for debugging or audit trails.
+
+**Future**: May add `optional bytes raw_data` in v0.2.0 if demand warrants.
+
+#### 2. OrderBook Delta Updates  
+The `OrderBook` Python type includes a `delta` field for incremental updates. **Proto `Level2Book` only supports snapshots**.
+
+**Impact**: Incremental orderbook updates must use the `Level2Delta` message instead.
+
+**Workaround**: Use `level2_delta.proto` for delta updates, `order_book.proto` for snapshots.
+
+**Status**: Working as designed - see proto comments for details.
+
+#### 3. Timestamp Optionality
+Python types `Order` and `OrderInfo` allow `timestamp=None`, but proto uses required `int64 timestamp`.
+
+**Impact**: Cannot distinguish "no timestamp" from "epoch 0" (zero value).
+
+**Workaround**: Use timestamp=0 to represent missing timestamps, document this convention.
+
+**Future**: May change to `optional int64 timestamp` in v0.2.0 if acceptable as non-breaking enhancement.
+
+#### 4. Recent Fixes (v0.1.0)
+The following issues were identified and resolved during alignment review:
+- ✅ **Trade.trade_type**: Added `optional string trade_type` field
+- ✅ **Funding optionality**: Changed `mark_price` and `rate` to `optional`
+- ✅ **OrderBook delta**: Documented delta limitation in proto comments
 
 ## Validation & Testing
 

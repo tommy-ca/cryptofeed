@@ -18,4 +18,5 @@ message Trade {
   string amount = 6; // decimal string, scale 1e-8
   int64 timestamp = 7; // microseconds since UNIX epoch (Trade.timestamp converted to µs)
   string raw_id = 8; // optional raw identifier when available (CCXT/tardis trace)
+  optional string trade_type = 9; // trade type when provided by venue (e.g., "market", "limit", "stop-loss") - maps to Trade.type
 }
