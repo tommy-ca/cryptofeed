@@ -16,5 +16,5 @@ message Liquidation {
   string price = 5; // decimal string, scale 1e-8 (Liquidation.price)
   optional string liquidation_id = 6; // venue liquidation identifier when present
   optional string status = 7; // venue-specific status (Liquidation.status)
-  int64 timestamp = 8; // microseconds since UNIX epoch (Liquidation.timestamp converted to µs)
+  optional int64 timestamp = 8; // microseconds since UNIX epoch (Liquidation.timestamp converted to µs)
 }
