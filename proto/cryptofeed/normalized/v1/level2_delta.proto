@@ -13,7 +13,7 @@ message Level2Delta {
   string symbol = 2; // normalized trading pair (Cryptofeed OrderBook.symbol)
   repeated PriceLevel bids = 3; // price/size deltas, descending by price
   repeated PriceLevel asks = 4; // price/size deltas, ascending by price
-  int64 timestamp = 5; // microseconds since UNIX epoch (delta receipt time converted to µs)
+  optional int64 timestamp = 5; // microseconds since UNIX epoch (delta receipt time converted to µs)
   optional int64 sequence = 6; // exchange sequence number when provided
   optional string checksum = 7; // venue checksum sent alongside delta
 }
