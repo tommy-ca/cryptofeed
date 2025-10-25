@@ -15,3 +15,12 @@
 * **[Transparent Proxy System](specs/proxy_system_overview.md)** - Zero-code proxy support for all exchanges
 * **[Proxy Testing Overview](proxy/testing.md)** - Test suites and execution guidance for proxy integration
 * **[Technical Specifications](specs/)** - Detailed specs for advanced features and integrations
+
+### 📋 Development & Specifications
+* **[Normalized Data Schema](specs/normalized-data-schema/)** - Baseline schemas, governance framework, and monitoring infrastructure
+* **[E2E Testing](e2e/)** - End-to-end test infrastructure, results, and planning
+  * **[Planning & Coordination](e2e/planning/)** - Test plans, commit strategies, and execution documentation
+  * **[Test Results & Analysis](e2e/results/)** - Detailed test execution results and validations
+
+### 🔬 Technical Investigations
+* **[Issues & Investigations](investigations/)** - Technical deep-dives into discovered issues and resolutions
