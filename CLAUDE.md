@@ -1,23 +1,55 @@
 # Cryptofeed Engineering Principles & AI Development Guide
 
 ## Active Specifications
-- `cryptofeed-proxy-integration`: HTTP and WebSocket proxy support with transparent Pydantic v2 configuration, enabling per-exchange SOCKS4/SOCKS5 and HTTP proxy overrides without code changes
-- `proxy-integration-testing`: Comprehensive proxy integration tests for HTTP and WebSocket clients across CCXT and native cryptofeed exchanges
-- `ccxt-generic-pro-exchange`: Generic CCXT/CCXT-Pro abstraction to standardize feed integration patterns
-- `backpack-exchange-integration`: Backpack exchange implementation leveraging the generic CCXT/CCXT-Pro layer
-- `normalized-data-schema-crypto`: Research normalized data formats and extend tardis-node/dbn schemas for crypto datasets
-- `unified-exchange-feed-architecture`: Unify native and CCXT exchange integrations behind shared contracts with reusable tooling and tests
 
-Refer to `AGENTS.md` for an overview of available agent workflows and command usage. Command files live under `.claude/commands/kiro/`—see their descriptions in `AGENTS.md` before invoking any `/kiro:` commands.
-- `proxy-system-complete`: ✅ COMPLETED - Full proxy system implementation with consolidated documentation. Complete 3-component architecture (~150 lines), 40 passing tests, comprehensive user guides organized by audience
-- `cryptofeed-lakehouse-architecture`: 🚀 INITIALIZED - Data lakehouse architecture for real-time streaming ingestion, historical data storage, analytics capabilities, and unified data access patterns for quantitative trading workflows
+Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATUS.md). Refer to `AGENTS.md` for overview of available agent workflows and command usage.
 
-### Proxy System Status: ✅ COMPLETE
-- **Implementation**: Core proxy system in `cryptofeed/proxy.py` with connection integration
-- **Testing**: 28 unit tests + 12 integration tests (all passing)
-- **Documentation**: Comprehensive guides in `docs/proxy/` organized by audience (users, developers, architects)
-- **Test Commands**: `pytest tests/unit/test_proxy_mvp.py tests/integration/test_proxy_integration.py -v`
-- **Documentation**: See `docs/proxy/README.md` for overview and quick start
+### ✅ Completed Specifications
+- `proxy-system-complete`: ✅ COMPLETED (Jan 22, 2025) - Full proxy system implementation with transparent HTTP/SOCKS proxy support, consolidated documentation, 40 passing tests
+  - **Implementation**: Core proxy system in `cryptofeed/proxy.py` with connection integration
+  - **Testing**: 28 unit tests + 12 integration tests (all passing)
+  - **Documentation**: `docs/proxy/README.md`, `docs/proxy/technical-specification.md`, `docs/proxy/user-guide.md`, `docs/proxy/architecture.md`
+  - **Test Command**: `pytest tests/unit/test_proxy_mvp.py tests/integration/test_proxy_integration.py -v`
+
+- `normalized-data-schema-crypto`: ✅ COMPLETE (Oct 20, 2025) - Phase 1 (v0.1.0) baseline schemas ready for production release
+  - **Phase 1 (v0.1.0)**: 14/14 tasks complete, 46/46 tests passing, ready to merge and publish
+  - **Phase 3 (Governance)**: 3/3 tasks complete, 42/42 tests passing, infrastructure ready
+  - **Overall**: 68% complete (17/25 tasks), 119/119 tests passing, approved for merge
+  - **Status**: Awaiting merge to main, then publication to Buf registry
+  - **Documentation**: `docs/specs/normalized-data-schema/status.md`
+
+- `ccxt-generic-pro-exchange`: ✅ COMPLETE (Oct 26, 2025) - Generic CCXT/CCXT-Pro abstraction for long-tail exchanges
+  - **Implementation**: 1,612 LOC across 11 modules, 66 test files, 8/8 tasks complete
+  - **Status**: Production ready, requires documentation update
+  - **Next Step**: Create production integration guide and configuration examples
+
+- `backpack-exchange-integration`: ✅ COMPLETE (Oct 26, 2025) - Native Cryptofeed Backpack connector with ED25519 auth
+  - **Implementation**: 1,503 LOC across 11 modules, 59 test files, 10/10 tasks complete
+  - **Approach**: Native Cryptofeed (not CCXT-based), exceptional quality (5/5 review score)
+  - **Status**: Production ready, native integration guide pending
+  - **Next Step**: Create native integration guide and ED25519 troubleshooting documentation
+
+### 🚧 In Progress Specifications
+(None - all active specs have either completed or are awaiting approval)
+
+### 📋 Planning Phase
+- `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
+  - **Status**: Design generated but NOT YET approved, blocks task generation
+  - **Dependencies**: CCXT generic and Backpack specs (in progress)
+  - **Next Step**: Review and approve design before proceeding
+
+### ⏸️ Paused/Disabled Specifications
+- `cryptofeed-lakehouse-architecture`: Disabled (user request) - Data lakehouse architecture with real-time ingestion and analytics
+  - **Status**: Can be reactivated anytime, all phases (requirements, design, tasks) prepared and approved
+  - **Dependencies**: Can leverage normalized-data-schema-crypto once merged
+
+- `proxy-pool-system`: Disabled (paused) - Proxy pool management and rotation (extends proxy-system-complete)
+  - **Status**: Requirements, design, tasks all approved, awaiting external service roadmap clarification
+  - **Note**: Related to external-proxy-service spec
+
+- `external-proxy-service`: Disabled (deferred) - Service-oriented proxy management with external service delegation
+  - **Status**: High priority, 4-6 weeks effort, awaiting proxy roadmap realignment
+  - **Note**: Depends on proxy-pool-system alignment
 
 ## Core Engineering Principles
 
