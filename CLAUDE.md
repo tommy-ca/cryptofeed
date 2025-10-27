@@ -32,6 +32,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
 ### 🚧 In Progress Specifications
 (None - all active specs have either completed or are awaiting approval)
 
+### 🔵 Initialized Specifications (Foundation Layers)
+- `protobuf-callback-serialization`: Initialized (Oct 27, 2025) - Binary serialization for data feed callbacks and streaming lakehouse foundation
+  - **Scope**: Add `to_proto()` methods to 20 data types, extend BackendCallback for protobuf support (Kafka, Redis, etc.)
+  - **Status**: Spec structure created, awaiting requirements approval
+  - **Dependencies**: `normalized-data-schema-crypto` (v0.1.0 - provides .proto schemas)
+  - **Downstream**: `quixstreams-integration`, `lakehouse-backend-adapter`
+  - **Next Step**: `/kiro:spec-requirements protobuf-callback-serialization`
+
 ### 📋 Planning Phase
 - `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
   - **Status**: Design generated but NOT YET approved, blocks task generation
