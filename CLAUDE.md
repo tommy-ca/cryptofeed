@@ -48,6 +48,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Timeline**: 2-3 weeks (after Spec 1 complete)
   - **Next Step**: `/kiro:spec-requirements quixstreams-integration` (after Spec 1 approval)
 
+- `lakehouse-backend-adapter`: Initialized (Oct 27, 2025) - Persistent storage and analytics layer for cryptofeed data
+  - **Scope**: DuckDB + Parquet columnar storage, streaming buffer with exactly-once semantics, SQL query interface, historical backfill, production operations
+  - **Status**: Spec structure created, awaiting requirements approval
+  - **Dependencies**: `protobuf-callback-serialization` (Spec 1), `quixstreams-integration` (Spec 2) - both blocking, provide Kafka topics
+  - **Reactivates**: `cryptofeed-lakehouse-architecture` (disabled) - leverages prepared design with protobuf-native implementation
+  - **Timeline**: 3-4 weeks (after Specs 1 & 2 complete)
+  - **Next Step**: `/kiro:spec-requirements lakehouse-backend-adapter` (after Spec 2 approval)
+
 ### 📋 Planning Phase
 - `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
   - **Status**: Design generated but NOT YET approved, blocks task generation
