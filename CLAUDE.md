@@ -40,6 +40,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Downstream**: `quixstreams-integration`, `lakehouse-backend-adapter`
   - **Next Step**: `/kiro:spec-requirements protobuf-callback-serialization`
 
+- `quixstreams-integration`: Initialized (Oct 27, 2025) - Stream processing layer for real-time analytics and aggregations
+  - **Scope**: Real-time OHLCV candles, VWAP, volume-weighted metrics, cross-exchange analytics (correlation, arbitrage detection)
+  - **Status**: Spec structure created, awaiting requirements approval
+  - **Dependencies**: `protobuf-callback-serialization` (Spec 1 - blocking, provides Kafka topics)
+  - **Downstream**: `lakehouse-backend-adapter` (Spec 3 - consumes aggregated streams)
+  - **Timeline**: 2-3 weeks (after Spec 1 complete)
+  - **Next Step**: `/kiro:spec-requirements quixstreams-integration` (after Spec 1 approval)
+
 ### 📋 Planning Phase
 - `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
   - **Status**: Design generated but NOT YET approved, blocks task generation
