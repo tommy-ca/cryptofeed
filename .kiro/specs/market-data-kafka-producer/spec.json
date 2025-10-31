@@ -1,0 +1,32 @@
+{
+  "name": "market-data-kafka-producer",
+  "version": "0.1.0",
+  "status": "initialized",
+  "created": "2025-10-31",
+  "updated": "2025-10-31",
+  "description": "High-performance Kafka producer for protobuf-serialized market data",
+  "scope": "ingestion_layer",
+  "phases": {
+    "requirements": {
+      "status": "complete",
+      "completed": "2025-10-31",
+      "file": "requirements.md"
+    },
+    "design": {
+      "status": "pending",
+      "file": "design.md"
+    },
+    "tasks": {
+      "status": "pending",
+      "file": "tasks.md"
+    }
+  },
+  "dependencies": {
+    "required": [
+      "normalized-data-schema-crypto",
+      "protobuf-callback-serialization"
+    ],
+    "optional": []
+  },
+  "tags": ["kafka", "producer", "protobuf", "ingestion", "backend"]
+}
