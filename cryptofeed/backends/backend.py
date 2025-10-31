@@ -89,7 +89,55 @@ class BackendQueue:
 
 
 class BackendCallback:
+    """
+    Base class for backend callbacks with pluggable serialization support.
+    
+    Supports both JSON (default, backward compatible) and Protobuf serialization formats.
+    The serialization_format parameter can be set via:
+    - Constructor parameter: serialization_format='protobuf'
+    - YAML configuration: serialization_format: protobuf
+    - Environment variable: CRYPTOFEED_SERIALIZATION_FORMAT=protobuf (future)
+    
+    Design Principles:
+    - Backward Compatibility: Defaults to JSON (existing to_dict() behavior)
+    - Dependency Inversion: Depends on Serializer abstraction, not concrete classes
+    - Open/Closed: Open for new serialization formats via subclassing
+    """
+    
+    def _get_serializer(self, format_name: str):
+        """
+        Factory method for serializer selection.
+        
+        Args:
+            format_name: 'json' or 'protobuf'
+            
+        Returns:
+            Serializer instance
+            
+        Raises:
+            ValueError: If format_name is invalid
+        """
+        from cryptofeed.serializers import JSONSerializer
+        
+        if format_name == 'json':
+            return JSONSerializer()
+        elif format_name == 'protobuf':
+            from cryptofeed.serializers.protobuf import ProtobufSerializer
+            return ProtobufSerializer()
+        else:
+            raise ValueError(
+                f"Invalid serialization format '{format_name}'. "
+                f"Valid formats: json, protobuf"
+            )
+    
     async def __call__(self, dtype, receipt_timestamp: float):
+        """
+        Process data type and write to backend.
+        
+        For backward compatibility, continues to use to_dict() and pass
+        dictionaries to write(). Protobuf serialization will be integrated
+        in backends that support it (Kafka, Redis) via value_serializer.
+        """
         data = dtype.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
         if not dtype.timestamp:
             data['timestamp'] = receipt_timestamp
