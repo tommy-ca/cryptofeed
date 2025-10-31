@@ -1,20 +1,14 @@
-"""
-Cryptofeed Serialization Framework
+'''
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
-Provides pluggable serialization formats for backend callbacks.
-Supports JSON (default, backward compatible) and Protobuf (efficient binary format).
+Please see the LICENSE file for the terms and conditions
+associated with this software.
 
-Usage:
-    from cryptofeed.serializers import Serializer, JSONSerializer, ProtobufSerializer
-    
-    # Use JSON serializer (default)
-    json_serializer = JSONSerializer()
-    json_bytes = json_serializer.serialize(trade_data)
-    
-    # Use Protobuf serializer
-    protobuf_serializer = ProtobufSerializer()
-    proto_bytes = protobuf_serializer.serialize(trade_data)
-"""
-from .base import Serializer
+Serialization module for cryptofeed backend callbacks.
+Provides pluggable serialization formats (JSON, Protobuf, etc.).
+'''
+from cryptofeed.serializers.base import Serializer
+from cryptofeed.serializers.json import JSONSerializer
+from cryptofeed.serializers.protobuf import ProtobufSerializer
 
-__all__ = ['Serializer']
+__all__ = ['Serializer', 'JSONSerializer', 'ProtobufSerializer']
