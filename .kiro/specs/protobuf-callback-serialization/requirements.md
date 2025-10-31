@@ -83,6 +83,10 @@ This specification establishes the foundation for protobuf-native data serializa
 4. **WHEN** configuration is provided via YAML with key `serialization_format: json` or omitted **THEN** the callback factory SHALL instantiate the callback with JSON format (default)
 5. **WHEN** configuration is provided via environment variable `CRYPTOFEED_CALLBACK_FORMAT=protobuf` **THEN** the callback SHALL override default JSON format with protobuf format
 6. **WHEN** both YAML and environment variable are specified **THEN** the environment variable SHALL take precedence
+7. **WHEN** configuration specifies an invalid serialization format (not 'json' or 'protobuf') **THEN** the system SHALL raise a `ValueError` with a clear error message listing valid formats
+8. **WHEN** YAML configuration is parsed **THEN** the parser SHALL validate the `serialization_format` field and reject invalid values before callback instantiation
+9. **WHEN** environment variable `CRYPTOFEED_CALLBACK_FORMAT` is set **THEN** the value SHALL be case-insensitive (e.g., 'Protobuf', 'PROTOBUF', 'protobuf' all accepted)
+10. **WHEN** programmatic API is used with `serialization_format` parameter **THEN** the parameter SHALL accept string values 'json' or 'protobuf' and raise `ValueError` for invalid inputs
 
 ---
 
@@ -101,6 +105,30 @@ This specification establishes the foundation for protobuf-native data serializa
 7. **WHEN** a Liquidation callback is configured with `serialization_format="protobuf"` **THEN** the message SHALL be written to topic `cryptofeed.market.liquidation.{exchange}` (e.g., `cryptofeed.market.liquidation.binance`)
 8. **WHEN** a message is written to a Kafka topic **THEN** the partition key SHALL be the normalized trading symbol (e.g., `BTC-USD`, `BTCUSDT`) to ensure all events for a symbol are routed to the same partition
 9. **WHEN** a message is written to a Kafka topic with protobuf serialization **THEN** the Kafka message value SHALL be the binary protobuf bytes (not wrapped in JSON)
+10. **WHEN** KafkaCallback is instantiated with `serialization_format="protobuf"` **THEN** the `topic()` method SHALL override the default topic naming to use hierarchical pattern `cryptofeed.market.{data_type}.{exchange}`
+11. **WHEN** KafkaCallback is instantiated with `serialization_format="protobuf"` **THEN** the `partition_key()` method SHALL return the normalized symbol as bytes (encoded as UTF-8)
+12. **WHEN** KafkaCallback produces a protobuf message **THEN** the message SHALL be sent with the configured `value_serializer` or default to binary bytes (not JSON-wrapped)
+13. **WHEN** multiple exchanges are configured for the same data type **THEN** each exchange SHALL write to its own topic (e.g., `cryptofeed.market.trades.coinbase`, `cryptofeed.market.trades.binance`)
+14. **WHEN** JSON format is used **THEN** the existing topic naming strategy SHALL be preserved for backward compatibility (e.g., `trades-coinbase-BTC-USD`)
+
+---
+
+### Requirement 4.5: Exception Handling and Error Management
+
+**Objective**: As a cryptofeed operator, I want clear, actionable error messages when serialization fails, so that I can quickly diagnose and resolve issues without deep debugging.
+
+#### Acceptance Criteria
+
+1. **WHEN** a data type is missing the `to_proto()` method **THEN** the system SHALL raise `SerializationError` with message: `"{TypeName} missing to_proto() method. Ensure all data types implement to_proto()."`
+2. **WHEN** protobuf encoding fails due to invalid data **THEN** the system SHALL raise `ProtobufEncodeError` with the underlying protobuf error message and data type context
+3. **WHEN** a serializer encounters an unexpected exception **THEN** the system SHALL wrap it in `SerializationError` and include the original exception as the cause (via `from` clause)
+4. **WHEN** an invalid serialization format is specified **THEN** the system SHALL raise `ValueError` with message: `"Invalid serialization format '{format}'. Valid formats: json, protobuf"`
+5. **WHEN** a `to_proto()` method returns a non-protobuf object **THEN** the system SHALL raise `ProtobufEncodeError` with message: `"to_proto() returned {type}, expected protobuf Message"`
+6. **WHEN** serialization fails in a BackendCallback **THEN** the error SHALL be logged with context (data type, exchange, symbol, timestamp) and SHALL NOT crash the feed
+7. **WHEN** a SerializationError occurs **THEN** the error message SHALL include the data type name and a hint about checking the `to_proto()` implementation
+8. **WHEN** custom exceptions are defined **THEN** they SHALL inherit from a common `CryptofeedSerializationException` base class for easy catching
+9. **WHEN** exceptions are raised **THEN** they SHALL preserve the full exception chain for debugging (no suppressed exceptions)
+10. **WHEN** a ProtobufEncodeError occurs **THEN** the error message SHALL include the protobuf schema name and version for schema compatibility debugging
 
 ---
 
@@ -152,18 +180,61 @@ This specification establishes the foundation for protobuf-native data serializa
 
 ---
 
+### Requirement 7.5: C Extension Wrapper Adapter
+
+**Objective**: As a cryptofeed developer, I want a clean adapter layer between C extension data types and protobuf wrappers, so that serialization logic is decoupled from the core C extension implementation.
+
+#### Acceptance Criteria
+
+1. **WHEN** a C extension data type (e.g., `cryptofeed.types.Trade`) is passed to serialization **THEN** an adapter function SHALL wrap it in a Python wrapper class with `to_proto()` method
+2. **WHEN** the wrapper adapter is invoked **THEN** it SHALL detect the data type and route to the appropriate wrapper class (e.g., `TradeWrapper`, `OrderBookWrapper`)
+3. **WHEN** a wrapper class is instantiated **THEN** it SHALL store a reference to the underlying C extension object without copying data
+4. **WHEN** a wrapper's `to_proto()` method is called **THEN** it SHALL access fields from the C extension object and construct a protobuf message
+5. **WHEN** an unsupported data type is passed to the adapter **THEN** it SHALL raise `SerializationError` with message: `"No protobuf wrapper available for {TypeName}"`
+6. **WHEN** multiple data types are serialized in sequence **THEN** the adapter SHALL maintain zero internal state between invocations (stateless design)
+7. **WHEN** a wrapper adapter is used **THEN** it SHALL add <100 microseconds overhead per message compared to direct protobuf serialization
+8. **WHEN** all 14 data types are implemented **THEN** the adapter SHALL support all types via a single `wrap_for_serialization(obj)` function
+9. **WHEN** a new data type is added in the future **THEN** adding wrapper support SHALL require only creating a new wrapper class and registering it in the adapter
+10. **WHEN** wrapper classes are tested **THEN** they SHALL have 100% test coverage including edge cases (null fields, empty collections, boundary values)
+
+---
+
 ### Requirement 8: Performance Characteristics
 
 **Objective**: As a platform engineer, I want protobuf serialization to meet performance requirements for high-throughput market data ingestion, so that serialization overhead does not become a bottleneck.
 
 #### Acceptance Criteria
 
-1. **WHEN** a Trade message is serialized to protobuf **THEN** serialization latency SHALL be < 1 millisecond
-2. **WHEN** an OrderBook message with 50 price levels is serialized to protobuf **THEN** serialization latency SHALL be < 2 milliseconds
+**Baseline Dataset Definition**:
+- **Trade Workload**: 10,000 Trade messages (BTC-USD, typical payload ~200 bytes JSON, ~80 bytes protobuf)
+- **OrderBook Workload**: 1,000 OrderBook messages (50 price levels, typical payload ~5KB JSON, ~2KB protobuf)
+- **Mixed Workload**: 7,000 Trade + 2,000 OrderBook + 1,000 Ticker messages
+- **Measurement Method**: Single-threaded execution, warm JIT, average of 5 runs, discard outliers
+
+**Latency Requirements**:
+1. **WHEN** a Trade message is serialized to protobuf **THEN** p50 latency SHALL be < 0.3ms, p95 < 0.6ms, p99 < 1ms
+2. **WHEN** an OrderBook message with 50 price levels is serialized to protobuf **THEN** p50 latency SHALL be < 1ms, p95 < 1.5ms, p99 < 2ms
 3. **WHEN** a sequence of 10,000 market messages is serialized **THEN** average serialization latency per message SHALL be < 500 microseconds
-4. **WHEN** protobuf serialization is compared to JSON serialization on identical workloads **THEN** protobuf SHALL perform serialization in ≤ 150% of JSON time
-5. **WHEN** memory profiling is performed on protobuf serialization **THEN** peak memory usage SHALL not exceed JSON serialization memory usage
-6. **WHEN** Kafka writes compressed with lz4 **THEN** protobuf-serialized messages SHALL result in 50-60% smaller compressed payloads than JSON
+4. **WHEN** protobuf serialization is compared to JSON serialization on identical workloads **THEN** protobuf SHALL perform serialization in ≤ 150% of JSON time (acceptable tradeoff for size reduction)
+
+**Throughput Requirements**:
+5. **WHEN** serializing the baseline Trade workload **THEN** throughput SHALL be ≥ 10,000 messages/second on a single core
+6. **WHEN** serializing the baseline mixed workload **THEN** throughput SHALL be ≥ 5,000 messages/second on a single core
+
+**Memory Requirements**:
+7. **WHEN** memory profiling is performed on protobuf serialization **THEN** peak memory usage SHALL not exceed JSON serialization memory usage + 10MB
+8. **WHEN** 1 million messages are serialized **THEN** memory usage SHALL remain stable (no memory leaks, <5% growth)
+9. **WHEN** wrapper adapter creates wrapper instances **THEN** wrapper object overhead SHALL be < 200 bytes per instance
+
+**Size Reduction Requirements**:
+10. **WHEN** Kafka writes compressed with lz4 **THEN** protobuf-serialized messages SHALL result in 50-60% smaller compressed payloads than JSON
+11. **WHEN** uncompressed protobuf messages are measured **THEN** they SHALL be 55-65% smaller than uncompressed JSON
+12. **WHEN** size metrics are collected **THEN** the performance report SHALL include percentile distributions (p50, p95, p99) for both JSON and protobuf sizes
+
+**Profiling Requirements**:
+13. **WHEN** performance benchmarks are run **THEN** cProfile SHALL be used to identify hot paths (functions consuming >5% of total time)
+14. **WHEN** profiling results are analyzed **THEN** Decimal-to-string conversion and timestamp conversion SHALL be identified as optimization targets if they exceed 10% of serialization time
+15. **WHEN** baseline metrics are established **THEN** they SHALL be documented in `docs/performance-baseline.md` for regression tracking
 
 ---
 
@@ -213,16 +284,22 @@ This specification establishes the foundation for protobuf-native data serializa
 
 ## Success Criteria
 
-1. ✅ All 6 market data types implement `to_proto()` method
-2. ✅ `BackendCallback` supports both JSON and Protobuf formats with configuration
-3. ✅ Kafka topic routing implemented with `cryptofeed.market.{data_type}.{exchange}` pattern
-4. ✅ Configuration via YAML and Python API fully documented with examples
-5. ✅ 95%+ test coverage for serialization layer
-6. ✅ Performance benchmarks show < 2ms serialization latency
-7. ✅ Size metrics show 40-60% reduction vs JSON
-8. ✅ Zero breaking changes to existing JSON-based backends
-9. ✅ End-to-end integration test with Kafka for all 6 data types
-10. ✅ Production deployment guide documented
+1. ✅ All 14 data types have protobuf serialization via wrapper pattern (Trade, OrderBook, Ticker, Candle, Funding, Liquidation, OpenInterest, Index, Balance, Position, Fill, OrderInfo, Transaction, Order)
+2. ✅ Custom exception classes defined (`CryptofeedSerializationException`, `SerializationError`, `ProtobufEncodeError`) with clear error messages
+3. ✅ `BackendCallback` supports both JSON and Protobuf formats with configuration (YAML + environment variables)
+4. ✅ Configuration parser validates `serialization_format` and handles case-insensitive values
+5. ✅ Kafka topic routing implemented with `cryptofeed.market.{data_type}.{exchange}` pattern for protobuf format
+6. ✅ Kafka partition key set to normalized symbol (UTF-8 bytes) for consistent routing
+7. ✅ Wrapper adapter layer implemented for C extension → Python wrapper conversion
+8. ✅ Configuration via YAML and Python API fully documented with examples
+9. ✅ 95%+ test coverage for serialization layer, 100% for wrapper classes
+10. ✅ Performance benchmarks meet baseline targets (p99 <1ms Trade, <2ms OrderBook, ≥10k msg/s throughput)
+11. ✅ Size metrics show 50-60% reduction vs JSON (compressed with lz4)
+12. ✅ Memory usage stable after 1M messages (<5% growth)
+13. ✅ Zero breaking changes to existing JSON-based backends (backward compatible)
+14. ✅ End-to-end integration test with Kafka for all 14 data types
+15. ✅ Performance baseline documented in `docs/performance-baseline.md`
+16. ✅ User guide and consumer integration examples documented
 
 ---
 
