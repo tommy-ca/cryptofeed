@@ -33,28 +33,19 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
 (None - all active specs have either completed or are awaiting approval)
 
 ### 🔵 Initialized Specifications (Foundation Layers)
-- `protobuf-callback-serialization`: Initialized (Oct 27, 2025) - Binary serialization for data feed callbacks and streaming lakehouse foundation
-  - **Scope**: Add `to_proto()` methods to 20 data types, extend BackendCallback for protobuf support (Kafka, Redis, etc.)
+- `protobuf-callback-serialization`: Initialized (Oct 27, 2025) - Binary serialization for data feed callbacks
+  - **Scope**: Add `to_proto()` methods to 20 data types, extend BackendCallback for protobuf support (Kafka, Redis). Storage delegated to consumers.
   - **Status**: Spec structure created, awaiting requirements approval
   - **Dependencies**: `normalized-data-schema-crypto` (v0.1.0 - provides .proto schemas)
-  - **Downstream**: `quixstreams-integration`, `lakehouse-backend-adapter`
+  - **Downstream**: `market-data-kafka-producer`
   - **Next Step**: `/kiro:spec-requirements protobuf-callback-serialization`
 
-- `quixstreams-integration`: Initialized (Oct 27, 2025) - Stream processing layer for real-time analytics and aggregations
-  - **Scope**: Real-time OHLCV candles, VWAP, volume-weighted metrics, cross-exchange analytics (correlation, arbitrage detection)
-  - **Status**: Spec structure created, awaiting requirements approval
-  - **Dependencies**: `protobuf-callback-serialization` (Spec 1 - blocking, provides Kafka topics)
-  - **Downstream**: `lakehouse-backend-adapter` (Spec 3 - consumes aggregated streams)
-  - **Timeline**: 2-3 weeks (after Spec 1 complete)
-  - **Next Step**: `/kiro:spec-requirements quixstreams-integration` (after Spec 1 approval)
-
-- `lakehouse-backend-adapter`: Initialized (Oct 27, 2025) - Persistent storage and analytics layer for cryptofeed data
-  - **Scope**: DuckDB + Parquet columnar storage, streaming buffer with exactly-once semantics, SQL query interface, historical backfill, production operations
-  - **Status**: Spec structure created, awaiting requirements approval
-  - **Dependencies**: `protobuf-callback-serialization` (Spec 1), `quixstreams-integration` (Spec 2) - both blocking, provide Kafka topics
-  - **Reactivates**: `cryptofeed-lakehouse-architecture` (disabled) - leverages prepared design with protobuf-native implementation
-  - **Timeline**: 3-4 weeks (after Specs 1 & 2 complete)
-  - **Next Step**: `/kiro:spec-requirements lakehouse-backend-adapter` (after Spec 2 approval)
+- `market-data-kafka-producer`: Initialized (Oct 31, 2025) - High-performance Kafka producer for protobuf-serialized market data
+  - **Scope**: Kafka backend integration, topic management, exactly-once semantics, monitoring. Storage (Iceberg/DuckDB) delegated to consumers.
+  - **Status**: Requirements approved, awaiting design generation
+  - **Dependencies**: `protobuf-callback-serialization` (Spec 1 - blocking, provides serialization)
+  - **Timeline**: 4-5 weeks (after Spec 1 complete)
+  - **Next Step**: `/kiro:spec-design market-data-kafka-producer`
 
 ### 📋 Planning Phase
 - `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
@@ -62,7 +53,63 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Dependencies**: CCXT generic and Backpack specs (in progress)
   - **Next Step**: Review and approve design before proceeding
 
+---
+
+## Architecture: Ingestion Layer
+
+Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics are delegated to downstream consumers.
+
+### Dependency Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Cryptofeed Ingestion Layer (IN-SCOPE)                       │
+│                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ Exchange     │───▶│ Normalized   │───▶│ Protobuf     │  │
+│  │ Connectors   │    │ Data Schema  │    │ Serialization│  │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘  │
+│                                                   │          │
+└───────────────────────────────────────────────────┼──────────┘
+                                                    ▼
+                                          ┌──────────────────┐
+                                          │ Kafka Topics     │
+                                          │ (Protobuf msgs)  │
+                                          └────────┬─────────┘
+                                                   │
+                ┌──────────────┬──────────────────┼──────────────┬──────────────┐
+                ▼              ▼                  ▼              ▼              ▼
+          ┌──────────┐   ┌──────────┐      ┌──────────┐   ┌──────────┐   ┌──────────┐
+          │ Flink    │   │ Spark    │      │ DuckDB   │   │ Custom   │   │ Iceberg  │
+          │ → Iceberg│   │ → Parquet│      │ Consumer │   │ Consumer │   │ Direct   │
+          └──────────┘   └──────────┘      └──────────┘   └──────────┘   └──────────┘
+
+          Consumer Responsibility (OUT-OF-SCOPE):
+          - Read Kafka topics
+          - Deserialize protobuf
+          - Implement storage (Iceberg, Parquet, DuckDB)
+          - Implement analytics (aggregations, queries)
+          - Implement retention policies
+```
+
+### Specifications Alignment
+
+| Spec | Phase | Scope | Boundary |
+|------|-------|-------|----------|
+| **Spec 0** | Complete | Protobuf schemas (.proto files) | Schema definition |
+| **Spec 1** | In Progress | Serialization (`to_proto()` methods) | Kafka message production |
+| **Spec 3** | Initialized | Kafka producer integration | Kafka topic publication |
+| **Consumer** | External | Storage, analytics, retention | Everything after Kafka |
+
+**Key Principle**: Cryptofeed stops at Kafka. Consumers handle everything downstream.
+
 ### ⏸️ Paused/Disabled Specifications
+- `quixstreams-integration`: Disabled (Oct 31, 2025) - Stream processing delegated to consumers
+  - **Status**: Archived, stream processing is not part of ingestion layer scope
+  - **Rationale**: Consumers can implement QuixStreams, Flink, Spark independently
+  - **Dependencies**: Can leverage protobuf schemas from `protobuf-callback-serialization`
+  - **Future**: If needed, implement as reference examples in consumer integration guide
+
 - `cryptofeed-lakehouse-architecture`: Disabled (user request) - Data lakehouse architecture with real-time ingestion and analytics
   - **Status**: Can be reactivated anytime, all phases (requirements, design, tasks) prepared and approved
   - **Dependencies**: Can leverage normalized-data-schema-crypto once merged
@@ -76,6 +123,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Note**: Depends on proxy-pool-system alignment
 
 ## Core Engineering Principles
+
+### Ingestion Layer Only (Separation of Concerns)
+- **Scope**: Cryptofeed focuses exclusively on data ingestion and normalization
+- **Producer Role**: Publish protobuf-serialized messages to Kafka topics
+- **Consumer Responsibility**: Downstream consumers implement storage, analytics, and persistence
+- **Storage Agnostic**: No opinions on lakehouse technology (Apache Iceberg, DuckDB, Parquet, etc.)
+- **Query Independence**: Query engines (Flink, Spark, Trino, DuckDB) are consumer choices
+- **Benefits**: Clear separation of concerns, flexible storage backends, reduced maintenance burden
 
 ### SOLID Principles
 - **Single Responsibility**: Each class/module has one reason to change
