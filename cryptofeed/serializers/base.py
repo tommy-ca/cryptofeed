@@ -1,53 +1,52 @@
-"""
-Abstract base class for serializers.
+'''
+Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
-Defines the contract that all serializers must implement, following the
-Open/Closed and Liskov Substitution principles.
-"""
+Please see the LICENSE file for the terms and conditions
+associated with this software.
+
+Abstract base class for serializers.
+'''
 from abc import ABC, abstractmethod
 from typing import Any
 
 
 class Serializer(ABC):
-    """Abstract base class for data serialization.
-    
-    Subclasses must implement serialize() and content_type() methods.
-    This design follows SOLID principles:
-    - Single Responsibility: Only handles serialization contract
-    - Open/Closed: Open for extension (new formats), closed for modification
-    - Liskov Substitution: All subclasses are substitutable
-    - Interface Segregation: Minimal interface (2 methods)
-    - Dependency Inversion: Code depends on abstraction, not concrete classes
-    
-    Example:
-        class JSONSerializer(Serializer):
-            def serialize(self, data: Any) -> bytes:
-                return json.dumps(data).encode('utf-8')
-            
-            def content_type(self) -> str:
-                return 'application/json'
     """
-    
+    Abstract base class for data serialization.
+
+    All serializers must implement:
+    - serialize(obj) -> bytes: Convert object to serialized bytes
+    - content_type() -> str: Return MIME type for the format
+
+    Design Principles:
+    - Single Responsibility: Defines serialization contract only
+    - Open/Closed: Open for extension (subclass), closed for modification
+    - Liskov Substitution: All serializers substitutable
+    - Interface Segregation: Minimal 2-method interface
+    """
+
     @abstractmethod
-    def serialize(self, data: Any) -> bytes:
-        """Convert data object to serialized bytes.
-        
+    def serialize(self, obj: Any) -> bytes:
+        """
+        Convert object to serialized bytes.
+
         Args:
-            data: Data object to serialize (e.g., Trade, OrderBook, dict)
-        
+            obj: Data object to serialize (Trade, OrderBook, etc.)
+
         Returns:
-            bytes: Serialized data in the format implemented by this serializer
-        
+            bytes: Serialized representation
+
         Raises:
             SerializationError: If serialization fails
         """
         pass
-    
+
     @abstractmethod
     def content_type(self) -> str:
-        """Return MIME type for this serialization format.
-        
+        """
+        Return MIME type for this serialization format.
+
         Returns:
-            str: MIME type string (e.g., 'application/json', 'application/x-protobuf')
+            str: MIME type (e.g., 'application/json', 'application/x-protobuf')
         """
         pass
