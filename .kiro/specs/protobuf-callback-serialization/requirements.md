@@ -228,13 +228,14 @@ This specification establishes the foundation for protobuf-native data serializa
 
 **Size Reduction Requirements**:
 10. **WHEN** Kafka writes compressed with lz4 **THEN** protobuf-serialized messages SHALL result in 50-60% smaller compressed payloads than JSON
-11. **WHEN** uncompressed protobuf messages are measured **THEN** they SHALL be 55-65% smaller than uncompressed JSON
-12. **WHEN** size metrics are collected **THEN** the performance report SHALL include percentile distributions (p50, p95, p99) for both JSON and protobuf sizes
+11. **WHEN** Kafka writes compressed with zstd **THEN** protobuf-serialized messages SHALL result in 55-65% smaller compressed payloads than JSON
+12. **WHEN** uncompressed protobuf messages are measured **THEN** they SHALL be 55-65% smaller than uncompressed JSON
+13. **WHEN** size metrics are collected **THEN** the performance report SHALL include percentile distributions (p50, p95, p99) for both JSON and protobuf sizes across uncompressed, lz4-compressed, and zstd-compressed outputs
 
 **Profiling Requirements**:
-13. **WHEN** performance benchmarks are run **THEN** cProfile SHALL be used to identify hot paths (functions consuming >5% of total time)
-14. **WHEN** profiling results are analyzed **THEN** Decimal-to-string conversion and timestamp conversion SHALL be identified as optimization targets if they exceed 10% of serialization time
-15. **WHEN** baseline metrics are established **THEN** they SHALL be documented in `docs/performance-baseline.md` for regression tracking
+14. **WHEN** performance benchmarks are run **THEN** cProfile SHALL be used to identify hot paths (functions consuming >5% of total time)
+15. **WHEN** profiling results are analyzed **THEN** Decimal-to-string conversion and timestamp conversion SHALL be identified as optimization targets if they exceed 10% of serialization time
+16. **WHEN** baseline metrics are established **THEN** they SHALL be documented in `docs/protobuf-performance-baseline.md` for regression tracking
 
 ---
 
@@ -294,11 +295,11 @@ This specification establishes the foundation for protobuf-native data serializa
 8. ✅ Configuration via YAML and Python API fully documented with examples
 9. ✅ 95%+ test coverage for serialization layer, 100% for wrapper classes
 10. ✅ Performance benchmarks meet baseline targets (p99 <1ms Trade, <2ms OrderBook, ≥10k msg/s throughput)
-11. ✅ Size metrics show 50-60% reduction vs JSON (compressed with lz4)
+11. ✅ Size metrics show ≥50% reduction vs JSON (compressed with lz4 and zstd)
 12. ✅ Memory usage stable after 1M messages (<5% growth)
 13. ✅ Zero breaking changes to existing JSON-based backends (backward compatible)
 14. ✅ End-to-end integration test with Kafka for all 14 data types
-15. ✅ Performance baseline documented in `docs/performance-baseline.md`
+15. ✅ Performance baseline documented in `docs/protobuf-performance-baseline.md`
 16. ✅ User guide and consumer integration examples documented
 
 ---
