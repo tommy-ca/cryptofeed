@@ -19,7 +19,7 @@ LOG = logging.getLogger('feedhandler')
 
 
 class KafkaCallback(BackendQueue):
-    def __init__(self, key=None, numeric_type=float, none_to=None, **kwargs):
+    def __init__(self, key=None, serialization_format=None, numeric_type=float, none_to=None, **kwargs):
         """
         You can pass configuration options to AIOKafkaProducer as keyword arguments.
         (either individual kwargs, an unpacked dictionary `**config_dict`, or both)
@@ -43,8 +43,29 @@ class KafkaCallback(BackendQueue):
         self.key: str = key or self.default_key
         self.numeric_type = numeric_type
         self.none_to = none_to
+        self.set_serialization_format(serialization_format)
         # Do not allow writer to send messages until connection confirmed
         self.running = False
+
+    async def __call__(self, dtype, receipt_timestamp: float):
+        fmt = self.serialization_format
+
+        if fmt == 'json':
+            await super().__call__(dtype, receipt_timestamp)  # type: ignore[misc]
+            return
+
+        serializer = self._get_serializer(fmt)
+        payload = serializer.serialize(dtype)
+        metadata = self._build_dict_payload(dtype, receipt_timestamp)
+
+        message = {
+            'format': fmt,
+            'payload': payload,
+            'content_type': serializer.content_type(),
+            'metadata': metadata,
+        }
+
+        await self.write(message)
 
     def _default_serializer(self, to_bytes: dict | str) -> ByteString:
         if isinstance(to_bytes, dict):
@@ -76,10 +97,29 @@ class KafkaCallback(BackendQueue):
                         LOG.info(f'{self.__class__.__name__}: "{self.producer.client._client_id}" connected to cluster containing {len(self.producer.client.cluster.brokers())} broker(s)')
                         self.running = True
 
+    def _extract_metadata(self, message: dict) -> dict:
+        if isinstance(message, dict) and message.get('format') == 'protobuf':
+            return message['metadata']
+        return message
+
+    def _protobuf_topic_data_type(self) -> str:
+        return getattr(self, 'protobuf_data_type', self.key)
+
     def topic(self, data: dict) -> str:
-        return f"{self.key}-{data['exchange']}-{data['symbol']}"
+        if isinstance(data, dict) and data.get('format') == 'protobuf':
+            metadata = self._extract_metadata(data)
+            data_type = self._protobuf_topic_data_type()
+            exchange = metadata['exchange']
+            return f"cryptofeed.market.{data_type}.{exchange}"
+
+        metadata = self._extract_metadata(data)
+        return f"{self.key}-{metadata['exchange']}-{metadata['symbol']}"
 
     def partition_key(self, data: dict) -> Optional[bytes]:
+        if isinstance(data, dict) and data.get('format') == 'protobuf':
+            metadata = self._extract_metadata(data)
+            if metadata.get('symbol'):
+                return str(metadata['symbol']).encode('utf-8')
         return None
 
     def partition(self, data: dict) -> Optional[int]:
@@ -90,11 +130,27 @@ class KafkaCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 for index in range(len(updates)):
-                    topic = self.topic(updates[index])
-                    # Check for user-provided serializers, otherwise use default
-                    value = updates[index] if self.producer_config.get('value_serializer') else self._default_serializer(updates[index])
-                    key = self.key if self.producer_config.get('key_serializer') else self._default_serializer(self.key)
-                    partition = self.partition(updates[index])
+                    message = updates[index]
+                    topic = self.topic(message)
+
+                    metadata = self._extract_metadata(message)
+                    raw_key = metadata.get('symbol') or self.key
+                    key_serializer = self.producer_config.get('key_serializer')
+                    if key_serializer:
+                        key = raw_key
+                    else:
+                        key = self._default_serializer(raw_key)
+
+                    value_serializer = self.producer_config.get('value_serializer')
+
+                    if message.get('format') == 'protobuf':
+                        raw_value = message['payload']
+                        value = raw_value if not value_serializer else raw_value
+                    else:
+                        raw_value = message
+                        value = raw_value if value_serializer else self._default_serializer(raw_value)
+
+                    partition = self.partition(message)
                     try:
                         send_future = await self.producer.send(topic, value, key, partition)
                         await send_future
@@ -110,14 +166,17 @@ class KafkaCallback(BackendQueue):
 
 class TradeKafka(KafkaCallback, BackendCallback):
     default_key = 'trades'
+    protobuf_data_type = 'trades'
 
 
 class FundingKafka(KafkaCallback, BackendCallback):
     default_key = 'funding'
+    protobuf_data_type = 'funding'
 
 
 class BookKafka(KafkaCallback, BackendBookCallback):
     default_key = 'book'
+    protobuf_data_type = 'orderbook'
 
     def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
         self.snapshots_only = snapshots_only
@@ -128,31 +187,39 @@ class BookKafka(KafkaCallback, BackendBookCallback):
 
 class TickerKafka(KafkaCallback, BackendCallback):
     default_key = 'ticker'
+    protobuf_data_type = 'ticker'
 
 
 class OpenInterestKafka(KafkaCallback, BackendCallback):
     default_key = 'open_interest'
+    protobuf_data_type = 'open_interest'
 
 
 class LiquidationsKafka(KafkaCallback, BackendCallback):
     default_key = 'liquidations'
+    protobuf_data_type = 'liquidation'
 
 
 class CandlesKafka(KafkaCallback, BackendCallback):
     default_key = 'candles'
+    protobuf_data_type = 'candles'
 
 
 class OrderInfoKafka(KafkaCallback, BackendCallback):
     default_key = 'order_info'
+    protobuf_data_type = 'order_info'
 
 
 class TransactionsKafka(KafkaCallback, BackendCallback):
     default_key = 'transactions'
+    protobuf_data_type = 'transactions'
 
 
 class BalancesKafka(KafkaCallback, BackendCallback):
     default_key = 'balances'
+    protobuf_data_type = 'balances'
 
 
 class FillsKafka(KafkaCallback, BackendCallback):
     default_key = 'fills'
+    protobuf_data_type = 'fills'
