@@ -5,6 +5,7 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 from collections import defaultdict
+import base64
 
 from redis import asyncio as aioredis
 from cryptofeed.json_utils import json
@@ -13,7 +14,7 @@ from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, Ba
 
 
 class RedisCallback(BackendQueue):
-    def __init__(self, host='127.0.0.1', port=6379, socket=None, key=None, none_to='None', numeric_type=float, **kwargs):
+    def __init__(self, host='127.0.0.1', port=6379, socket=None, key=None, none_to='None', numeric_type=float, serialization_format=None, **kwargs):
         """
         setting key lets you override the prefix on the
         key used in redis. The defaults are related to the data
@@ -29,6 +30,49 @@ class RedisCallback(BackendQueue):
         self.numeric_type = numeric_type
         self.none_to = none_to
         self.running = True
+        if serialization_format is not None:
+            self.set_serialization_format(serialization_format)
+
+    def _prepare_json_record(self, update: dict) -> dict:
+        if isinstance(update, dict) and update.get('format') == 'protobuf':
+            encoded = base64.b64encode(update['payload']).decode('ascii')
+            return {
+                'format': 'protobuf',
+                'content_type': update['content_type'],
+                'metadata': update['metadata'],
+                'payload_b64': encoded,
+            }
+        return update
+
+    async def __call__(self, dtype, receipt_timestamp: float):
+        fmt = self.serialization_format
+
+        if fmt == 'json':
+            await BackendCallback.__call__(self, dtype, receipt_timestamp)
+            return
+
+        serializer = self._get_serializer(fmt)
+        payload = serializer.serialize(dtype)
+        metadata = self._build_dict_payload(dtype, receipt_timestamp)
+
+        message = {
+            'format': fmt,
+            'content_type': serializer.content_type(),
+            'payload': payload,
+            'metadata': metadata,
+        }
+
+        await self.write(message)
+
+    def _prepare_stream_record(self, update: dict) -> dict:
+        if isinstance(update, dict) and update.get('format') == 'protobuf':
+            return {
+                'format': 'protobuf',
+                'content_type': update['content_type'],
+                'metadata': json.dumps(update['metadata']),
+                'payload': update['payload'],
+            }
+        return update
 
 
 class RedisZSetCallback(RedisCallback):
@@ -49,7 +93,12 @@ class RedisZSetCallback(RedisCallback):
             async with self.read_queue() as updates:
                 async with conn.pipeline(transaction=False) as pipe:
                     for update in updates:
-                        pipe = pipe.zadd(f"{self.key}-{update['exchange']}-{update['symbol']}", {json.dumps(update): update[self.score_key]}, nx=True)
+                        record = self._prepare_json_record(update)
+                        pipe = pipe.zadd(
+                            f"{self.key}-{record['metadata']['exchange']}-{record['metadata']['symbol']}" if record.get('format') == 'protobuf' else f"{self.key}-{update['exchange']}-{update['symbol']}",
+                            {json.dumps(record): (record['metadata']['receipt_timestamp'] if record.get('format') == 'protobuf' else update[self.score_key])},
+                            nx=True,
+                        )
                     await pipe.execute()
 
         await conn.close()
@@ -64,14 +113,21 @@ class RedisStreamCallback(RedisCallback):
             async with self.read_queue() as updates:
                 async with conn.pipeline(transaction=False) as pipe:
                     for update in updates:
-                        if 'delta' in update:
-                            update['delta'] = json.dumps(update['delta'])
-                        elif 'book' in update:
-                            update['book'] = json.dumps(update['book'])
-                        elif 'closed' in update:
-                            update['closed'] = str(update['closed'])
+                        if isinstance(update, dict) and update.get('format') == 'protobuf':
+                            record = self._prepare_stream_record(update)
+                            metadata = json.loads(record['metadata'])
+                            stream_key = f"{self.key}-{metadata['exchange']}-{metadata['symbol']}"
+                        else:
+                            record = update
+                            stream_key = f"{self.key}-{update['exchange']}-{update['symbol']}"
+                            if 'delta' in record:
+                                record['delta'] = json.dumps(record['delta'])
+                            elif 'book' in record:
+                                record['book'] = json.dumps(record['book'])
+                            elif 'closed' in record:
+                                record['closed'] = str(record['closed'])
 
-                        pipe = pipe.xadd(f"{self.key}-{update['exchange']}-{update['symbol']}", update)
+                        pipe = pipe.xadd(stream_key, record)
                     await pipe.execute()
 
         await conn.close()
@@ -87,7 +143,13 @@ class RedisKeyCallback(RedisCallback):
             async with self.read_queue() as updates:
                 update = list(updates)[-1]
                 if update:
-                    await conn.set(f"{self.key}-{update['exchange']}-{update['symbol']}", json.dumps(update))
+                    record = self._prepare_json_record(update)
+                    if record.get('format') == 'protobuf':
+                        metadata = record['metadata']
+                        key = f"{self.key}-{metadata['exchange']}-{metadata['symbol']}"
+                    else:
+                        key = f"{self.key}-{update['exchange']}-{update['symbol']}"
+                    await conn.set(key, json.dumps(record))
 
         await conn.close()
         await conn.connection_pool.disconnect()
