@@ -5,10 +5,19 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import asyncio
+import logging
 from asyncio.queues import Queue
 from multiprocessing import Pipe, Process
 from contextlib import asynccontextmanager
 
+from cryptofeed.serializers.formats import (
+    DEFAULT_SERIALIZATION_FORMAT,
+    get_serialization_format_from_env,
+    validate_serialization_format,
+)
+
+
+LOG = logging.getLogger('feedhandler')
 
 SHUTDOWN_SENTINEL = 'STOP'
 
@@ -104,6 +113,58 @@ class BackendCallback:
     - Open/Closed: Open for new serialization formats via subclassing
     """
     
+    _explicit_serialization_format: str | None = None
+    _serialization_log_state: tuple[str, str] | None = None
+    _serialization_locked: bool = False
+
+    def set_serialization_format(self, format_name: str | None) -> None:
+        """Persist an explicit serialization format override for this callback."""
+
+        if getattr(self, '_serialization_locked', False):
+            if format_name is None and self._explicit_serialization_format is None:
+                return
+            if format_name is not None:
+                normalized = validate_serialization_format(format_name)
+                if self._explicit_serialization_format == normalized:
+                    return
+            raise RuntimeError(
+                f"{self.__class__.__name__}: serialization format already locked"
+            )
+
+        if format_name is None:
+            self._explicit_serialization_format = None
+        else:
+            self._explicit_serialization_format = validate_serialization_format(format_name)
+            self._serialization_locked = True
+
+    @property
+    def serialization_format(self) -> str:
+        """Active serialization format after applying env overrides."""
+
+        preferred = getattr(self, '_explicit_serialization_format', None)
+
+        env_value = get_serialization_format_from_env()
+        if env_value is not None:
+            resolved = env_value
+            source = 'env'
+        elif preferred is not None:
+            resolved = preferred
+            source = 'explicit'
+        else:
+            resolved = DEFAULT_SERIALIZATION_FORMAT
+            source = 'default'
+
+        if getattr(self, '_serialization_log_state', None) != (source, resolved):
+            LOG.info(
+                '%s: serialization_format=%s (source=%s)',
+                self.__class__.__name__,
+                resolved,
+                source,
+            )
+            self._serialization_log_state = (source, resolved)
+
+        return resolved
+
     def _get_serializer(self, format_name: str):
         """
         Factory method for serializer selection.
@@ -130,22 +191,23 @@ class BackendCallback:
                 f"Valid formats: json, protobuf"
             )
     
-    async def __call__(self, dtype, receipt_timestamp: float):
-        """
-        Process data type and write to backend.
-        
-        For backward compatibility, continues to use to_dict() and pass
-        dictionaries to write(). Protobuf serialization will be integrated
-        in backends that support it (Kafka, Redis) via value_serializer.
-        """
+    def _build_dict_payload(self, dtype, receipt_timestamp: float) -> dict:
+        """Normalize data objects into dictionaries for JSON/backward paths."""
+
         data = dtype.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
-        if not dtype.timestamp:
+        if not getattr(dtype, 'timestamp', None):
             data['timestamp'] = receipt_timestamp
         data['receipt_timestamp'] = receipt_timestamp
+        return data
+
+    async def __call__(self, dtype, receipt_timestamp: float):
+        """Default implementation: emit JSON-compatible dictionaries."""
+
+        data = self._build_dict_payload(dtype, receipt_timestamp)
         await self.write(data)
 
 
-class BackendBookCallback:
+class BackendBookCallback(BackendCallback):
     async def _write_snapshot(self, book, receipt_timestamp: float):
         data = book.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
         del data['delta']
