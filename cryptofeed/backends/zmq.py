@@ -22,6 +22,26 @@ class ZMQCallback(BackendQueue):
         self.dynamic_key = dynamic_key
         self.running = True
 
+    async def __call__(self, dtype, receipt_timestamp: float):
+        fmt = self.serialization_format
+
+        if fmt == 'json':
+            await BackendCallback.__call__(self, dtype, receipt_timestamp)
+            return
+
+        serializer = self._get_serializer(fmt)
+        payload = serializer.serialize(dtype)
+        metadata = self._build_dict_payload(dtype, receipt_timestamp)
+
+        message = {
+            'format': fmt,
+            'content_type': serializer.content_type(),
+            'payload': payload,
+            'metadata': metadata,
+        }
+
+        await self.write(message)
+
     async def writer(self):
         ctx = zmq.asyncio.Context.instance()
         con = ctx.socket(zmq.PUB)
@@ -29,11 +49,22 @@ class ZMQCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 for update in updates:
+                    if isinstance(update, dict) and update.get('format') == 'protobuf':
+                        metadata = update['metadata']
+                        topic = f"{metadata['exchange']}-{self.key}-{metadata['symbol']}" if self.dynamic_key else self.key
+                        header = json.dumps({
+                            'format': update['format'],
+                            'content_type': update['content_type'],
+                            'metadata': metadata,
+                        }).encode()
+                        await con.send_multipart([topic.encode(), header, update['payload']])
+                        continue
+
                     if self.dynamic_key:
-                        update = f'{update["exchange"]}-{self.key}-{update["symbol"]} {json.dumps(update)}'
+                        message = f'{update["exchange"]}-{self.key}-{update["symbol"]} {json.dumps(update)}'
                     else:
-                        update = f'{self.key} {json.dumps(update)}'
-                    await con.send_string(update)
+                        message = f'{self.key} {json.dumps(update)}'
+                    await con.send_string(message)
 
 
 class TradeZMQ(ZMQCallback, BackendCallback):
