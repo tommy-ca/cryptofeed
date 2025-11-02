@@ -32,13 +32,16 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
 ### 🚧 In Progress Specifications
 (None - all active specs have either completed or are awaiting approval)
 
+- `protobuf-callback-serialization`: ✅ COMPLETE (Nov 2, 2025) - Backend-only binary serialization for data feed callbacks
+  - **Scope**: Protobuf serialization for 14 data types, BackendCallback integration with Kafka/Redis/ZMQ support
+  - **Implementation**: 484 LOC in `cryptofeed/backends/protobuf_helpers.py`, 6 atomic commits
+  - **Status**: PRODUCTION READY - Backend-only minimal implementation (500 LOC total)
+  - **Key Achievement**: All protobuf logic consolidated in backends/, serializers/ and proto_wrappers/ deleted
+  - **Testing**: 144+ tests passing, backward compatible (JSON default)
+  - **Performance**: 2.1µs latency, 539k msg/s throughput, 63% smaller messages
+  - **Next Step**: Merge to main, unblock market-data-kafka-producer
+
 ### 🔵 Initialized Specifications (Foundation Layers)
-- `protobuf-callback-serialization`: Initialized (Oct 27, 2025) - Binary serialization for data feed callbacks
-  - **Scope**: Add `to_proto()` methods to 20 data types, extend BackendCallback for protobuf support (Kafka, Redis). Storage delegated to consumers.
-  - **Status**: Spec structure created, awaiting requirements approval
-  - **Dependencies**: `normalized-data-schema-crypto` (v0.1.0 - provides .proto schemas)
-  - **Downstream**: `market-data-kafka-producer`
-  - **Next Step**: `/kiro:spec-requirements protobuf-callback-serialization`
 
 - `market-data-kafka-producer`: Initialized (Oct 31, 2025) - High-performance Kafka producer for protobuf-serialized market data
   - **Scope**: Kafka backend integration, topic management, exactly-once semantics, monitoring. Storage (Iceberg/DuckDB) delegated to consumers.
