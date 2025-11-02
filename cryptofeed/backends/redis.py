@@ -53,6 +53,7 @@ class RedisCallback(BackendQueue):
             metadata = {
                 'exchange': getattr(dtype, 'exchange', 'unknown'),
                 'symbol': getattr(dtype, 'symbol', 'unknown'),
+                'receipt_timestamp': receipt_timestamp,
             }
 
             update = {
