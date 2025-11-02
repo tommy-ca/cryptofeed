@@ -1,62 +1,68 @@
 ---
 description: Execute spec tasks using TDD methodology
-allowed-tools: Bash, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebFetch, WebSearch
+allowed-tools: Read, Task
 argument-hint: <feature-name> [task-numbers]
 ---
 
-# Execute Spec Tasks with TDD
+# Implementation Task Executor
 
-Execute implementation tasks for **$1** using Kent Beck's Test-Driven Development methodology.
+## Parse Arguments
+- Feature name: `$1`
+- Task numbers: `$2` (optional)
+  - Format: "1.1" (single task) or "1,2,3" (multiple tasks)
+  - If not provided: Execute all pending tasks
 
-## Instructions
+## Validate
+Check that tasks have been generated:
+- Verify `.kiro/specs/$1/` exists
+- Verify `.kiro/specs/$1/tasks.md` exists
 
-### Pre-Execution Validation
-Validate required files exist for feature **$1**:
-- Requirements: `.kiro/specs/$1/requirements.md`
-- Design: `.kiro/specs/$1/design.md`  
-- Tasks: `.kiro/specs/$1/tasks.md`
-- Metadata: `.kiro/specs/$1/spec.json`
+If validation fails, inform user to complete tasks generation first.
 
-### Context Loading
+## Task Selection Logic
 
-**Core Steering:**
-- Structure: @.kiro/steering/structure.md
-- Tech Stack: @.kiro/steering/tech.md  
-- Product: @.kiro/steering/product.md
+**Parse task numbers from `$2`** (perform this in Slash Command before invoking SubAgent):
+- If `$2` provided: Parse task numbers (e.g., "1.1", "1,2,3")
+- Otherwise: Read `.kiro/specs/$1/tasks.md` and find all unchecked tasks (`- [ ]`)
 
-**Custom Steering:**
-- Additional `*.md` files in `.kiro/steering/` (excluding structure.md, tech.md, product.md)
+## Invoke SubAgent
 
-**Spec Documents for $1:**
-- Metadata: @.kiro/specs/$1/spec.json
-- Requirements: @.kiro/specs/$1/requirements.md
-- Design: @.kiro/specs/$1/design.md
-- Tasks: @.kiro/specs/$1/tasks.md
+Delegate TDD implementation to spec-tdd-impl-agent:
+
+Use the Task tool to invoke the SubAgent with file path patterns:
+
+```
+Task(
+  subagent_type="spec-tdd-impl-agent",
+  description="Execute TDD implementation",
+  prompt="""
+Feature: $1
+Spec directory: .kiro/specs/$1/
+Target tasks: {parsed task numbers or "all pending"}
+
+File patterns to read:
+- .kiro/specs/$1/*.{json,md}
+- .kiro/steering/*.md
+
+TDD Mode: strict (test-first)
+"""
+)
+```
+
+## Display Result
+
+Show SubAgent summary to user, then provide next step guidance:
 
 ### Task Execution
-1. **Feature**: $1  
-2. **Task numbers**: $2 (optional, defaults to all pending tasks)
-3. **Load all context** (steering + spec documents)
-4. **Execute selected tasks** using TDD methodology
 
-### TDD Implementation
-For each selected task:
+**Execute specific task(s)**:
+- `/kiro:spec-impl $1 1.1` - Single task
+- `/kiro:spec-impl $1 1,2,3` - Multiple tasks
 
-1. **RED**: Write failing tests first
-2. **GREEN**: Write minimal code to pass tests  
-3. **REFACTOR**: Clean up and improve code structure
-4. **Verify**: 
-   - All tests pass
-   - No regressions in existing tests
-   - Code quality and test coverage maintained
-5. **Mark Complete**: Update checkbox from `- [ ]` to `- [x]` in tasks.md
+**Execute all pending**:
+- `/kiro:spec-impl $1` - All unchecked tasks
 
-**Note**: Follow Kent Beck's TDD methodology strictly, implementing only the specific task requirements.
-
-## Implementation Notes
-
-- **Feature**: Use `$1` for feature name
-- **Tasks**: Use `$2` for specific task numbers (optional)
-- **Validation**: Check all required spec files exist
-- **TDD Focus**: Always write tests before implementation
-- **Task Tracking**: Update checkboxes in tasks.md as completed
+**Before Starting Implementation**:
+- **IMPORTANT**: Clear conversation history and free up context before running `/kiro:spec-impl`
+- This applies when starting first task OR switching between tasks
+- Fresh context ensures clean state and proper task focus
