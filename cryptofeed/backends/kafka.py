@@ -49,7 +49,7 @@ class KafkaCallback(BackendQueue):
 
     async def __call__(self, dtype, receipt_timestamp: float):
         # Use parent class serialization handling (handles both JSON and Protobuf)
-        await super().__call__(dtype, receipt_timestamp)
+        await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
     def _default_serializer(self, to_bytes: dict | str) -> ByteString:
         if isinstance(to_bytes, dict):
