@@ -23,24 +23,8 @@ class ZMQCallback(BackendQueue):
         self.running = True
 
     async def __call__(self, dtype, receipt_timestamp: float):
-        fmt = self.serialization_format
-
-        if fmt == 'json':
-            await BackendCallback.__call__(self, dtype, receipt_timestamp)
-            return
-
-        serializer = self._get_serializer(fmt)
-        payload = serializer.serialize(dtype)
-        metadata = self._build_dict_payload(dtype, receipt_timestamp)
-
-        message = {
-            'format': fmt,
-            'content_type': serializer.content_type(),
-            'payload': payload,
-            'metadata': metadata,
-        }
-
-        await self.write(message)
+        # Use parent class serialization handling
+        await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
     async def writer(self):
         ctx = zmq.asyncio.Context.instance()
@@ -49,17 +33,13 @@ class ZMQCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 for update in updates:
-                    if isinstance(update, dict) and update.get('format') == 'protobuf':
-                        metadata = update['metadata']
-                        topic = f"{metadata['exchange']}-{self.key}-{metadata['symbol']}" if self.dynamic_key else self.key
-                        header = json.dumps({
-                            'format': update['format'],
-                            'content_type': update['content_type'],
-                            'metadata': metadata,
-                        }).encode()
-                        await con.send_multipart([topic.encode(), header, update['payload']])
+                    if isinstance(update, bytes):
+                        # Protobuf: send as multipart with binary payload
+                        topic = f"{self.key}-protobuf"
+                        await con.send_multipart([topic.encode(), update])
                         continue
 
+                    # JSON: send as string with metadata
                     if self.dynamic_key:
                         message = f'{update["exchange"]}-{self.key}-{update["symbol"]} {json.dumps(update)}'
                     else:
