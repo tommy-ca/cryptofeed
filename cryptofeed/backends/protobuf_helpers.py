@@ -449,6 +449,12 @@ def serialize_to_protobuf(obj):
     Raises:
         ValueError: If no converter found for object type
     """
+    # First, check if the object has a to_proto() method (for test fixtures)
+    if hasattr(obj, 'to_proto') and callable(getattr(obj, 'to_proto')):
+        proto_msg = obj.to_proto()
+        return proto_msg.SerializeToString()
+
+    # Otherwise, use the converter lookup
     type_name = type(obj).__name__
     converter = get_converter(type_name)
 
