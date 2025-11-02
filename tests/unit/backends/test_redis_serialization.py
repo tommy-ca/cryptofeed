@@ -59,6 +59,7 @@ async def test_redis_protobuf_message_packaging():
     assert isinstance(message["payload"], bytes)
     assert message["metadata"]["exchange"] == "coinbase"
     assert message["metadata"]["symbol"] == "BTC-USD"
+    assert message["metadata"]["receipt_timestamp"] == 20.0
 
     record = backend._prepare_json_record(message)
     assert record["payload_b64"] == base64.b64encode(message["payload"]).decode()
