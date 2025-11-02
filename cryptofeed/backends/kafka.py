@@ -48,24 +48,8 @@ class KafkaCallback(BackendQueue):
         self.running = False
 
     async def __call__(self, dtype, receipt_timestamp: float):
-        fmt = self.serialization_format
-
-        if fmt == 'json':
-            await super().__call__(dtype, receipt_timestamp)  # type: ignore[misc]
-            return
-
-        serializer = self._get_serializer(fmt)
-        payload = serializer.serialize(dtype)
-        metadata = self._build_dict_payload(dtype, receipt_timestamp)
-
-        message = {
-            'format': fmt,
-            'payload': payload,
-            'content_type': serializer.content_type(),
-            'metadata': metadata,
-        }
-
-        await self.write(message)
+        # Use parent class serialization handling (handles both JSON and Protobuf)
+        await super().__call__(dtype, receipt_timestamp)
 
     def _default_serializer(self, to_bytes: dict | str) -> ByteString:
         if isinstance(to_bytes, dict):
@@ -97,32 +81,38 @@ class KafkaCallback(BackendQueue):
                         LOG.info(f'{self.__class__.__name__}: "{self.producer.client._client_id}" connected to cluster containing {len(self.producer.client.cluster.brokers())} broker(s)')
                         self.running = True
 
-    def _extract_metadata(self, message: dict) -> dict:
-        if isinstance(message, dict) and message.get('format') == 'protobuf':
-            return message['metadata']
-        return message
+    def _default_serializer(self, to_bytes: dict | str) -> ByteString:
+        if isinstance(to_bytes, dict):
+            return json.dumpb(to_bytes)
+        elif isinstance(to_bytes, str):
+            return to_bytes.encode()
+        elif isinstance(to_bytes, bytes):
+            return to_bytes
+        else:
+            raise TypeError(f'{type(to_bytes)} is not a valid Serialization type')
 
-    def _protobuf_topic_data_type(self) -> str:
-        return getattr(self, 'protobuf_data_type', self.key)
+    def topic(self, data: dict | bytes) -> str:
+        """Determine topic based on data format and metadata."""
+        if isinstance(data, bytes):
+            # Protobuf: use data type for hierarchical topic
+            data_type = getattr(self, 'protobuf_data_type', self.key)
+            return f"cryptofeed.market.{data_type}.protobuf"
 
-    def topic(self, data: dict) -> str:
-        if isinstance(data, dict) and data.get('format') == 'protobuf':
-            metadata = self._extract_metadata(data)
-            data_type = self._protobuf_topic_data_type()
-            exchange = metadata['exchange']
-            return f"cryptofeed.market.{data_type}.{exchange}"
+        # JSON: use key, exchange, symbol for backward compatibility
+        if isinstance(data, dict):
+            return f"{self.key}-{data.get('exchange', 'unknown')}-{data.get('symbol', 'unknown')}"
 
-        metadata = self._extract_metadata(data)
-        return f"{self.key}-{metadata['exchange']}-{metadata['symbol']}"
+        return self.key
 
-    def partition_key(self, data: dict) -> Optional[bytes]:
-        if isinstance(data, dict) and data.get('format') == 'protobuf':
-            metadata = self._extract_metadata(data)
-            if metadata.get('symbol'):
-                return str(metadata['symbol']).encode('utf-8')
+    def partition_key(self, data: dict | bytes) -> Optional[bytes]:
+        """Get partition key from symbol when available."""
+        if isinstance(data, dict):
+            symbol = data.get('symbol')
+            if symbol:
+                return str(symbol).encode('utf-8')
         return None
 
-    def partition(self, data: dict) -> Optional[int]:
+    def partition(self, data: dict | bytes) -> Optional[int]:
         return None
 
     async def writer(self):
@@ -133,22 +123,27 @@ class KafkaCallback(BackendQueue):
                     message = updates[index]
                     topic = self.topic(message)
 
-                    metadata = self._extract_metadata(message)
-                    raw_key = metadata.get('symbol') or self.key
+                    # Extract key - use symbol from dict or default to key
+                    if isinstance(message, dict):
+                        raw_key = message.get('symbol') or self.key
+                    else:
+                        raw_key = self.key
+
                     key_serializer = self.producer_config.get('key_serializer')
                     if key_serializer:
                         key = raw_key
                     else:
                         key = self._default_serializer(raw_key)
 
+                    # Serialize value based on type
                     value_serializer = self.producer_config.get('value_serializer')
 
-                    if message.get('format') == 'protobuf':
-                        raw_value = message['payload']
-                        value = raw_value if not value_serializer else raw_value
+                    if isinstance(message, bytes):
+                        # Protobuf: already serialized
+                        value = message if not value_serializer else message
                     else:
-                        raw_value = message
-                        value = raw_value if value_serializer else self._default_serializer(raw_value)
+                        # JSON: serialize dict to bytes
+                        value = message if value_serializer else self._default_serializer(message)
 
                     partition = self.partition(message)
                     try:
