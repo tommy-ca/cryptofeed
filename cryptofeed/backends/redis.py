@@ -45,8 +45,26 @@ class RedisCallback(BackendQueue):
         return update
 
     async def __call__(self, dtype, receipt_timestamp: float):
-        # Use parent class serialization handling
-        await BackendCallback.__call__(self, dtype, receipt_timestamp)
+        # Handle protobuf format explicitly to wrap payload in dict
+        if self.serialization_format == 'protobuf':
+            from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
+
+            payload = serialize_to_protobuf(dtype)
+            metadata = {
+                'exchange': getattr(dtype, 'exchange', 'unknown'),
+                'symbol': getattr(dtype, 'symbol', 'unknown'),
+            }
+
+            update = {
+                'format': 'protobuf',
+                'content_type': 'application/x-protobuf',
+                'metadata': metadata,
+                'payload': payload,
+            }
+            await self.write(update)
+        else:
+            # Use parent class serialization handling for JSON
+            await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
     def _prepare_stream_record(self, update: dict) -> dict:
         if isinstance(update, dict) and update.get('format') == 'protobuf':
