@@ -14,6 +14,9 @@ Functions:
     - get_converter(data_type) - Lookup function for converters
 '''
 
+from google.protobuf.message import Message
+
+from cryptofeed.exceptions import ProtobufEncodeError, SerializationError
 from cryptofeed.proto_bindings import (
     trade_pb2, trade_side_pb2,
     ticker_pb2, candle_pb2, funding_pb2, order_book_pb2,
@@ -419,6 +422,61 @@ _CONVERTER_MAP = {
 }
 
 
+_SCHEMA_CLASS_MAP = {
+    'Trade': trade_pb2.Trade,
+    'Ticker': ticker_pb2.Ticker,
+    'Candle': candle_pb2.Candle,
+    'Funding': funding_pb2.Funding,
+    'OrderBook': order_book_pb2.Level2Book,
+    'Liquidation': liquidation_pb2.Liquidation,
+    'OpenInterest': open_interest_pb2.OpenInterest,
+    'Index': index_price_pb2.IndexPrice,
+    'Balance': balance_pb2.Balance,
+    'Position': position_pb2.Position,
+    'Fill': fill_pb2.Fill,
+    'OrderInfo': order_info_pb2.OrderInfo,
+    'Order': order_pb2.Order,
+    'Transaction': transaction_pb2.Transaction,
+}
+
+
+_DEFAULT_SCHEMA_VERSION = "v0.1.0"
+
+
+def _resolve_schema_name(schema_message: Message | None, type_name: str) -> str | None:
+    """Return protobuf schema identifier for diagnostics."""
+
+    if schema_message is not None and hasattr(schema_message, 'DESCRIPTOR'):
+        descriptor = schema_message.DESCRIPTOR
+        if descriptor is not None:
+            return descriptor.full_name
+
+    schema_class = _SCHEMA_CLASS_MAP.get(type_name)
+    if schema_class is not None and hasattr(schema_class, 'DESCRIPTOR'):
+        descriptor = schema_class.DESCRIPTOR
+        if descriptor is not None:
+            return descriptor.full_name
+
+    return f"{type_name.lower()}_pb2.{type_name}"
+
+
+def _ensure_message(instance, type_name: str, context: str) -> Message:
+    """Validate converter/to_proto output is a protobuf Message instance."""
+
+    if isinstance(instance, Message):
+        return instance
+
+    if hasattr(instance, 'SerializeToString') and callable(getattr(instance, 'SerializeToString')):
+        return instance
+
+    raise ProtobufEncodeError(
+        f"{context} returned non-protobuf instance; expected protobuf Message",
+        data_type=type_name,
+        schema_name=_resolve_schema_name(None, type_name),
+        schema_version=_DEFAULT_SCHEMA_VERSION,
+    )
+
+
 def get_converter(type_name: str):
     """
     Get the protobuf converter function for a data type.
@@ -447,24 +505,64 @@ def serialize_to_protobuf(obj):
         Serialized protobuf message (bytes)
 
     Raises:
-        ValueError: If no converter found for object type
+        SerializationError: If no converter exists for the object's type
+        ProtobufEncodeError: If conversion or serialization fails
     """
-    # First, check if the object has a to_proto() method (for test fixtures)
+    type_name = type(obj).__name__
+
+    # First, check if the object exposes a to_proto() method (test doubles)
     if hasattr(obj, 'to_proto') and callable(getattr(obj, 'to_proto')):
-        proto_msg = obj.to_proto()
-        return proto_msg.SerializeToString()
+        try:
+            proto_msg = obj.to_proto()
+        except Exception as exc:  # pragma: no cover - defensive guard
+            raise ProtobufEncodeError(
+                "to_proto() raised an exception",
+                data_type=type_name,
+                schema_version=_DEFAULT_SCHEMA_VERSION,
+            ) from exc
+
+        proto_msg = _ensure_message(proto_msg, type_name, "to_proto()")
+
+        try:
+            return proto_msg.SerializeToString()
+        except Exception as exc:  # pragma: no cover - defensive guard
+            raise ProtobufEncodeError(
+                "SerializeToString() failed",
+                data_type=type_name,
+                schema_name=_resolve_schema_name(proto_msg, type_name),
+                schema_version=_DEFAULT_SCHEMA_VERSION,
+            ) from exc
 
     # Otherwise, use the converter lookup
-    type_name = type(obj).__name__
     converter = get_converter(type_name)
 
     if not converter:
-        raise ValueError(
-            f"No protobuf converter for type: {type_name}. "
-            f"Supported types: {', '.join(sorted(_CONVERTER_MAP.keys()))}"
+        raise SerializationError(
+            "No protobuf converter registered for data type.",
+            data_type=type_name,
         )
 
-    return converter(obj).SerializeToString()
+    try:
+        proto_msg = converter(obj)
+    except Exception as exc:
+        raise ProtobufEncodeError(
+            "Converter raised an exception",
+            data_type=type_name,
+            schema_name=_resolve_schema_name(None, type_name),
+            schema_version=_DEFAULT_SCHEMA_VERSION,
+        ) from exc
+
+    proto_msg = _ensure_message(proto_msg, type_name, "converter")
+
+    try:
+        return proto_msg.SerializeToString()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        raise ProtobufEncodeError(
+            "SerializeToString() failed",
+            data_type=type_name,
+            schema_name=_resolve_schema_name(proto_msg, type_name),
+            schema_version=_DEFAULT_SCHEMA_VERSION,
+        ) from exc
 
 
 __all__ = [
