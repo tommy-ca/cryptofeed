@@ -45,24 +45,8 @@ class RedisCallback(BackendQueue):
         return update
 
     async def __call__(self, dtype, receipt_timestamp: float):
-        fmt = self.serialization_format
-
-        if fmt == 'json':
-            await BackendCallback.__call__(self, dtype, receipt_timestamp)
-            return
-
-        serializer = self._get_serializer(fmt)
-        payload = serializer.serialize(dtype)
-        metadata = self._build_dict_payload(dtype, receipt_timestamp)
-
-        message = {
-            'format': fmt,
-            'content_type': serializer.content_type(),
-            'payload': payload,
-            'metadata': metadata,
-        }
-
-        await self.write(message)
+        # Use parent class serialization handling
+        await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
     def _prepare_stream_record(self, update: dict) -> dict:
         if isinstance(update, dict) and update.get('format') == 'protobuf':
