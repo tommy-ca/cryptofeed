@@ -10,10 +10,8 @@ from asyncio.queues import Queue
 from multiprocessing import Pipe, Process
 from contextlib import asynccontextmanager
 
-from cryptofeed.serializers.formats import (
-    DEFAULT_SERIALIZATION_FORMAT,
-    get_serialization_format_from_env,
-    validate_serialization_format,
+from cryptofeed.backends.protobuf_helpers import (
+    serialize_to_protobuf,
 )
 
 
@@ -100,19 +98,19 @@ class BackendQueue:
 class BackendCallback:
     """
     Base class for backend callbacks with pluggable serialization support.
-    
+
     Supports both JSON (default, backward compatible) and Protobuf serialization formats.
     The serialization_format parameter can be set via:
     - Constructor parameter: serialization_format='protobuf'
     - YAML configuration: serialization_format: protobuf
-    - Environment variable: CRYPTOFEED_SERIALIZATION_FORMAT=protobuf (future)
-    
+    - Environment variable: CRYPTOFEED_SERIALIZATION_FORMAT=protobuf
+
     Design Principles:
     - Backward Compatibility: Defaults to JSON (existing to_dict() behavior)
-    - Dependency Inversion: Depends on Serializer abstraction, not concrete classes
-    - Open/Closed: Open for new serialization formats via subclassing
+    - Format Selection: Simple per-callback configuration
+    - Minimal Overhead: Direct serialization calls in backends/
     """
-    
+
     _explicit_serialization_format: str | None = None
     _serialization_log_state: tuple[str, str] | None = None
     _serialization_locked: bool = False
@@ -124,7 +122,7 @@ class BackendCallback:
             if format_name is None and self._explicit_serialization_format is None:
                 return
             if format_name is not None:
-                normalized = validate_serialization_format(format_name)
+                normalized = self._validate_format(format_name)
                 if self._explicit_serialization_format == normalized:
                     return
             raise RuntimeError(
@@ -134,8 +132,28 @@ class BackendCallback:
         if format_name is None:
             self._explicit_serialization_format = None
         else:
-            self._explicit_serialization_format = validate_serialization_format(format_name)
+            self._explicit_serialization_format = self._validate_format(format_name)
             self._serialization_locked = True
+
+    @staticmethod
+    def _validate_format(format_name: str) -> str:
+        """Validate and normalize serialization format."""
+        normalized = format_name.lower().strip()
+        if normalized not in ('json', 'protobuf'):
+            raise ValueError(
+                f"Invalid serialization format '{format_name}'. "
+                f"Valid formats: json, protobuf"
+            )
+        return normalized
+
+    @staticmethod
+    def _get_format_from_env() -> str | None:
+        """Get serialization format from environment variable."""
+        import os
+        env_value = os.environ.get('CRYPTOFEED_CALLBACK_FORMAT')
+        if env_value:
+            return BackendCallback._validate_format(env_value)
+        return None
 
     @property
     def serialization_format(self) -> str:
@@ -143,7 +161,7 @@ class BackendCallback:
 
         preferred = getattr(self, '_explicit_serialization_format', None)
 
-        env_value = get_serialization_format_from_env()
+        env_value = self._get_format_from_env()
         if env_value is not None:
             resolved = env_value
             source = 'env'
@@ -151,7 +169,7 @@ class BackendCallback:
             resolved = preferred
             source = 'explicit'
         else:
-            resolved = DEFAULT_SERIALIZATION_FORMAT
+            resolved = 'json'
             source = 'default'
 
         if getattr(self, '_serialization_log_state', None) != (source, resolved):
@@ -165,32 +183,6 @@ class BackendCallback:
 
         return resolved
 
-    def _get_serializer(self, format_name: str):
-        """
-        Factory method for serializer selection.
-        
-        Args:
-            format_name: 'json' or 'protobuf'
-            
-        Returns:
-            Serializer instance
-            
-        Raises:
-            ValueError: If format_name is invalid
-        """
-        from cryptofeed.serializers import JSONSerializer
-        
-        if format_name == 'json':
-            return JSONSerializer()
-        elif format_name == 'protobuf':
-            from cryptofeed.serializers.protobuf import ProtobufSerializer
-            return ProtobufSerializer()
-        else:
-            raise ValueError(
-                f"Invalid serialization format '{format_name}'. "
-                f"Valid formats: json, protobuf"
-            )
-    
     def _build_dict_payload(self, dtype, receipt_timestamp: float) -> dict:
         """Normalize data objects into dictionaries for JSON/backward paths."""
 
@@ -201,10 +193,16 @@ class BackendCallback:
         return data
 
     async def __call__(self, dtype, receipt_timestamp: float):
-        """Default implementation: emit JSON-compatible dictionaries."""
+        """Default implementation: emit JSON-compatible dictionaries or protobuf."""
 
-        data = self._build_dict_payload(dtype, receipt_timestamp)
-        await self.write(data)
+        if self.serialization_format == 'protobuf':
+            # Protobuf serialization: use consolidated helpers from backends
+            payload = serialize_to_protobuf(dtype)
+        else:
+            # JSON serialization: use existing to_dict() path
+            payload = self._build_dict_payload(dtype, receipt_timestamp)
+
+        await self.write(payload)
 
 
 class BackendBookCallback(BackendCallback):
