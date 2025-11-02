@@ -63,3 +63,41 @@ async def test_redis_protobuf_message_packaging():
 
     record = backend._prepare_json_record(message)
     assert record["payload_b64"] == base64.b64encode(message["payload"]).decode()
+
+
+@pytest.mark.asyncio
+async def test_redis_env_serialization_format(monkeypatch):
+    monkeypatch.setenv("CRYPTOFEED_SERIALIZATION_FORMAT", "protobuf")
+    monkeypatch.delenv("CRYPTOFEED_CALLBACK_FORMAT", raising=False)
+
+    backend = TradeRedis()
+    backend.multiprocess = False
+    backend.queue = asyncio.Queue()
+
+    trade = _DummyTrade("kraken", "ETH-USD")
+    await backend.__call__(trade, receipt_timestamp=30.0)
+
+    message = await backend.queue.get()
+    assert message["format"] == "protobuf"
+
+    monkeypatch.delenv("CRYPTOFEED_SERIALIZATION_FORMAT", raising=False)
+
+
+@pytest.mark.asyncio
+async def test_redis_env_deprecated_format(monkeypatch, caplog):
+    monkeypatch.delenv("CRYPTOFEED_SERIALIZATION_FORMAT", raising=False)
+    monkeypatch.setenv("CRYPTOFEED_CALLBACK_FORMAT", "protobuf")
+
+    with caplog.at_level("WARNING", logger="feedhandler"):
+        backend = TradeRedis()
+        backend.multiprocess = False
+        backend.queue = asyncio.Queue()
+
+        trade = _DummyTrade("bitfinex", "LTC-USD")
+        await backend.__call__(trade, receipt_timestamp=40.0)
+
+        message = await backend.queue.get()
+        assert message["format"] == "protobuf"
+
+    monkeypatch.delenv("CRYPTOFEED_CALLBACK_FORMAT", raising=False)
+    assert "deprecated" in caplog.text

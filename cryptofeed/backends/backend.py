@@ -150,9 +150,18 @@ class BackendCallback:
     def _get_format_from_env() -> str | None:
         """Get serialization format from environment variable."""
         import os
-        env_value = os.environ.get('CRYPTOFEED_CALLBACK_FORMAT')
+
+        env_value = os.environ.get('CRYPTOFEED_SERIALIZATION_FORMAT')
+        deprecated_value = os.environ.get('CRYPTOFEED_CALLBACK_FORMAT') if env_value is None else None
+
         if env_value:
             return BackendCallback._validate_format(env_value)
+
+        if deprecated_value:
+            LOG.warning(
+                "CRYPTOFEED_CALLBACK_FORMAT is deprecated; use CRYPTOFEED_SERIALIZATION_FORMAT instead"
+            )
+            return BackendCallback._validate_format(deprecated_value)
         return None
 
     @property
