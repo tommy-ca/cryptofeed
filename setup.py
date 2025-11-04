@@ -12,25 +12,17 @@ from setuptools import find_packages
 from setuptools.command.test import test as TestCommand
 from Cython.Build import cythonize
 
-_DEFAULT_REQUIREMENTS = [
+_BASE_REQUIREMENTS = [
     "aiodns>=1.1",
     "aiofile>=2.0.0",
     "aiohttp>=3.9.5",
-    "aiohttp-socks>=0.9.2",
-    "python-socks>=2.4.3",
     "charset-normalizer>=3.3.0",
     "cython",
     "order_book>=0.6.1",
-    "ccxt>=4.5.9",
     "pyyaml",
-    "PyNaCl>=1.5",
-    "pyscn>=0.6.0",
     "requests>=2.18.4",
-    'uvloop; platform_system!="Windows"',
     "websockets>=14.1",
     "orjson>=3.10.0",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
 ]
 
 
@@ -61,9 +53,9 @@ def load_requirements(filename: str = "requirements.txt") -> list[str]:
                 if line:
                     requirements.append(line)
     except FileNotFoundError:
-        return list(_DEFAULT_REQUIREMENTS)
+        return list(_BASE_REQUIREMENTS)
 
-    return requirements or list(_DEFAULT_REQUIREMENTS)
+    return requirements or list(_BASE_REQUIREMENTS)
 
 
 class Test(TestCommand):
@@ -115,39 +107,26 @@ setup(
         "Framework :: AsyncIO",
     ],
     tests_require=["pytest"],
-    install_requires=[
-        "aiodns>=1.1",
-        "aiofile>=2.0.0",
-        "aiohttp>=3.9.5",
-        "aiohttp-socks>=0.9.2",
-        "python-socks>=2.4.3",
-        "charset-normalizer>=3.3.0",
-        "cython",
-        "order_book>=0.6.1",
-        "ccxt>=4.5.9",
-        "pyyaml",
-        "PyNaCl>=1.5",
-        "pyscn>=0.6.0",
-        "requests>=2.18.4",
-        'uvloop; platform_system!="Windows"',
-        "websockets>=14.1",
-        "orjson>=3.10.0",
-        "pydantic>=2.0.0",
-        "pydantic-settings>=2.0.0",
-    ],
+    install_requires=list(_BASE_REQUIREMENTS),
     extras_require={
         "arctic": ["arctic", "pandas"],
+        "backpack": ["PyNaCl>=1.5"],
+        "ccxt": ["ccxt>=4.5.9", "pydantic>=2.0.0", "pydantic-settings>=2.0.0"],
         "gcp_pubsub": ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"],
         "kafka": ["aiokafka>=0.7.0"],
         "mongo": ["motor"],
         "postgres": ["asyncpg"],
+        "proxy": ["aiohttp-socks>=0.9.2", "python-socks>=2.4.3"],
+        "quality": ["pyscn>=0.6.0"],
         "quasardb": ["quasardb", "numpy"],
         "rabbit": ["aio_pika", "pika"],
         "redis": ["hiredis", "redis>=4.5.1"],
+        "uvloop": ['uvloop; platform_system!="Windows"'],
         "zmq": ["pyzmq"],
         "socks": ["python-socks>=2.4.3"],
         "all": [
             "arctic",
+            "pandas",
             "google_cloud_pubsub>=2.4.1",
             "gcloud_aio_pubsub",
             "aiokafka>=0.7.0",
@@ -158,9 +137,16 @@ setup(
             "hiredis",
             "redis>=4.5.1",
             "pyzmq",
+            "aiohttp-socks>=0.9.2",
             "python-socks>=2.4.3",
-            "orjson>=3.10.0",
-            "charset-normalizer>=3.3.0",
+            "pyscn>=0.6.0",
+            "quasardb",
+            "numpy",
+            "PyNaCl>=1.5",
+            "ccxt>=4.5.9",
+            "pydantic>=2.0.0",
+            "pydantic-settings>=2.0.0",
+            'uvloop; platform_system!="Windows"',
         ],
     },
 )
