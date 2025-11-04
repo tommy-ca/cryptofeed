@@ -203,3 +203,12 @@ Implementation complete with **backend-only architecture** achieving 61% LOC red
 ---
 
 **Ready for kiro spec validation and production deployment.**
+
+### Rollout & Regression Plan (Nov 4, 2025)
+1. **Stage activation**: enable protobuf format and proxy extras on a canary deployment only; validate Kafka/Redis/ZMQ pipelines while keeping JSON as the default elsewhere.
+2. **Optional extras rollout**: install `cryptofeed[proxy,ccxt,backpack]` in staging first; document rollback instructions (remove extras, set serialization back to JSON).
+3. **Regression matrix**: run ccxt/backpack/native exchange suites, proxy integration tests, and serialization roundtrip tests before each environment promotion.
+4. **Metrics gating**: monitor Prometheus (`cryptofeed_kafka_messages_sent_total`, latency) and Redis queue depth for 24h canary window; proceed only if deltas stay within SLA.
+5. **Feature flag fallback**: keep configuration toggles to revert to JSON serialization instantly via env var removal and `pip uninstall cryptofeed[extras]` if issues appear.
+6. **Release comms**: update release notes/Docs with optional extras guidance so downstream teams can opt-in gradually.
+
