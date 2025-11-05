@@ -175,6 +175,91 @@ book_backend = BookKafka(
 )
 ```
 
+
+`TradeKafka` publishes protobuf payloads to the unified `cryptofeed.market.{data_type}.protobuf` topics. JSON callbacks
+continue to use the legacy `{key}-{exchange}-{symbol}` names for backward compatibility. Typical mappings include:
+
+- `cryptofeed.market.trades.protobuf`
+- `cryptofeed.market.orderbook.protobuf`
+- `cryptofeed.market.funding.protobuf`
+
+Downstream systems subscribe per data type and still access exchange/symbol metadata from the protobuf fields.
+
+### Custom Topic Mapping for QuixStreams
+
+QuixStreams often expects organization-specific namespaces (Python-native stack, no JVM runtime) (e.g., `quix.crypto.trades`). Override the Kafka callback
+topic selection when the payload is protobuf:
+
+```python
+from cryptofeed.backends.kafka import TradeKafka
+
+class QuixTradeKafka(TradeKafka):
+    TOPIC_MAP = {
+        'trades': 'quix.crypto.trades',
+        'orderbook': 'quix.crypto.orderbook',
+    }
+
+    def topic(self, data):
+        if isinstance(data, bytes):  # protobuf payload
+            data_type = getattr(self, 'protobuf_data_type', self.key)
+            return self.TOPIC_MAP.get(data_type, f'quix.crypto.{data_type}')
+        return super().topic(data)
+```
+
+Wire it into `FeedHandler` as usual while keeping JSON fallbacks for existing consumers. Because protobuf messages still carry
+`exchange`, `symbol`, and other metadata, Quix pipelines can branch/aggregate using native primitives without parsing topic names.
+
+### QuixStreams (Python-Native) Consumption & Iceberg Sinks
+
+QuixStreams' SDK is Python-first, so you can remain on a JVM-free stack. Example topology:
+
+```python
+from quixstreams import Application
+from cryptofeed.proto_bindings import trade_pb2
+
+app = Application(broker_address="kafka:9092")
+
+trades = (
+    app.topic("cryptofeed.market.trades.protobuf")
+       .protobuf(trade_pb2.Trade)
+       .key_by(lambda msg: msg.symbol)
+)
+
+from quixstreams.logic import Window, Aggregator
+
+vwap = (
+    trades
+    .window(Window.tumbling("1m"))
+    .aggregate(Aggregator.vwap(
+        price=lambda m: float(m.price),
+        amount=lambda m: float(m.amount),
+    ))
+)
+
+from pyiceberg.table import Table
+
+iceberg_table = Table("local://lakehouse.crypto.trades")
+
+(
+    vwap
+    .join(trades, lambda agg, msg: {
+        "exchange": msg.exchange,
+        "symbol": msg.symbol,
+        "event_ts": msg.timestamp,
+        "price": str(msg.price),
+        "amount": str(msg.amount),
+        "vwap_1m": agg.value,
+    })
+    .foreach(lambda row: iceberg_table.write([row]))
+)
+
+app.run()
+```
+
+Batch writes (or stage them to Parquet) for higher throughput if needed. Because Kafka partitions and `key_by` share the same symbol key,
+state stays consistent per market. PyIceberg/other Python-native clients handle table appends without Spark/Java, keeping the pipeline JVM-free.
+
+
 ### Consumer Example (Python)
 
 ```python
@@ -198,6 +283,7 @@ for message in consumer:
     print(f"Side: {trade.side}")  # Enum: TRADE_SIDE_BUY or TRADE_SIDE_SELL
     print(f"Timestamp: {trade.timestamp / 1_000_000}")  # Convert microseconds to seconds
 ```
+
 
 ### Consumer Example (Go)
 
