@@ -1,7 +1,6 @@
 """Example script for running the native Backpack feed."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 

@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-from cryptofeed.defines import TRADES, L2_BOOK
 from cryptofeed.types import Trade, Ticker, OrderBook, Funding, OpenInterest
 
 

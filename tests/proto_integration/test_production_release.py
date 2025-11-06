@@ -172,7 +172,6 @@ class TestProductionReleaseMetadata:
 
     def test_version_format(self):
         """Version should follow semantic versioning."""
-        import re
         
         version = "v0.1.0"
         semver_pattern = r"^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$"

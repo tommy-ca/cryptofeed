@@ -19,8 +19,6 @@ import os
 import psutil
 import time
 from collections import defaultdict
-from decimal import Decimal
-from typing import Dict, List
 
 from cryptofeed import FeedHandler
 from cryptofeed.defines import TRADES, L2_BOOK, TICKER
@@ -92,17 +90,17 @@ class StressTestMetrics:
             first_mem = self.memory_snapshots[0]['rss_mb']
             last_mem = self.memory_snapshots[-1]['rss_mb']
             mem_growth = ((last_mem - first_mem) / first_mem) * 100
-            print(f"\nMemory Usage:")
+            print("\nMemory Usage:")
             print(f"  Initial: {first_mem:.2f} MB")
             print(f"  Final: {last_mem:.2f} MB")
             print(f"  Growth: {mem_growth:+.2f}%")
         
-        print(f"\nMessages by Feed:")
+        print("\nMessages by Feed:")
         for key, count in sorted(self.message_counts.items()):
             print(f"  {key}: {count:,}")
         
         if self.error_counts:
-            print(f"\nErrors by Type:")
+            print("\nErrors by Type:")
             for key, count in sorted(self.error_counts.items()):
                 print(f"  {key}: {count}")
         
@@ -255,7 +253,7 @@ def main():
         print("Error: Proxy URL required (--proxy or CRYPTOFEED_TEST_SOCKS_PROXY)")
         return 1
     
-    LOG.info(f"Configuration:")
+    LOG.info("Configuration:")
     LOG.info(f"  Proxy: {args.proxy}")
     LOG.info(f"  Duration: {args.duration}s")
     LOG.info(f"  Feeds: {args.feeds}")

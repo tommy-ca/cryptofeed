@@ -12,7 +12,6 @@ Current implementation provides the framework for when specifications are obtain
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest

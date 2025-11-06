@@ -10,8 +10,7 @@ from collections import defaultdict
 from cryptofeed.symbols import Symbol, str_to_symbol
 import logging
 from decimal import Decimal
-from typing import Dict, Tuple, Union
-from datetime import datetime as dt
+from typing import Dict, Tuple
 import re
 
 from cryptofeed.json_utils import json

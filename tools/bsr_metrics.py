@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -244,14 +244,14 @@ class BSRMetricsCollector:
             f"**Namespace**: `{report['namespace']}`",
             f"**Generated**: {report['generated_at']}",
             "\n## Metrics Summary",
-            f"\n### Downloads",
+            "\n### Downloads",
             f"- Last 24h: {report['metrics']['downloads']['last_24h']}",
             f"- Last 7d: {report['metrics']['downloads']['last_7d']}",
             f"- Last 30d: {report['metrics']['downloads']['last_30d']}",
-            f"\n### Versions",
+            "\n### Versions",
             f"- Latest: {report['metrics']['versions']['latest_version']}",
             f"- Total: {report['metrics']['versions']['total_versions']}",
-            f"\n### Dependents",
+            "\n### Dependents",
             f"- Total: {report['metrics']['dependents']['total_dependents']}",
             "\n## Review Cadence",
             self._cadence_markdown(report["review_cadence"]),

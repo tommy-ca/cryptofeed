@@ -1,7 +1,6 @@
 """Unit tests for the CCXT WebSocket transport."""
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
 from types import SimpleNamespace
 

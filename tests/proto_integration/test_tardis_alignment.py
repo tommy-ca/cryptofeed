@@ -172,7 +172,6 @@ class TestVersion020ReleasePreparation:
 
     def test_v020_changelog_structure(self):
         """v0.2.0 changelog should have proper structure."""
-        import re
         
         changelog_template = """
 ## v0.2.0 - tardis-node Alignment

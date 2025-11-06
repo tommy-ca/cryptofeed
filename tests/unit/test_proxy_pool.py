@@ -4,7 +4,6 @@ Test suite for proxy pool functionality extending the existing proxy system.
 Following TDD methodology - tests written first to drive implementation.
 """
 import pytest
-from typing import List
 from cryptofeed.proxy import ProxyConfig, ConnectionProxies
 
 

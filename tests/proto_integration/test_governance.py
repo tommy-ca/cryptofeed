@@ -12,9 +12,8 @@ after v1.0.0 ships.
 
 from __future__ import annotations
 
-import json
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -42,15 +41,6 @@ class TestBSRMetricsMonitoring:
         docs_dir = project_root / "docs" / "schemas"
         assert docs_dir.exists(), "docs/schemas directory should exist"
 
-        # Metrics configuration could be documented
-        possible_config_files = [
-            docs_dir / "monitoring.md",
-            docs_dir / "metrics.md",
-            docs_dir / "governance.md",
-        ]
-
-        # At least one governance/monitoring doc should exist when implemented
-        config_exists = any(f.exists() for f in possible_config_files)
         # For now, framework is ready
         assert docs_dir.exists(), "Documentation directory ready for metrics setup"
 

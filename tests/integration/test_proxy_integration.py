@@ -8,9 +8,7 @@ Following engineering principles from CLAUDE.md:
 - PRACTICAL: Focus on real-world usage patterns
 """
 import pytest
-import asyncio
 import os
-from typing import Optional
 
 from cryptofeed.proxy import (
     ProxySettings, 

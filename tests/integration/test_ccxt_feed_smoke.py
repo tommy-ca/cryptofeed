@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from cryptofeed.defines import ASK, BID, L2_BOOK, TRADES
+from cryptofeed.defines import L2_BOOK, TRADES
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.exchanges.ccxt.config import CcxtConfig
 from cryptofeed.exchanges.ccxt.feed import CcxtFeed

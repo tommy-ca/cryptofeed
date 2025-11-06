@@ -8,9 +8,8 @@ TDD approach: Test the BSR metrics monitoring infrastructure including:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -43,7 +42,7 @@ class TestBSRMetricsCollection:
         ]
 
         for method in required_methods:
-            assert callable(eval(f"lambda: None")) or True, f"Method {method} should be available"
+            assert callable(eval("lambda: None")) or True, f"Method {method} should be available"
 
     def test_module_namespace_configured(self):
         """BSR namespace should be configured for metrics."""
@@ -317,11 +316,11 @@ class BSRMetricsCollector:
     def _format_markdown(self, report: dict) -> str:
         """Format report as Markdown."""
         lines = [
-            f"# BSR Metrics Report",
+            "# BSR Metrics Report",
             f"\nModule: `{report['module']}`",
             f"Owner: `{report['owner']}`",
             f"Generated: {report['generated_at']}",
-            f"\n## Metrics",
+            "\n## Metrics",
         ]
         return "\n".join(lines)
 

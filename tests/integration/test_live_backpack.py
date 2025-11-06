@@ -343,9 +343,6 @@ async def test_backpack_native_ws_error_handling():
 
     session = BackpackWsSession(BackpackConfig(), heartbeat_interval=0.0)
     
-    error_caught = False
-    error_type = None
-    
     try:
         await session.open()
         # Try subscribing to multiple channels to test error conditions
@@ -362,23 +359,17 @@ async def test_backpack_native_ws_error_handling():
                 
                 # Check for error in payload
                 if "error" in payload or "code" in payload:
-                    error_caught = True
-                    error_type = payload.get("code") or payload.get("error")
                     break
                     
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
-                error_caught = True
-                error_type = str(e)
                 if "4002" in str(e):
                     # Expected error - document and skip
                     pytest.skip(f"Known Backpack WS error 4002 (parse error): {e}")
                 break
                 
     except Exception as e:
-        error_caught = True
-        error_type = str(e)
         if "4002" in str(e) or "parse" in str(e).lower():
             pytest.skip(f"Known Backpack WS error: {e}")
     finally:

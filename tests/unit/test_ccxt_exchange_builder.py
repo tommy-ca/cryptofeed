@@ -15,8 +15,6 @@ Tests Task 4.1 acceptance criteria:
 from __future__ import annotations
 
 import pytest
-from typing import Dict, Any, Optional, List, Callable
-from unittest.mock import Mock, MagicMock, patch
 
 from cryptofeed.feed import Feed
 from cryptofeed.exchanges.ccxt.config import CcxtExchangeConfig
@@ -77,7 +75,7 @@ class TestCcxtExchangeBuilder:
     def test_exchange_builder_subscription_filters(self):
         """Test subscription filters for channel-specific customization."""
         from cryptofeed.exchanges.ccxt_generic import CcxtExchangeBuilder
-        from cryptofeed.defines import TRADES, L2_BOOK
+        from cryptofeed.defines import TRADES
 
         def trade_filter(symbol: str, channel: str) -> bool:
             # Only allow trades for BTC pairs

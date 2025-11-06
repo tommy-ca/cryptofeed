@@ -6,7 +6,6 @@ associated with this software.
 
 Tests for protobuf bindings import and usage.
 '''
-import pytest
 from google.protobuf.message import Message
 
 
@@ -18,15 +17,6 @@ def test_protobuf_bindings_importable():
         ticker_pb2,
         candle_pb2,
         funding_pb2,
-        liquidation_pb2,
-        open_interest_pb2,
-        index_price_pb2,
-        balance_pb2,
-        position_pb2,
-        fill_pb2,
-        order_info_pb2,
-        transaction_pb2,
-        order_pb2,
     )
     
     # Verify message classes exist
@@ -56,7 +46,7 @@ def test_protobuf_trade_message_instantiation():
 
 def test_protobuf_orderbook_message_instantiation():
     """Verify protobuf Level2Book message can be instantiated."""
-    from cryptofeed.proto_bindings import order_book_pb2, price_level_pb2
+    from cryptofeed.proto_bindings import order_book_pb2
     
     book = order_book_pb2.Level2Book()
     book.exchange = 'binance'

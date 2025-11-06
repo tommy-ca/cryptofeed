@@ -7,10 +7,9 @@ and provides descriptive error messages per requirements.
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock
 import sys
 
-from cryptofeed.defines import TRADES, L2_BOOK
+from cryptofeed.defines import TRADES
 from cryptofeed.exchanges.ccxt.feed import CcxtFeed
 from cryptofeed.exchanges.ccxt.config import (
     CcxtExchangeConfig,
