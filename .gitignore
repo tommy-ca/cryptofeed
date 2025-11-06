@@ -1,4 +1,5 @@
 .vscode/
+.worktrees/
 Pipfile.lock
 gen/
 pyscn/
