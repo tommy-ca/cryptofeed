@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
 
 from cryptofeed import json_utils as ju
 

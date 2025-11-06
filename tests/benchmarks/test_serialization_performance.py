@@ -8,7 +8,6 @@ in Spec 1 (protobuf-callback-serialization).
 from __future__ import annotations
 
 import gzip
-from copy import deepcopy
 from decimal import Decimal
 from typing import Iterable
 

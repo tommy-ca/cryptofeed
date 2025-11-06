@@ -1,4 +1,4 @@
-'''
+''' 
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
@@ -9,6 +9,8 @@ Protobuf bindings import wrapper.
 Provides convenient imports for generated protobuf message types
 from the normalized-data-schema-crypto specification.
 '''
+
+# ruff: noqa: F401
 
 SCHEMA_VERSION = "v0.1.0"
 

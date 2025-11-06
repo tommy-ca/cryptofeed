@@ -1,7 +1,6 @@
 """Unit tests for the CCXT REST transport."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from types import SimpleNamespace
 

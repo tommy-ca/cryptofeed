@@ -131,7 +131,7 @@ def test_feed_applies_proxy_override():
         symbol_service=StubSymbolService(),
     )
 
-    feed = BackpackFeed(
+    BackpackFeed(
         config=config,
         dependencies=dependencies,
         symbols=["BTC-USDT"],

@@ -20,13 +20,11 @@ from cryptofeed.exchanges.ccxt.config import (
     CcxtConfigExtensions,
 )
 from cryptofeed.exchanges.ccxt.context import (
-    CcxtExchangeContext,
     load_ccxt_config,
     validate_ccxt_config,
 )
 from cryptofeed.proxy import ProxySettings, ConnectionProxies, ProxyConfig
 import textwrap
-from pathlib import Path
 
 
 class TestCcxtProxyConfig:

@@ -12,7 +12,6 @@ import logging
 import sys
 import types
 import pytest
-import aiohttp
 from unittest.mock import patch, AsyncMock
 
 from cryptofeed.feed import Feed
@@ -25,7 +24,6 @@ from cryptofeed.proxy import (
     ProxyPoolConfig,
     ProxyUrlConfig,
     ProxySettings,
-    ProxyInjector,
     init_proxy_system,
     get_proxy_injector,
     load_proxy_settings,
