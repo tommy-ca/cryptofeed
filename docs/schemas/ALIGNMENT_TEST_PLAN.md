@@ -15,6 +15,7 @@
 3. **Optionality**: Ensure `None` values handled correctly
 4. **Precision**: Verify Decimal scale (1e-8) doesn't lose precision
 5. **Edge Cases**: Test boundary conditions (None, zero, very large numbers)
+6. **Schema Regression Tooling**: Run `python tools/schema_regression.py --events <fixture> --output <report> --strict` to verify Decimal parity; use `--no-strict` only when triaging malformed fixtures. The new report fields `tolerance` and `difference` highlight Decimal comparisons.
 
 ---
 

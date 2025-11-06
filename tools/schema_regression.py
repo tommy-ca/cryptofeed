@@ -20,15 +20,115 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+import re
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import cryptofeed.types as cf_types
+from cryptofeed.json_utils import loads as json_loads
 
 logger = logging.getLogger(__name__)
+
+
+class FixtureLoadError(Exception):
+    def __init__(self, path: Path, line: int, original: Exception) -> None:
+        super().__init__(f"Failed to load fixture line {line} in {path}: {original}")
+        self.path = path
+        self.line = line
+        self.original = original
+
+
+class FactoryNotFound(Exception):
+    def __init__(self, event_type: str) -> None:
+        super().__init__(f"No dataclass factory registered for event type '{event_type}'")
+        self.event_type = event_type
+
+
+class DataclassBuildError(Exception):
+    def __init__(self, event_type: str, original: Exception) -> None:
+        message = f"Failed to build dataclass for event '{event_type}': {original}"
+        super().__init__(message)
+        self.event_type = event_type
+        self.original = original
+
+
+class DecimalLoader:
+    def __init__(self, *, strict: bool = True) -> None:
+        self.strict = strict
+
+    def load(self, path: Path) -> List[Dict[str, Any]]:
+        events: List[Dict[str, Any]] = []
+        with path.open(encoding="utf-8") as handle:
+            for line_num, line in enumerate(handle, 1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    events.append(json_loads(stripped, parse_float=Decimal, parse_int=Decimal))
+                except json.JSONDecodeError as exc:
+                    if self.strict:
+                        raise FixtureLoadError(path, line_num, exc) from exc
+                    logger.warning("Skipping malformed JSON on line %s in %s: %s", line_num, path, exc)
+        return events
+
+
+def _candidate_keys(name: str) -> Iterable[str]:
+    snake = re.sub("(?<!^)(?=[A-Z])", "_", name).lower()
+    squashed = snake.replace("_", "")
+    return {snake, squashed, name.lower()}
+
+
+@lru_cache(maxsize=1)
+def _build_type_registry() -> Dict[str, Any]:
+    registry: Dict[str, Any] = {}
+    for attr in dir(cf_types):
+        cls = getattr(cf_types, attr)
+        # Skip private attributes and non-callable objects
+        if attr.startswith("_"):
+            continue
+        if not hasattr(cls, "to_dict"):
+            continue
+        for key in _candidate_keys(attr):
+            registry.setdefault(key, cls)
+    return registry
+
+
+class DataclassFactoryAdapter:
+    def __init__(self, overrides: Optional[Dict[str, Any]] = None) -> None:
+        self.overrides = overrides or {}
+
+    def build(self, event_dict: Dict[str, Any]) -> cf_types.BaseEvent:
+        event_type = event_dict.get("type") or event_dict.get("event_type")
+        if not event_type:
+            raise FactoryNotFound("<missing>")
+
+        normalized = event_type.lower()
+        candidate_keys = {normalized, normalized.replace("_", ""), normalized.replace("-", "")}
+
+        registry = _build_type_registry()
+
+        cls = None
+        for key in candidate_keys:
+            if key in self.overrides:
+                cls = self.overrides[key]
+                break
+            if key in registry:
+                cls = registry[key]
+                break
+
+        if cls is None:
+            raise FactoryNotFound(event_type)
+
+        try:
+            if hasattr(cls, "from_dict"):
+                return cls.from_dict(event_dict)
+            return cls(**event_dict)  # type: ignore[arg-type]
+        except Exception as exc:
+            raise DataclassBuildError(event_type, exc) from exc
 
 
 @dataclass
@@ -39,7 +139,8 @@ class FieldParity:
     expected: Any
     actual: Any
     match: bool
-    tolerance: Optional[float] = None
+    tolerance: Optional[str] = None
+    difference: Optional[str] = None
     notes: str = ""
 
 
@@ -54,6 +155,7 @@ class EventParity:
     mismatch_count: int = 0
     warning_count: int = 0
     notes: str = ""
+    factory_status: str = "ok"
 
     @property
     def is_clean(self) -> bool:
@@ -78,96 +180,45 @@ class RegressionReport:
         return 100.0 * self.events_clean / self.events_processed
 
 
-def _decimal_tolerance(value: Decimal, relative_tol: float = 1e-8) -> float:
-    """Compute absolute tolerance for Decimal precision."""
+def _decimal_tolerance(value: Decimal, relative_tol: Decimal = Decimal("1e-8")) -> Decimal:
     if value == 0:
         return relative_tol
-    return abs(float(value) * relative_tol)
+    return abs(value * relative_tol)
 
 
 def _compare_decimals(
-    expected: Decimal | float,
-    actual: Decimal | float,
+    expected: Decimal,
+    actual: Decimal,
     field_name: str,
-    relative_tol: float = 1e-8,
-) -> Tuple[bool, Optional[float], str]:
-    """Compare decimal/float values with tolerance."""
+    relative_tol: Decimal = Decimal("1e-8"),
+) -> Tuple[bool, Decimal, str]:
     try:
-        exp_float = float(expected)
-        act_float = float(actual)
-        abs_tol = _decimal_tolerance(Decimal(str(exp_float)), relative_tol)
-        match = abs(exp_float - act_float) <= abs_tol
-        return match, abs_tol, ""
-    except (ValueError, TypeError) as exc:
-        return False, None, f"Type conversion error: {exc}"
+        diff = abs(expected - actual)
+        tolerance = _decimal_tolerance(expected, relative_tol)
+        return diff <= tolerance, tolerance, ""
+    except (InvalidOperation, TypeError) as exc:
+        return False, Decimal(0), f"Decimal comparison error for {field_name}: {exc}"
 
 
-def _load_jsonl_events(path: Path) -> List[Dict[str, Any]]:
-    """Load JSONL event samples."""
-    events = []
-    with path.open(encoding="utf-8") as f:
-        for line_num, line in enumerate(f, 1):
-            try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError as exc:
-                logger.warning(f"Skipping line {line_num} in {path}: {exc}")
-    return events
+def _load_jsonl_events(path: Path, *, strict: bool = True) -> List[Dict[str, Any]]:
+    loader = DecimalLoader(strict=strict)
+    return loader.load(path)
 
 
-def _construct_dataclass_from_dict(event_dict: Dict[str, Any]) -> Optional[cf_types.BaseEvent]:
-    """Attempt to reconstruct a Cryptofeed dataclass from dict."""
-    event_type = event_dict.get("type") or event_dict.get("event_type")
-    if not event_type:
-        return None
-
-    # Map event types to constructors
-    constructors = {
-        "trade": lambda d: cf_types.Trade(
-            exchange=d["exchange"],
-            symbol=d["symbol"],
-            side=d["side"],
-            amount=Decimal(str(d["amount"])),
-            price=Decimal(str(d["price"])),
-            timestamp=float(d["timestamp"]),
-            id=d.get("id"),
-        ),
-        "ticker": lambda d: cf_types.Ticker(
-            exchange=d["exchange"],
-            symbol=d["symbol"],
-            bid=Decimal(str(d["bid"])),
-            ask=Decimal(str(d["ask"])),
-            timestamp=float(d["timestamp"]),
-        ),
-        "funding": lambda d: cf_types.Funding(
-            exchange=d["exchange"],
-            symbol=d["symbol"],
-            mark_price=Decimal(str(d["mark_price"])),
-            rate=Decimal(str(d["rate"])),
-            next_funding_time=d.get("next_funding_time"),
-            timestamp=float(d["timestamp"]),
-        ),
-        "open_interest": lambda d: cf_types.OpenInterest(
-            exchange=d["exchange"],
-            symbol=d["symbol"],
-            open_interest=Decimal(str(d["open_interest"])),
-            timestamp=float(d["timestamp"]),
-        ),
-    }
-
-    constructor = constructors.get(event_type.lower())
-    if not constructor:
-        return None
-
+def _construct_dataclass_from_dict(adapter: DataclassFactoryAdapter, event_dict: Dict[str, Any]) -> Optional[cf_types.BaseEvent]:
     try:
-        return constructor(event_dict)
-    except Exception as exc:
-        logger.warning(f"Failed to construct {event_type} from dict: {exc}")
-        return None
+        return adapter.build(event_dict)
+    except FactoryNotFound as exc:
+        logger.warning("%s", exc)
+    except DataclassBuildError as exc:
+        logger.warning("%s", exc)
+    return None
 
 
 def _check_event_parity(
+    adapter: DataclassFactoryAdapter,
     event_dict: Dict[str, Any],
-    relative_tol: float = 1e-8,
+    relative_tol: Decimal = Decimal("1e-8"),
 ) -> EventParity:
     """Check parity for a single event across representations."""
     event_type = event_dict.get("type") or event_dict.get("event_type", "unknown")
@@ -179,10 +230,12 @@ def _check_event_parity(
     )
 
     # Reconstruct Cryptofeed dataclass
-    dataclass_obj = _construct_dataclass_from_dict(event_dict)
+    dataclass_obj = _construct_dataclass_from_dict(adapter, event_dict)
     if not dataclass_obj:
         parity.mismatch_count += 1
+        parity.warning_count += 1
         parity.notes = f"Failed to construct {event_type} dataclass"
+        parity.factory_status = "missing"
         return parity
 
     # Compare fields
@@ -210,13 +263,33 @@ def _check_event_parity(
 
         actual_value = event_dict[field_name]
 
-        # Special handling for Decimal/float precision
-        if isinstance(expected_value, Decimal) and isinstance(actual_value, (float, str, int)):
+        match = expected_value == actual_value
+        tolerance_str = None
+        difference_str = None
+        note = ""
+
+        expected_decimal = isinstance(expected_value, Decimal)
+        actual_decimal = isinstance(actual_value, Decimal)
+
+        if expected_decimal and actual_decimal:
             match, tol, note = _compare_decimals(expected_value, actual_value, field_name, relative_tol)
-        else:
-            match = expected_value == actual_value
-            tol = None
-            note = ""
+            tolerance_str = str(tol)
+            difference_str = str(abs(expected_value - actual_value))
+        elif expected_decimal and isinstance(actual_value, str):
+            try:
+                actual_dec = Decimal(actual_value)
+                match, tol, note = _compare_decimals(expected_value, actual_dec, field_name, relative_tol)
+                tolerance_str = str(tol)
+                difference_str = str(abs(expected_value - actual_dec))
+                actual_value = actual_dec
+            except InvalidOperation as exc:
+                match = False
+                note = f"Invalid decimal string: {exc}"
+        elif isinstance(expected_value, (int, float)) and isinstance(actual_value, Decimal):
+            expected_dec = Decimal(str(expected_value))
+            match, tol, note = _compare_decimals(expected_dec, actual_value, field_name, relative_tol)
+            tolerance_str = str(tol)
+            difference_str = str(abs(expected_dec - actual_value))
 
         check = FieldParity(
             field_name=field_name,
@@ -224,7 +297,8 @@ def _check_event_parity(
             expected=expected_value,
             actual=actual_value,
             match=match,
-            tolerance=tol,
+            tolerance=tolerance_str,
+            difference=difference_str,
             notes=note,
         )
         parity.field_checks.append(check)
@@ -250,19 +324,32 @@ def run_regression(args: argparse.Namespace) -> Tuple[int, RegressionReport]:
             test_config={"error": f"Events file not found: {events_path}"},
         )
 
-    events = _load_jsonl_events(events_path)
+    strict_mode = getattr(args, "strict", True)
+
+    try:
+        events = _load_jsonl_events(events_path, strict=strict_mode)
+    except FixtureLoadError as exc:
+        logger.error("%s", exc)
+        return 2, RegressionReport(
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            test_config={"error": str(exc)},
+        )
     logger.info(f"Loaded {len(events)} events from {events_path}")
+
+    adapter = DataclassFactoryAdapter()
+    tolerance = Decimal(str(args.tolerance))
 
     report = RegressionReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
         test_config={
             "events_file": str(events_path),
             "tolerance": args.tolerance,
+            "strict": strict_mode,
         },
     )
 
     for event in events:
-        parity = _check_event_parity(event, relative_tol=args.tolerance)
+        parity = _check_event_parity(adapter, event, relative_tol=tolerance)
         report.events.append(parity)
         report.events_processed += 1
 
@@ -323,6 +410,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         type=float,
         default=1e-8,
         help="Relative tolerance for Decimal comparisons (default: 1e-8)",
+    )
+    parser.add_argument(
+        "--strict",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stop on fixture parse errors (default: True)",
     )
     parser.add_argument(
         "-v",

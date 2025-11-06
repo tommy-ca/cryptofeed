@@ -294,6 +294,7 @@ class TestRegressionReports:
                 protobuf=False,
                 tolerance=1e-8,
                 verbose=False,
+                strict=True,
             )
             exit_code, report = schema_regression.run_regression(args)
 
