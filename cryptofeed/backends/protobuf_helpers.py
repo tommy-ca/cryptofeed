@@ -14,6 +14,9 @@ Functions:
     - get_converter(data_type) - Lookup function for converters
 '''
 
+import logging
+from typing import Any, Callable, Dict, Tuple
+
 from google.protobuf.message import Message
 
 from cryptofeed.exceptions import ProtobufEncodeError, SerializationError
@@ -22,7 +25,8 @@ from cryptofeed.proto_bindings import (
     ticker_pb2, candle_pb2, funding_pb2, order_book_pb2,
     liquidation_pb2, open_interest_pb2, index_price_pb2,
     balance_pb2, position_pb2, fill_pb2,
-    order_info_pb2, order_pb2, transaction_pb2
+    order_info_pb2, order_pb2, transaction_pb2,
+    REQUIRED_MODULES,
 )
 
 
@@ -404,40 +408,119 @@ def transaction_to_proto(transaction_obj) -> transaction_pb2.Transaction:
 # Converter Registry and Lookup
 # =============================================================================
 
-_CONVERTER_MAP = {
-    'Trade': trade_to_proto,
-    'Ticker': ticker_to_proto,
-    'Candle': candle_to_proto,
-    'Funding': funding_to_proto,
-    'OrderBook': orderbook_to_proto,
-    'Liquidation': liquidation_to_proto,
-    'OpenInterest': open_interest_to_proto,
-    'Index': index_to_proto,
-    'Balance': balance_to_proto,
-    'Position': position_to_proto,
-    'Fill': fill_to_proto,
-    'OrderInfo': order_info_to_proto,
-    'Order': order_to_proto,
-    'Transaction': transaction_to_proto,
+logger = logging.getLogger(__name__)
+
+
+PROTO_MODULES: Dict[str, Any] = {
+    'trade_pb2': trade_pb2,
+    'ticker_pb2': ticker_pb2,
+    'candle_pb2': candle_pb2,
+    'funding_pb2': funding_pb2,
+    'order_book_pb2': order_book_pb2,
+    'liquidation_pb2': liquidation_pb2,
+    'open_interest_pb2': open_interest_pb2,
+    'index_price_pb2': index_price_pb2,
+    'balance_pb2': balance_pb2,
+    'position_pb2': position_pb2,
+    'fill_pb2': fill_pb2,
+    'order_info_pb2': order_info_pb2,
+    'order_pb2': order_pb2,
+    'transaction_pb2': transaction_pb2,
 }
 
 
-_SCHEMA_CLASS_MAP = {
-    'Trade': trade_pb2.Trade,
-    'Ticker': ticker_pb2.Ticker,
-    'Candle': candle_pb2.Candle,
-    'Funding': funding_pb2.Funding,
-    'OrderBook': order_book_pb2.Level2Book,
-    'Liquidation': liquidation_pb2.Liquidation,
-    'OpenInterest': open_interest_pb2.OpenInterest,
-    'Index': index_price_pb2.IndexPrice,
-    'Balance': balance_pb2.Balance,
-    'Position': position_pb2.Position,
-    'Fill': fill_pb2.Fill,
-    'OrderInfo': order_info_pb2.OrderInfo,
-    'Order': order_pb2.Order,
-    'Transaction': transaction_pb2.Transaction,
+TYPE_NAME_OVERRIDES = {
+    'Orderbook': 'OrderBook',
+    'Openinterest': 'OpenInterest',
+    'Orderinfo': 'OrderInfo',
+    'Fundingrate': 'Funding',
 }
+
+
+SCHEMA_OVERRIDES = {
+    'OrderBook': ('order_book_pb2', 'Level2Book'),
+    'Index': ('index_price_pb2', 'IndexPrice'),
+}
+
+
+OPTIONAL_SCHEMAS = {
+    'TradeSide',
+    'PriceLevel',
+    'Level2Delta',
+    'Nbbo',
+    'TopOfBook',
+    'Events',
+}
+
+
+def _canonical_type_name(slug: str) -> str:
+    parts = [segment for segment in slug.split('_') if segment]
+    candidate = ''.join(part.capitalize() for part in parts)
+    return TYPE_NAME_OVERRIDES.get(candidate, candidate)
+
+
+def _resolve_schema_class(type_name: str):
+    if type_name in SCHEMA_OVERRIDES:
+        module_name, attr_name = SCHEMA_OVERRIDES[type_name]
+        module = PROTO_MODULES[module_name]
+        return getattr(module, attr_name)
+    for module in PROTO_MODULES.values():
+        candidate = getattr(module, type_name, None)
+        if candidate is not None:
+            return candidate
+    raise KeyError(f"No protobuf schema found for data type '{type_name}'")
+
+
+def _type_from_message(message_name: str) -> str:
+    overrides = {
+        'Level2Book': 'OrderBook',
+        'IndexPrice': 'Index',
+        'FundingRate': 'Funding',
+    }
+    if message_name in overrides:
+        return overrides[message_name]
+    return TYPE_NAME_OVERRIDES.get(message_name, message_name)
+
+
+def _build_converter_registry() -> Tuple[Dict[str, Callable[[Any], Message]], Dict[str, Any]]:
+    converters: Dict[str, Callable[[Any], Message]] = {}
+    schema_classes: Dict[str, Any] = {}
+
+    for name, value in list(globals().items()):
+        if not name.endswith('_to_proto'):
+            continue
+        if not callable(value):
+            continue
+        slug = name[:-len('_to_proto')]
+        type_name = _canonical_type_name(slug)
+        try:
+            schema_class = _resolve_schema_class(type_name)
+        except KeyError:
+            logger.debug("Skipping converter '%s' with unresolved schema", name)
+            continue
+        converters[type_name] = value
+        schema_classes[type_name] = schema_class
+
+    _validate_registry(converters)
+    return converters, schema_classes
+
+
+def _validate_registry(converters: Dict[str, Callable[[Any], Message]]) -> None:
+    missing = []
+    for module_name, message_name in REQUIRED_MODULES.items():
+        if message_name in OPTIONAL_SCHEMAS:
+            continue
+        expected_type = _type_from_message(message_name)
+        if expected_type not in converters:
+            missing.append(expected_type)
+    if missing:
+        raise SerializationError(
+            "Missing protobuf converters for: " + ", ".join(sorted(set(missing))),
+            data_type=",".join(sorted(set(missing))),
+        )
+
+
+_CONVERTER_MAP, _SCHEMA_CLASS_MAP = _build_converter_registry()
 
 
 _DEFAULT_SCHEMA_VERSION = "v0.1.0"
