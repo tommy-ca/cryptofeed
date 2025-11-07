@@ -2,7 +2,7 @@
 
 ## Phase Summary
 - **Phase 1 (FRs)**: Deliver working Protobuf schemas to staging and production (v0.1.0)
-- **Phase 2 (FRs)**: Add tardis-node and DBN alignment (v0.2.0 → v1.0.0)
+- **Phase 2 (Deferred)**: External parity (tardis-node / DBN) – moved to follow-up spec
 - **Phase 3 (NFRs)**: Establish governance and monitoring infrastructure
 
 ---
@@ -110,75 +110,20 @@
 
 ---
 
-## REMAINING TASKS – PHASE 2: ADD ALIGNMENT (Incremental FRs – When Available)
+## DEFERRED TASKS – EXTERNAL PARITY (Future Spec)
 
-**Objective**: Incrementally add tardis-node and DBN alignment, releasing v0.2.0 → v1.0.0
-**User Impact**: Consumers can validate historical/DBN data against canonical schemas
-**Requirement Coverage**: R4.1, R4.2
-**Note**: Tasks in this phase depend on obtaining external schemas/specs (not currently available)
+External parity work (tardis-node JSON and DBN fixed layouts) is intentionally
+de-scoped from this specification. Frameworks and documentation stubs remain in
+the repository (`TARDIS_ALIGNMENT_PLAN.md`, `DBN_ALIGNMENT_PLAN.md`, sample
+directories, regression tests with skips), but execution will resume under the
+`schema-parity-hardening` spec once authoritative inputs are delivered.
 
-- [ ] 7. Align tardis-node JSON schemas with canonical Protobuf (v0.2.0)
-  - Synchronize tardis-node JSON Schema definitions with Protobuf field numbering
-  - Create comprehensive field mapping showing Cryptofeed-to-tardis-node equivalence
-  - Validate tardis-node samples through regression pipeline and release v0.2.0
-  - _Requirements: R4.1, R4.2_
-  - **Status**: ⏳ BLOCKED - Awaiting external tardis-node JSON schemas
-  - **Implementation**: Created comprehensive framework in `tests/proto_integration/test_tardis_alignment.py` with 12 tests (9 pass, 3 skip). Created `TARDIS_ALIGNMENT_PLAN.md` documenting next steps. Framework ready for when schemas become available.
+- [ ] **(Deferred)** Align tardis-node JSON schemas with canonical Protobuf
+  - Requires schema samples + mapping artifacts; tracked via future spec
+- [ ] **(Deferred)** Align DBN fixed layouts with canonical Protobuf
+  - Requires DBN layout definitions + binary fixtures; tracked via future spec
 
-- [ ] 7.1 Obtain and catalog tardis-node schema samples
-  - Acquire tardis-node JSON Schema definitions for market data events
-  - Document source version, coverage scope, and field variations
-  - Store sample schemas in `docs/schemas/examples/tardis/` with metadata
-  - _Requirements: R4.1_
-  - **Status**: ⏳ BLOCKED - External dependency
-  - **Framework Ready**: Directory structure created at `docs/schemas/examples/tardis/`. Tests ready to validate once schemas obtained.
-
-- [ ] 7.2 Create tardis-node field mapping documentation
-  - Annotate tardis-node schemas with Protobuf field numbers and type conversions
-  - Document complementary fields from tardis-node not in Cryptofeed
-  - Generate mapping tables in `docs/schemas/mappings/tardis_alignment.md`
-  - _Requirements: R4.1, R4.2_
-  - **Status**: ⏳ PENDING - Awaiting schemas from Task 7.1
-
-- [ ] 7.3 Validate tardis-node parity and release v0.2.0
-  - Add tardis-node samples to regression test suite
-  - Verify field-level equivalence and precision through regression pipeline
-  - Publish v0.2.0 to BSR with tardis-node alignment included
-  - _Requirements: R4.2, R4.3_
-  - **Status**: ⏳ PENDING - Awaiting schema availability
-
-- [ ] 8. Align DBN fixed layouts with canonical Protobuf (v1.0.0)
-  - Synchronize DBN byte layout specifications with Protobuf message fields
-  - Create comprehensive mapping showing DBN-to-Protobuf byte offset conversions
-  - Validate DBN samples through regression pipeline and release v1.0.0
-  - _Requirements: R4.1, R4.2_
-  - **Status**: ⏳ BLOCKED - Awaiting external DBN layout specifications
-  - **Implementation**: Created comprehensive framework in `tests/proto_integration/test_dbn_alignment.py` with 12 tests (10 pass, 4 skip on missing specs). Created `DBN_ALIGNMENT_PLAN.md` documenting next steps. Framework ready for when specifications become available.
-
-- [ ] 8.1 Obtain and catalog DBN layout specifications
-  - Acquire DBN YAML layout definitions for market data and derivative events
-  - Document byte offsets, scaling factors, encoding, and field interdependencies
-  - Store layout specs in `docs/schemas/examples/dbn/` with version annotations
-  - _Requirements: R4.1_
-  - **Status**: ⏳ BLOCKED - External dependency
-  - **Framework Ready**: Directory structure created at `docs/schemas/examples/dbn/`. Tests ready to validate once specifications obtained.
-
-- [ ] 8.2 Create DBN layout mapping documentation
-  - Map DBN byte offsets to Protobuf message field paths
-  - Document scaling conversions and precision requirements
-  - Generate mapping tables in `docs/schemas/mappings/dbn_alignment.md`
-  - _Requirements: R4.1, R4.2_
-  - **Status**: ⏳ PENDING - Awaiting specifications from Task 8.1
-
-- [ ] 8.3 Validate DBN parity and release v1.0.0
-  - Add DBN binary samples to regression test suite
-  - Verify binary encoding equivalence and precision through regression pipeline
-  - Capture throughput benchmarks for DBN serialization/deserialization
-  - Publish v1.0.0 to BSR with full Cryptofeed/tardis-node/DBN alignment
-  - _Requirements: R4.2, R4.3, R5.1_
-  - **Status**: ⏳ PENDING - Awaiting specification availability
-
----
+----
 
 ## REMAINING TASKS – PHASE 3: OPERATIONAL IMPROVEMENTS (NFRs – After Core Ships)
 
@@ -213,10 +158,10 @@
 ## Implementation Strategy Notes
 
 ### Versioning Approach
-- **v0.1.0**: Cryptofeed canonical schemas only (FRs)
-- **v0.2.0**: Add tardis-node alignment (Incremental FRs)
-- **v1.0.0**: Add DBN alignment (Incremental FRs)
-- **v1.x+**: Governance/monitoring enhancements (NFRs)
+- **v0.1.0**: Cryptofeed canonical schemas only (FRs) – **delivered in this spec**
+- **Future parity releases**: tardis-node + DBN alignment delivered via the
+  upcoming `schema-parity-hardening` specification
+- **v1.x+**: Governance/monitoring enhancements (NFRs, already complete)
 
 ### Why FRs First
 - **External blockers removed**: Don't wait for tardis-node/DBN schemas we don't own
@@ -233,5 +178,5 @@
 | Phase | FRs? | Tasks | Requirements |
 |-------|------|-------|--------------|
 | 1 | ✅ Core | 5-6 | R2, R3.1-R3.3, R5.1 (basic docs) |
-| 2 | ✅ Incremental | 7-8 | R4.1, R4.2, R4.3, R5.1 |
+| 2 | Deferred | \- | (R4.x to be handled by schema-parity-hardening) |
 | 3 | ❌ NFR | 9 | R3.4, R5.2, R5.3 |
