@@ -60,67 +60,76 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - _Requirements: FR2 (Topic Management)_
   - _Deferred to Task 2 (depends on Kafka AdminClient integration)_
 
-- [ ] 2. Implement partition key strategies
+- [x] 2. Implement partition key strategies
   - Create pluggable partitioner interface with configurable selection
   - Implement symbol-based partition key strategy for per-symbol ordering guarantees
   - Implement composite (exchange-symbol) partition key strategy for per-exchange-symbol ordering
   - Implement exchange-based partition key strategy for per-exchange ordering
   - Implement round-robin strategy that assigns `None` for Kafka's automatic distribution
   - _Requirements: FR3 (Partitioning Strategies)_
+  - _Completed: Nov 9, 2025 - 4 partitioner strategies + factory, 49 tests_
 
-- [ ] 2.1 Create partitioner abstraction and factory
+- [x] 2.1 Create partitioner abstraction and factory
   - Define abstract base class for partitioners with `get_partition_key()` method
   - Implement factory pattern to select partitioner based on configuration
   - Support dynamic partitioner selection via config parameter
   - Add logging for selected partitioner strategy
   - _Requirements: FR3 (Partitioning Strategies)_
+  - _Completed: Partitioner ABC + PartitionerFactory with strategy selection_
 
-- [ ] 2.2 Implement symbol-based partitioner (default)
+- [x] 2.2 Implement symbol-based partitioner (default)
   - Hash symbol to generate consistent partition key
   - Return encoded symbol as partition key bytes
   - Ensure same symbol always maps to same partition
   - Handle symbol normalization (uppercase, replace underscores)
   - _Requirements: FR3 (Partitioning Strategies)_
+  - _Completed: SymbolPartitioner with deterministic encoding_
 
-- [ ] 2.3 Implement composite and exchange partitioners
+- [x] 2.3 Implement composite and exchange partitioners
   - Composite: hash `exchange-symbol` tuple for per-exchange-symbol ordering
   - Exchange: hash exchange name for per-exchange ordering
   - Both return encoded strings as partition key bytes
   - Add configuration descriptions for use case guidance
   - _Requirements: FR3 (Partitioning Strategies)_
+  - _Completed: CompositePartitioner + ExchangePartitioner_
 
-- [ ] 2.4 Implement round-robin partitioner
+- [x] 2.4 Implement round-robin partitioner
   - Return `None` partition key to let Kafka assign round-robin
   - Document that ordering guarantees are lost
   - Provide guidance on when to use (analytics, max throughput)
   - _Requirements: FR3 (Partitioning Strategies)_
+  - _Completed: RoundRobinPartitioner returns None_
 
-- [ ] 3. Add message headers for routing metadata
+- [x] 3. Add message headers for routing metadata
   - Implement header enrichment pipeline that adds routing information to every message
   - Add mandatory headers: `content-type`, `exchange`, `symbol`, `data_type`
   - Add optional headers: `schema_version`, `producer_version`, `timestamp_generated`
   - Ensure headers are returned as list of tuples with byte values
   - _Requirements: FR4 (Serialization Integration)_
+  - _Completed: Nov 9, 2025 - HeaderEnricher with 72 comprehensive tests_
 
-- [ ] 3.1 Create message enrichment class
+- [x] 3.1 Create message enrichment class
   - Extract routing metadata from message objects (exchange, symbol, data_type)
   - Build header dictionary from extracted metadata
   - Convert all header values to bytes (UTF-8 encoding)
   - Support pluggable header enrichment for custom metadata
   - _Requirements: FR4 (Serialization Integration)_
+  - _Completed: HeaderEnricher class with composition pattern_
 
-- [ ] 3.2 Implement standard headers builder
+- [x] 3.2 Implement standard headers builder
   - Add content-type header based on serialization format (application/x-protobuf or application/json)
   - Add exchange and symbol headers from message metadata
   - Add data_type header derived from callback class name (TradeKafka → trades, etc.)
   - _Requirements: FR4 (Serialization Integration)_
+  - _Completed: MessageHeaders class with 4 mandatory headers_
 
-- [ ] 3.3 Implement optional headers builder
+- [x] 3.3 Implement optional headers builder
   - Add schema_version header (default: v1) for version tracking
   - Add producer_version header from package version
   - Add timestamp_generated header with ISO8601 timestamp
   - Support environment-based version overrides for testing
   - _Requirements: FR4 (Serialization Integration)_
+  - _Completed: OptionalHeaders class with defaults and customization_
 
 - [ ] 4. Update KafkaCallback class with new features
   - Extend existing KafkaCallback with topic strategy configuration parameter
