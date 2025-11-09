@@ -1,11 +1,12 @@
-# Market Data Kafka Producer - Implementation Tasks (Spec 3)
+# Market Data Kafka Producer - Scaling Tasks
 
 ## Overview
 
-12 implementation tasks for adding high-performance Kafka producer capability to cryptofeed. Tasks are organized into 3 phases with sequential dependencies, designed to be executed by 1-2 engineers over 2-3 weeks.
+Comprehensive task list for scaling Kafka topics organization from O(symbols × exchanges) to O(data_types) with consolidated topics and configurable partition key strategies.
 
-**Total Effort**: ~3 weeks (21-24 days)
-**Team Size**: 1-2 engineers (can parallelize Phase 2 tasks)
+**Task Count**: 18 major tasks, 38 sub-tasks
+**Total Effort**: 4-5 weeks (240-300 hours)
+**Team Distribution**: 1-2 engineers (can parallelize testing and documentation)
 **Dependencies**:
 - Spec 1 (protobuf-callback-serialization) must be merged first
 - Spec 0 (normalized-data-schema-crypto) already merged
@@ -15,902 +16,604 @@
 
 ## Phase Summary
 
-| Phase | Tasks | Effort | Purpose |
-|-------|-------|--------|---------|
-| 1: Foundation | 3.1-3.3 | 5-7 days | KafkaCallback base class, topic management, partitioning strategies |
-| 2: Message Processing | 3.4-3.7 | 8-10 days | Message pipeline, serialization integration, error handling, DLQ |
-| 3: Production Hardening | 3.8-3.12 | 8-10 days | Monitoring, health checks, configuration, testing, documentation |
+| Phase | Tasks | Weeks | Purpose |
+|-------|-------|-------|---------|
+| 1: Core Implementation | 1-5 | 2-3 | Consolidated topics, partition strategies, headers, configuration |
+| 2: Testing & Validation | 6-11 | 2-3 | Unit tests, integration tests, performance benchmarks, backward compatibility |
+| 3: Documentation & Migration | 12-15 | 1-2 | Consumer guides, migration guides, operator guides, spec updates |
+| 4: Tooling & Deployment | 16-18 | 1-2 | Migration tooling, monitoring dashboards, operational runbooks |
 
 ---
 
-## Phase 1: Foundation (Tasks 3.1-3.3)
+## Phase 1: Core Implementation (Weeks 1-3)
 
-All Foundation tasks must complete before Phase 2 begins. No parallelization in Phase 1.
+- [ ] 1. Implement consolidated topic naming strategy
+  - Create topic naming configuration class supporting both consolidated and per-symbol modes
+  - Implement topic naming logic that generates `cryptofeed.{data_type}` for consolidated topics
+  - Add fallback to per-symbol naming `cryptofeed.{data_type}.{exchange}.{symbol}` when configured
+  - Support topic prefix/namespace for multi-tenant deployments (e.g., `acme.trades`)
+  - Add validation for topic name length and character restrictions per Kafka limits (249 chars)
+  - _Requirements: FR2 (Topic Management)_
 
-### Task 3.1: Implement KafkaCallback Base Class
+- [ ] 1.1 Add topic strategy configuration model
+  - Define Pydantic model for topic configuration with `strategy` field (consolidated | per_symbol)
+  - Add `prefix` field with default value `cryptofeed`
+  - Support per-data-type topic overrides for custom naming
+  - Validate configuration at initialization time
+  - _Requirements: FR2 (Topic Management)_
 
-**Estimate**: M (Medium) - 2-3 days
-**Dependencies**: Spec 1 merged (ProtobufSerializer available)
-**Blocks**: All Phase 2 tasks
+- [ ] 1.2 Implement topic name generator method
+  - Generate consolidated topic names from data type only
+  - Generate per-symbol topic names from data type, exchange, symbol tuple
+  - Handle symbol normalization (case conversion, special character handling)
+  - Cache topic names to avoid repeated string formatting
+  - _Requirements: FR2 (Topic Management)_
 
-**Objective**: Create the core KafkaCallback class extending BackendCallback with Kafka producer integration.
+- [ ] 1.3 Implement topic creation and validation
+  - Check if topic exists before attempting creation
+  - Create topics with configurable partition count and replication factor
+  - Set topic configuration (retention, compression, min.insync.replicas)
+  - Handle AdminClient errors gracefully (unauthorized, already_exists, invalid_config)
+  - _Requirements: FR2 (Topic Management)_
 
-**Files to Create**:
-- `cryptofeed/kafka_callback.py` - KafkaCallback implementation
-- `cryptofeed/kafka_producer.py` - Kafka producer wrapper (handles connection pooling, retries)
+- [ ] 2. Implement partition key strategies
+  - Create pluggable partitioner interface with configurable selection
+  - Implement symbol-based partition key strategy for per-symbol ordering guarantees
+  - Implement composite (exchange-symbol) partition key strategy for per-exchange-symbol ordering
+  - Implement exchange-based partition key strategy for per-exchange ordering
+  - Implement round-robin strategy that assigns `None` for Kafka's automatic distribution
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-**Acceptance Criteria**:
+- [ ] 2.1 Create partitioner abstraction and factory
+  - Define abstract base class for partitioners with `get_partition_key()` method
+  - Implement factory pattern to select partitioner based on configuration
+  - Support dynamic partitioner selection via config parameter
+  - Add logging for selected partitioner strategy
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-```gherkin
-GIVEN KafkaCallback initialized with bootstrap_servers=['kafka:9092']
-WHEN Trade message is received via callback.trade(trade)
-THEN KafkaCallback serializes via Spec 1 and queues for Kafka delivery
+- [ ] 2.2 Implement symbol-based partitioner (default)
+  - Hash symbol to generate consistent partition key
+  - Return encoded symbol as partition key bytes
+  - Ensure same symbol always maps to same partition
+  - Handle symbol normalization (uppercase, replace underscores)
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-GIVEN KafkaCallback with acks='all' and enable_idempotence=True
-WHEN producer sends message
-THEN Kafka broker ensures exactly-once delivery (idempotent + acks=all)
+- [ ] 2.3 Implement composite and exchange partitioners
+  - Composite: hash `exchange-symbol` tuple for per-exchange-symbol ordering
+  - Exchange: hash exchange name for per-exchange ordering
+  - Both return encoded strings as partition key bytes
+  - Add configuration descriptions for use case guidance
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-GIVEN KafkaCallback with invalid bootstrap_servers
-WHEN initialized
-THEN raises ConnectionError with clear message about broker unavailability
+- [ ] 2.4 Implement round-robin partitioner
+  - Return `None` partition key to let Kafka assign round-robin
+  - Document that ordering guarantees are lost
+  - Provide guidance on when to use (analytics, max throughput)
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-GIVEN multiple KafkaCallback instances (for different backends)
-WHEN running simultaneously
-THEN each manages independent Kafka connection (no resource contention)
+- [ ] 3. Add message headers for routing metadata
+  - Implement header enrichment pipeline that adds routing information to every message
+  - Add mandatory headers: `content-type`, `exchange`, `symbol`, `data_type`
+  - Add optional headers: `schema_version`, `producer_version`, `timestamp_generated`
+  - Ensure headers are returned as list of tuples with byte values
+  - _Requirements: FR4 (Serialization Integration)_
 
-GIVEN KafkaCallback.is_connected() method
-WHEN producer is connected to Kafka
-THEN returns True
+- [ ] 3.1 Create message enrichment class
+  - Extract routing metadata from message objects (exchange, symbol, data_type)
+  - Build header dictionary from extracted metadata
+  - Convert all header values to bytes (UTF-8 encoding)
+  - Support pluggable header enrichment for custom metadata
+  - _Requirements: FR4 (Serialization Integration)_
 
-GIVEN KafkaCallback.is_connected()
-WHEN producer is disconnected
-THEN returns False
+- [ ] 3.2 Implement standard headers builder
+  - Add content-type header based on serialization format (application/x-protobuf or application/json)
+  - Add exchange and symbol headers from message metadata
+  - Add data_type header derived from callback class name (TradeKafka → trades, etc.)
+  - _Requirements: FR4 (Serialization Integration)_
 
-GIVEN KafkaCallback integration with BackendCallback
-WHEN FeedHandler routes callbacks
-THEN KafkaCallback correctly receives Trade, OrderBook, Ticker, etc.
-```
+- [ ] 3.3 Implement optional headers builder
+  - Add schema_version header (default: v1) for version tracking
+  - Add producer_version header from package version
+  - Add timestamp_generated header with ISO8601 timestamp
+  - Support environment-based version overrides for testing
+  - _Requirements: FR4 (Serialization Integration)_
 
-**Test Specifications (TDD)**:
+- [ ] 4. Update KafkaCallback class with new features
+  - Extend existing KafkaCallback with topic strategy configuration parameter
+  - Add partition key strategy selection via configuration
+  - Integrate message header enrichment into message pipeline
+  - Update writer() method to use partition keys and headers in produce() call
+  - _Requirements: FR1, FR2, FR3, FR4_
 
-```python
-# tests/unit/kafka/test_kafka_callback_base.py
+- [ ] 4.1 Refactor KafkaCallback initialization
+  - Add `topic_strategy` parameter (default: consolidated)
+  - Add `partition_key_strategy` parameter (default: composite)
+  - Instantiate topic manager with strategy configuration
+  - Instantiate partitioner based on strategy configuration
+  - _Requirements: FR1, FR2, FR3_
 
-def test_kafka_callback_initialization():
-    """KafkaCallback initializes with valid configuration."""
-    callback = KafkaCallback(
-        bootstrap_servers=['kafka:9092'],
-        acks='all',
-        enable_idempotence=True
-    )
+- [ ] 4.2 Update message serialization pipeline
+  - Extract metadata (exchange, symbol, data_type) from message objects
+  - Call topic manager to generate topic name
+  - Call partitioner to generate partition key
+  - Call enricher to add message headers
+  - Pass headers to producer.produce() call
+  - _Requirements: FR4_
 
-    assert callback.bootstrap_servers == ['kafka:9092']
-    assert callback.acks == 'all'
-    assert callback.enable_idempotence == True
+- [ ] 4.3 Update writer() method to use new components
+  - Refactor _drain_once() loop to use updated pipeline
+  - Ensure partition keys are passed to producer.produce()
+  - Ensure headers are passed to producer.produce()
+  - Maintain backward compatibility with existing producer configuration
+  - _Requirements: FR1, FR2, FR3, FR4_
 
-def test_kafka_callback_invalid_bootstrap_servers():
-    """KafkaCallback raises error for unreachable brokers."""
-    with pytest.raises(ConnectionError, match='broker'):
-        callback = KafkaCallback(
-            bootstrap_servers=['invalid:9999'],
-            connection_timeout_ms=1000  # Quick timeout
-        )
+- [ ] 5. Create configuration schema with Pydantic models
+  - Define KafkaTopicConfig class with topic strategy and partition settings
+  - Define KafkaPartitionConfig class with partitioner strategy
+  - Define KafkaProducerConfig class for producer-level settings
+  - Define KafkaConfig top-level class combining all configuration
+  - _Requirements: NFR3 (Configuration)_
 
-def test_kafka_callback_is_connected():
-    """KafkaCallback.is_connected() reflects actual connection state."""
-    callback = KafkaCallback(
-        bootstrap_servers=['kafka:9092']
-    )
+- [ ] 5.1 Implement topic configuration model
+  - Add `strategy` field (consolidated | per_symbol)
+  - Add `prefix` field (default: cryptofeed)
+  - Add `partitions_per_topic` field (default: 3)
+  - Add `replication_factor` field (default: 3)
+  - Add validators for valid strategy values and numeric constraints
+  - _Requirements: NFR3 (Configuration)_
 
-    assert callback.is_connected() == True
+- [ ] 5.2 Implement producer configuration model
+  - Define producer settings matching AIOKafkaProducer parameters
+  - Add `bootstrap_servers` field with list of broker addresses
+  - Add delivery settings: acks, idempotence, retries, retry_backoff_ms
+  - Add performance settings: batch_size, linger_ms, compression_type
+  - Add validation for valid acks values (0, 1, all)
+  - _Requirements: FR5 (Delivery Guarantees), NFR3_
 
-def test_kafka_callback_message_queueing():
-    """KafkaCallback queues messages for async delivery."""
-    callback = KafkaCallback(
-        bootstrap_servers=['kafka:9092']
-    )
-
-    trade = Trade(...)
-    queued = callback._queue_message('trade', trade)
-
-    assert queued == True
-    assert callback.queue_size() > 0
-
-@pytest.mark.integration
-@pytest.mark.kafka
-def test_kafka_callback_with_real_broker():
-    """KafkaCallback connects and exchanges metadata with real Kafka."""
-    callback = KafkaCallback(
-        bootstrap_servers=['kafka:9092'],
-        connection_timeout_ms=5000
-    )
-
-    # Verify can fetch metadata
-    assert callback.get_topics() is not None
-    assert callback.get_broker_count() >= 3  # At least 3 brokers
-
-def test_kafka_callback_inherits_backend_callback():
-    """KafkaCallback is subclass of BackendCallback."""
-    callback = KafkaCallback(bootstrap_servers=['kafka:9092'])
-    assert isinstance(callback, BackendCallback)
-
-def test_kafka_callback_supports_all_data_types():
-    """KafkaCallback has callbacks for all 20 data types."""
-    callback = KafkaCallback(bootstrap_servers=['kafka:9092'])
-
-    # Check all callback methods exist
-    assert hasattr(callback, 'trade')
-    assert hasattr(callback, 'orderbook')
-    assert hasattr(callback, 'ticker')
-    assert hasattr(callback, 'candle')
-    # ... (all 20 data types)
-```
-
-**Implementation Pattern**:
-
-```python
-from cryptofeed.callback import BackendCallback
-from confluent_kafka import Producer
-
-class KafkaCallback(BackendCallback):
-    """Kafka producer backend for cryptofeed."""
-
-    def __init__(self, bootstrap_servers: List[str],
-                 acks: str = 'all',
-                 enable_idempotence: bool = True,
-                 **kwargs):
-        """
-        Initialize Kafka producer callback.
-
-        Args:
-            bootstrap_servers: List of Kafka brokers
-            acks: Delivery guarantee (0, 1, all)
-            enable_idempotence: Enable idempotent producer
-        """
-        super().__init__('kafka', **kwargs)
-
-        self.bootstrap_servers = bootstrap_servers
-        self.acks = acks
-
-        # Initialize producer
-        config = {
-            'bootstrap.servers': ','.join(bootstrap_servers),
-            'acks': acks,
-            'enable.idempotence': enable_idempotence,
-            'retries': 3,
-        }
-
-        self.producer = Producer(config)
-        self._message_queue = asyncio.Queue()
-
-    def is_connected(self) -> bool:
-        """Check if producer is connected to Kafka."""
-        try:
-            metadata = self.producer.list_topics(timeout=5)
-            return metadata is not None
-        except Exception:
-            return False
-
-    def trade(self, trade: Trade) -> None:
-        """Handle Trade message."""
-        self._route_message('trades', trade)
-
-    def _route_message(self, data_type: str, obj: Any) -> None:
-        """Route message for Kafka delivery."""
-        # Serialize via Spec 1
-        serialized = ProtobufSerializer().serialize(obj)
-
-        # Queue for async delivery
-        self._queue_message(data_type, obj, serialized)
-```
-
-**Engineering Principles**:
-- ✅ **Single Responsibility**: Routes messages to Kafka only
-- ✅ **Open/Closed**: Extends BackendCallback without modification
-- ✅ **Liskov Substitution**: Substitutable for BackendCallback
-- ✅ **Interface Segregation**: Minimal interface requirements
-- ✅ **Dependency Inversion**: Depends on Kafka producer abstraction
-- ✅ **KISS**: Simple producer initialization + message routing
-- ✅ **DRY**: Reuses BackendCallback infrastructure
-- ✅ **YAGNI**: No compression, schema registry, or clustering yet
-- ✅ **TDD**: All tests written first
-
-**Success Verification**:
-```bash
-pytest tests/unit/kafka/test_kafka_callback_base.py -v --cov=cryptofeed.kafka_callback
-# Expected: 8/8 tests passing, 100% coverage
-```
+- [ ] 5.3 Implement partition and top-level configuration models
+  - Create KafkaPartitionConfig with `strategy` field
+  - Create KafkaConfig combining Topic, Partition, and Producer configs
+  - Add `from_yaml()` class method to load from YAML files
+  - Add `from_dict()` class method to load from dictionaries
+  - _Requirements: NFR3 (Configuration)_
 
 ---
 
-### Task 3.2: Implement Topic Management
+## Phase 2: Testing & Validation (Weeks 2-3)
 
-**Estimate**: M (Medium) - 2 days
-**Dependencies**: Task 3.1 (KafkaCallback base)
-**Blocks**: Phase 2 tasks
+- [ ] 6. Write unit tests for topic naming and configuration
+  - Test consolidated topic naming generation
+  - Test per-symbol topic naming generation
+  - Test topic prefix/namespace handling
+  - Test symbol normalization (case, special characters)
+  - Test configuration validation and error handling
+  - _Requirements: FR2 (Topic Management)_
 
-**Objective**: Implement topic naming, creation, and caching logic for all data types.
+- [ ] 6.1 Test topic naming logic
+  - Verify consolidated topics use only data type: `cryptofeed.trades`
+  - Verify per-symbol topics include exchange and symbol: `cryptofeed.trades.coinbase.btc-usd`
+  - Test with various symbol formats (uppercase, lowercase, special chars)
+  - Test topic name length validation against Kafka limits
+  - _Requirements: FR2_
 
-**Files to Create/Modify**:
-- `cryptofeed/kafka_callback.py` - Add TopicManager class
-- `cryptofeed/kafka_topic.py` - Topic utilities
+- [ ] 6.2 Test topic strategy configuration
+  - Test loading consolidated strategy from config
+  - Test loading per-symbol strategy from config
+  - Test custom prefix configuration (e.g., acme.trades)
+  - Test validation of invalid strategy values
+  - _Requirements: FR2, NFR3_
 
-**Acceptance Criteria**:
+- [ ] 6.3 Test configuration parsing and validation
+  - Test YAML parsing with valid configuration
+  - Test error handling for invalid YAML syntax
+  - Test Pydantic validation for field types and constraints
+  - Test environment variable overrides
+  - _Requirements: NFR3 (Configuration)_
 
-```gherkin
-GIVEN Trade from Coinbase with symbol BTC-USD
-WHEN _generate_topic_name() is called
-THEN returns 'cryptofeed.trades.coinbase.btc-usd'
+- [ ] 7. Write unit tests for partition key strategies
+  - Test symbol-based partition key generation
+  - Test composite partition key generation
+  - Test exchange-based partition key generation
+  - Test round-robin returns None
+  - Test consistency of partition keys (same symbol always generates same key)
+  - _Requirements: FR3 (Partitioning Strategies)_
 
-GIVEN OrderBook from Binance with symbol ETH-USDT
-WHEN _generate_topic_name() is called
-THEN returns 'cryptofeed.orderbook.binance.eth-usdt'
+- [ ] 7.1 Test symbol partitioner
+  - Verify symbol keys are consistently hashed
+  - Test symbol normalization before hashing
+  - Verify same symbol produces identical partition keys across multiple calls
+  - Test with various symbol formats (BTC-USD, BTC_USD, btc-usd)
+  - _Requirements: FR3_
 
-GIVEN topic 'cryptofeed.trades.coinbase.btc-usd'
-WHEN _ensure_topic_exists() is called
-THEN topic is created in Kafka (idempotent - no error if exists)
+- [ ] 7.2 Test composite and exchange partitioners
+  - Verify composite keys include exchange prefix
+  - Verify exchange keys contain only exchange name
+  - Test load distribution across different exchanges
+  - _Requirements: FR3_
 
-GIVEN auto_create_topics=False
-WHEN message for non-existent topic arrives
-THEN raises TopicNotFoundError with clear message
+- [ ] 7.3 Test partitioner factory selection
+  - Verify correct partitioner is selected based on configuration
+  - Test invalid strategy value handling
+  - Test default partitioner is composite
+  - _Requirements: FR3_
 
-GIVEN 1000 messages to same topic
-WHEN first message arrives
-THEN topic created once, no duplicate creation attempts
+- [ ] 8. Write unit tests for message headers and enrichment
+  - Test mandatory header generation
+  - Test optional header generation
+  - Test header value encoding to bytes
+  - Test metadata extraction from message objects
+  - _Requirements: FR4 (Serialization Integration)_
 
-GIVEN topic created with 3 partitions
-WHEN metadata is fetched
-THEN partition_count returns 3
+- [ ] 8.1 Test header generation
+  - Verify content-type header matches serialization format
+  - Verify exchange and symbol headers are extracted correctly
+  - Verify data_type header is set from callback class name
+  - Test header value encoding to UTF-8 bytes
+  - _Requirements: FR4_
 
-GIVEN multiple data types (Trade, OrderBook, Ticker)
-WHEN all routed to Kafka
-THEN each creates topic named correctly: cryptofeed.{type}.{exchange}.{symbol}
-```
+- [ ] 8.2 Test optional headers
+  - Verify schema_version header is set to v1
+  - Verify producer_version header contains package version
+  - Verify timestamp_generated header is ISO8601 format
+  - Test header override capability for testing
+  - _Requirements: FR4_
 
-**Test Specifications (TDD)**:
+- [ ] 9. Write integration tests for end-to-end Kafka flow
+  - Deploy local Kafka cluster (docker-compose)
+  - Test message production and consumption flow
+  - Verify topic auto-creation with correct configuration
+  - Verify messages appear in topics with correct content
+  - Test header presence in consumed messages
+  - _Requirements: FR1, FR2, FR3, FR4, FR5_
 
-```python
-# tests/unit/kafka/test_topic_manager.py
+- [ ] 9.1 Test consolidated topic end-to-end flow
+  - Deploy Kafka with 3 brokers
+  - Produce trades messages via consolidated strategy
+  - Consume from `cryptofeed.trades` topic
+  - Verify messages are present with correct content and headers
+  - _Requirements: FR2_
 
-def test_topic_name_generation_trade():
-    """Topic name generated correctly for Trade."""
-    manager = TopicManager()
+- [ ] 9.2 Test partition key routing and ordering
+  - Produce messages for same symbol via symbol partitioner
+  - Consume from specific partition and verify order is preserved
+  - Verify messages for different symbols distribute across partitions
+  - Test composite partitioner ensures per-exchange-symbol ordering
+  - _Requirements: FR3_
 
-    topic = manager.generate_topic_name(
-        data_type='Trade',
-        exchange='coinbase',
-        symbol='BTC-USD'
-    )
+- [ ] 9.3 Test exactly-once delivery semantics
+  - Configure producer with idempotence enabled
+  - Produce messages and simulate producer restart
+  - Verify no duplicate messages in topic (using message deduplication)
+  - Test with multiple data types (trades, orderbook, ticker)
+  - _Requirements: FR5 (Delivery Guarantees)_
 
-    assert topic == 'cryptofeed.trades.coinbase.btc-usd'
+- [ ] 10. Write performance benchmarking tests
+  - Benchmark throughput: messages/second with consolidated topics
+  - Compare consolidated vs per-symbol topic throughput
+  - Measure latency: p50, p95, p99 from callback to Kafka ACK
+  - Measure message size reduction (protobuf vs JSON)
+  - Verify no performance regression vs existing per-symbol implementation
+  - _Requirements: NFR1 (Performance)_
 
-def test_topic_name_generation_orderbook():
-    """Topic name generated correctly for OrderBook."""
-    manager = TopicManager()
+- [ ] 10.1 Setup performance test harness
+  - Create benchmark script with configurable message count
+  - Measure end-to-end latency using timestamps
+  - Record message sizes before and after compression
+  - Generate latency distribution reports (p50, p95, p99)
+  - _Requirements: NFR1_
 
-    topic = manager.generate_topic_name(
-        data_type='OrderBook',
-        exchange='binance',
-        symbol='ETH-USDT'
-    )
+- [ ] 10.2 Run throughput benchmarks
+  - Benchmark 10K messages/second with consolidated topics
+  - Benchmark 10K messages/second with per-symbol topics
+  - Record CPU and memory usage during benchmark
+  - Compare throughput between strategies
+  - _Requirements: NFR1_
 
-    assert topic == 'cryptofeed.orderbook.binance.eth-usdt'
+- [ ] 10.3 Run latency benchmarks
+  - Measure latency for Trade messages (250 bytes)
+  - Measure latency for OrderBook messages (1000+ bytes)
+  - Calculate percentiles and generate latency graphs
+  - Verify p99 latency is under 10ms target
+  - _Requirements: NFR1_
 
-def test_topic_name_normalization():
-    """Topic names are normalized (lowercase, dashes)."""
-    manager = TopicManager()
+- [ ] 11. Write backward compatibility tests
+  - Configure callback with per-symbol strategy
+  - Verify old topic naming still works: `cryptofeed.{type}.{exchange}.{symbol}`
+  - Verify partition keys work with per-symbol topics
+  - Test mixed deployments (some instances consolidated, some per-symbol)
+  - _Requirements: [All FRs, backward compatibility]_
 
-    topic = manager.generate_topic_name(
-        data_type='Trade',
-        exchange='COINBASE',
-        symbol='BTC_USD'
-    )
+- [ ] 11.1 Test per-symbol fallback mode
+  - Configure topic strategy as per_symbol
+  - Produce messages and verify topics are created with full path
+  - Consume from per-symbol topics and verify content
+  - _Requirements: FR2_
 
-    # Should normalize to lowercase and replace _ with -
-    assert topic == 'cryptofeed.trades.coinbase.btc-usd'
-
-@pytest.mark.integration
-@pytest.mark.kafka
-def test_topic_creation():
-    """Topic is created in Kafka."""
-    manager = TopicManager(admin_client=admin_client)
-
-    topic = 'cryptofeed.test.coinbase.btc-usd'
-    manager.ensure_topic_exists(topic)
-
-    # Verify topic exists
-    topics = admin_client.list_topics(timeout=10)
-    assert topic in topics
-
-@pytest.mark.integration
-@pytest.mark.kafka
-def test_topic_creation_idempotent():
-    """Topic creation is idempotent (no error if exists)."""
-    manager = TopicManager(admin_client=admin_client)
-
-    topic = 'cryptofeed.test.coinbase.btc-usd'
-
-    # Create twice
-    manager.ensure_topic_exists(topic)
-    manager.ensure_topic_exists(topic)  # Should not raise
-
-def test_topic_caching():
-    """Topic names are cached to avoid repeated generation."""
-    manager = TopicManager()
-
-    topic1 = manager.generate_topic_name('Trade', 'coinbase', 'BTC-USD')
-    topic2 = manager.generate_topic_name('Trade', 'coinbase', 'BTC-USD')
-
-    assert topic1 == topic2
-    # Should use cache (no recomputation)
-    assert manager._cache_hits > 0
-```
-
-**Implementation Pattern**:
-
-```python
-class TopicManager:
-    def __init__(self, admin_client=None):
-        self.admin_client = admin_client
-        self._topic_cache = {}
-        self._created_topics = set()
-
-    def generate_topic_name(self, data_type: str,
-                           exchange: str,
-                           symbol: str) -> str:
-        """
-        Generate topic name from data type, exchange, symbol.
-
-        Returns: cryptofeed.{data_type}.{exchange}.{symbol}
-        """
-        # Normalize
-        data_type_normalized = data_type.lower().replace('_', '-')
-        exchange_normalized = exchange.lower()
-        symbol_normalized = symbol.upper().replace('_', '-').lower()
-
-        topic = f"cryptofeed.{data_type_normalized}.{exchange_normalized}.{symbol_normalized}"
-
-        return topic
-
-    def ensure_topic_exists(self, topic: str,
-                           num_partitions: int = 3,
-                           replication_factor: int = 3) -> None:
-        """
-        Create topic if not exists. Idempotent.
-        """
-        if topic in self._created_topics:
-            return  # Already created
-
-        # Check if exists
-        if self.admin_client:
-            topics = self.admin_client.list_topics(timeout=10)
-            if topic in topics:
-                self._created_topics.add(topic)
-                return
-
-            # Create topic
-            self.admin_client.create_topics([...])
-            self._created_topics.add(topic)
-```
-
-**Success Verification**:
-```bash
-pytest tests/unit/kafka/test_topic_manager.py -v
-# Expected: All tests passing
-```
+- [ ] 11.2 Test configuration compatibility
+  - Load old configuration files without new parameters
+  - Verify defaults are sensible (consolidated mode, composite partitioner)
+  - Test graceful degradation if new features not configured
+  - _Requirements: NFR3_
 
 ---
 
-### Task 3.3: Implement Partitioning Strategies
+## Phase 3: Documentation & Migration (Weeks 3-4)
 
-**Estimate**: M (Medium) - 2 days
-**Dependencies**: Task 3.2 (Topic Management)
-**Blocks**: Phase 2
+- [ ] 12. Create consumer integration guide with reference implementations
+  - Write Flink consumer example reading consolidated topics
+  - Write DuckDB consumer example with INSERT logic
+  - Write Python async consumer example
+  - Include error handling and offset management examples
+  - Provide configuration examples for different consumer patterns
+  - _Requirements: [Cross-cutting documentation]_
 
-**Objective**: Implement symbol-based, round-robin, and exchange-based partitioning strategies.
+- [ ] 12.1 Document Flink integration
+  - Provide PyFlink example reading `cryptofeed.trades` topics
+  - Show protobuf deserialization in Flink job
+  - Include Iceberg sink example with schema evolution
+  - Document consumer group management and checkpointing
+  - _Requirements: [Consumer integration]_
 
-**Files to Create**:
-- `cryptofeed/kafka_partitioner.py` - Partitioner implementations
+- [ ] 12.2 Document DuckDB integration
+  - Provide Python script consuming Kafka messages
+  - Show deserialization of protobuf Trade messages
+  - Include SQL INSERT statements for DuckDB tables
+  - Document data type mapping from protobuf to DuckDB
+  - _Requirements: [Consumer integration]_
 
-**Acceptance Criteria**:
+- [ ] 12.3 Document Python async consumer
+  - Provide aiokafka-based consumer example
+  - Show message deserialization and error handling
+  - Include offset commit strategy recommendations
+  - Document consumer group coordination
+  - _Requirements: [Consumer integration]_
 
-```gherkin
-GIVEN SymbolPartitioner with symbol='BTC-USD'
-WHEN get_partition_key() is called
-THEN returns b'BTC-USD' (bytes)
+- [ ] 13. Create comprehensive migration guide for consumers
+  - Document topic naming change from per-symbol to consolidated
+  - Provide topic subscription pattern updates (old vs new)
+  - Write migration runbook for non-breaking switchover
+  - Include rollback procedures if issues arise
+  - _Requirements: [Migration support]_
 
-GIVEN same symbol 'BTC-USD' called 100 times
-WHEN partition keys generated
-THEN all 100 keys are identical (consistent hashing)
+- [ ] 13.1 Document topic subscription patterns
+  - Show old pattern: subscribe to individual topics per symbol
+  - Show new pattern: wildcard subscription to `cryptofeed.trades`
+  - Document consumer group offset migration
+  - Provide examples for Kafka, Flink, DuckDB consumers
+  - _Requirements: [Migration support]_
 
-GIVEN SymbolPartitioner with 3 partitions
-WHEN routing symbol 'BTC-USD' 100 times
-THEN always maps to same partition (e.g., partition 1)
+- [ ] 13.2 Create migration runbook
+  - Step 1: Deploy new producer with consolidated topics (dual-write mode)
+  - Step 2: Update consumers to subscribe to new topics
+  - Step 3: Verify data quality in new topics
+  - Step 4: Switch off old per-symbol topic production
+  - Step 5: Archive old topics after verification period
+  - _Requirements: [Migration support]_
 
-GIVEN RoundRobinPartitioner with 3 partitions
-WHEN get_partition() called 10 times
-THEN returns [0, 1, 2, 0, 1, 2, 0, 1, 2, 0] (round robin)
+- [ ] 14. Create operator guide for Kafka operations
+  - Document topic creation procedures and partition sizing
+  - Write monitoring setup instructions (Prometheus metrics)
+  - Provide runbook for common operational issues
+  - Include partition rebalancing procedures
+  - _Requirements: [Operational support]_
 
-GIVEN ExchangePartitioner with exchange='binance'
-WHEN get_partition_key() called
-THEN returns b'binance'
+- [ ] 14.1 Document topic management procedures
+  - Explain partition count selection based on throughput
+  - Document replication factor recommendations (3 for prod)
+  - Write topic creation command examples
+  - Include retention and compression settings
+  - _Requirements: [Operational procedures]_
 
-GIVEN 'binance' and 'binance' (same exchange)
-WHEN both routed
-THEN both map to same partition (ordering per exchange)
+- [ ] 14.2 Document monitoring and alerting
+  - Show Prometheus metrics to monitor (messages sent, latency, errors)
+  - Provide Grafana dashboard JSON for key metrics
+  - Document alerting thresholds (latency p99 > 50ms, error rate > 1%)
+  - Include troubleshooting guide for common alerts
+  - _Requirements: [Monitoring setup]_
 
-GIVEN partitioner_strategy='symbol'
-WHEN KafkaCallback initialized with this strategy
-THEN SymbolPartitioner is used for all messages
-```
+- [ ] 14.3 Create operational runbook
+  - Handle broker unavailability (producer reconnect behavior)
+  - Handle topic disk space issues (retention policy tuning)
+  - Handle partition lag buildup (consumer scaling)
+  - Include rollback procedures for producer updates
+  - _Requirements: [Operational procedures]_
 
-**Test Specifications (TDD)**:
+- [ ] 15. Update specification documents with scaling insights
+  - Update requirements.md to reflect new consolidated topic strategy as default
+  - Update design.md section 2 with actual partition key implementation details
+  - Update design.md section 4 with final configuration examples
+  - Add topology diagrams showing consolidated vs per-symbol deployment
+  - _Requirements: [Spec documentation]_
 
-```python
-# tests/unit/kafka/test_partitioner.py
+- [ ] 15.1 Update requirements with new strategy
+  - Add FR2 update: consolidated topics as default, per-symbol as option
+  - Add configuration examples for both strategies
+  - Document topic naming patterns for consolidated topics
+  - _Requirements: FR2_
 
-def test_symbol_partitioner_consistency():
-    """Same symbol always generates same partition key."""
-    partitioner = SymbolPartitioner()
-
-    key1 = partitioner.get_partition_key('BTC-USD')
-    key2 = partitioner.get_partition_key('BTC-USD')
-    key3 = partitioner.get_partition_key('BTC-USD')
-
-    assert key1 == key2 == key3
-
-def test_symbol_partitioner_different_symbols():
-    """Different symbols generate different partition keys."""
-    partitioner = SymbolPartitioner()
-
-    key_btc = partitioner.get_partition_key('BTC-USD')
-    key_eth = partitioner.get_partition_key('ETH-USD')
-
-    assert key_btc != key_eth
-
-def test_symbol_partitioner_normalization():
-    """Symbol normalized before partition key generation."""
-    partitioner = SymbolPartitioner()
-
-    key1 = partitioner.get_partition_key('BTC-USD')
-    key2 = partitioner.get_partition_key('btc-usd')
-    key3 = partitioner.get_partition_key('btc_usd')
-
-    # All should normalize to same key
-    assert key1 == key2 == key3
-
-def test_round_robin_partitioner():
-    """RoundRobinPartitioner cycles through partitions."""
-    partitioner = RoundRobinPartitioner()
-
-    partitions = [partitioner.get_partition(3) for _ in range(9)]
-
-    assert partitions == [0, 1, 2, 0, 1, 2, 0, 1, 2]
-
-def test_exchange_partitioner_consistency():
-    """Same exchange always maps to same partition."""
-    partitioner = ExchangePartitioner()
-
-    key1 = partitioner.get_partition_key('binance')
-    key2 = partitioner.get_partition_key('binance')
-
-    assert key1 == key2
-
-def test_partitioner_strategy_selection():
-    """KafkaCallback selects correct partitioner based on strategy."""
-    callback = KafkaCallback(
-        bootstrap_servers=['kafka:9092'],
-        partitioner_strategy='symbol'
-    )
-
-    assert isinstance(callback.partitioner, SymbolPartitioner)
-
-    callback2 = KafkaCallback(
-        bootstrap_servers=['kafka:9092'],
-        partitioner_strategy='round_robin'
-    )
-
-    assert isinstance(callback2.partitioner, RoundRobinPartitioner)
-```
-
-**Success Verification**:
-```bash
-pytest tests/unit/kafka/test_partitioner.py -v --cov=cryptofeed.kafka_partitioner
-# Expected: All tests passing
-```
+- [ ] 15.2 Update design documentation
+  - Update architecture diagrams to show consolidated topics
+  - Add final implementation examples for topic manager
+  - Update partition strategy section with actual code patterns
+  - _Requirements: [Design reference]_
 
 ---
 
-## Phase 2: Message Processing (Tasks 3.4-3.7)
+## Phase 4: Tooling & Deployment (Weeks 4-5)
 
-**Parallelization Note**: Tasks 3.4-3.7 can be executed in parallel by different engineers after Task 3.3 completes.
+- [ ] 16. Create topic migration tooling
+  - Write script to migrate messages from per-symbol to consolidated topics
+  - Support dry-run mode to verify migration without changes
+  - Implement offset tracking and resumable migration
+  - Generate migration report with message counts
+  - _Requirements: [Operational tooling]_
 
-### Task 3.4: Implement Message Serialization & Enrichment Pipeline
+- [ ] 16.1 Implement message migration script
+  - Read from per-symbol topics (old naming)
+  - Transform messages (if schema updates needed)
+  - Write to consolidated topics (new naming)
+  - Support parallel execution across multiple topics
+  - _Requirements: [Tooling]_
 
-**Estimate**: M (Medium) - 3 days
-**Dependencies**: Task 3.3, Spec 1 (ProtobufSerializer)
-**Can Parallelize With**: Tasks 3.5, 3.6, 3.7
+- [ ] 16.2 Implement offset management
+  - Track source and destination offsets
+  - Support resumable migration (checkpoint progress)
+  - Verify message integrity after migration
+  - Generate migration completion report
+  - _Requirements: [Tooling]_
 
-**Objective**: Implement message serialization via Spec 1 and header enrichment.
+- [ ] 17. Create monitoring dashboard and metrics setup
+  - Deploy Prometheus scrape configuration for Kafka producer
+  - Create Grafana dashboard for key metrics
+  - Setup alerting rules for critical conditions
+  - Document metric definitions and interpretation
+  - _Requirements: FR6 (Monitoring & Observability)_
 
-**Acceptance Criteria**:
+- [ ] 17.1 Setup Prometheus collection
+  - Configure Prometheus to scrape `/metrics` endpoint
+  - Define metric collection interval (10s recommended)
+  - Setup data retention policy (30 days recommended)
+  - Configure Alertmanager for alert routing
+  - _Requirements: FR6_
 
-```gherkin
-GIVEN Trade object from Coinbase
-WHEN serialized via ProtobufSerializer (Spec 1)
-THEN returns binary protobuf bytes
+- [ ] 17.2 Create Grafana dashboard
+  - Build dashboard showing messages sent over time
+  - Add latency percentile graphs (p50, p95, p99)
+  - Add error rate and DLQ message tracking
+  - Include per-exchange and per-data-type breakdowns
+  - _Requirements: FR6_
 
-GIVEN message enriched with headers
-THEN includes: schema_version=v1, timestamp_generated, exchange, data_type
+- [ ] 17.3 Define alerting rules
+  - Alert if producer queue lag exceeds 10K messages
+  - Alert if p99 latency exceeds 50ms
+  - Alert if error rate exceeds 1%
+  - Alert if Kafka brokers unavailable
+  - _Requirements: FR6_
 
-GIVEN serialized message
-WHEN size measured
-THEN protobuf < 50% of JSON size
+- [ ] 18. Create comprehensive operational runbook
+  - Document incident response procedures
+  - Write topic recreation procedures
+  - Include partition rebalancing steps
+  - Provide rollback procedures for producer versions
+  - _Requirements: [Operational procedures]_
 
-GIVEN serialization pipeline with Trade, OrderBook, Ticker
-WHEN all 3 types processed
-THEN each correctly serialized to appropriate protobuf message type
+- [ ] 18.1 Write incident response runbook
+  - Broker unavailability: expected behavior and recovery
+  - High producer lag: diagnosis and remediation
+  - High error rate: common causes and fixes
+  - DLQ overflow: investigation and cleanup
+  - _Requirements: [Operational support]_
 
-GIVEN serialization error (e.g., missing required field)
-WHEN serialize() called
-THEN raises SerializationError with context
-
-GIVEN 10,000 messages serialized
-WHEN latency measured (p99)
-THEN p99 latency < 2ms per message
-```
-
-**Test Specifications**: Follow pattern from Tasks 3.1-3.3
-
----
-
-### Task 3.5: Implement Error Handling & Delivery Guarantees
-
-**Estimate**: M (Medium) - 2-3 days
-**Dependencies**: Task 3.4
-**Can Parallelize With**: Tasks 3.6, 3.7
-
-**Objective**: Implement exactly-once semantics, retries, and error classification.
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN producer with acks='all' and enable_idempotence=True
-WHEN message sent to Kafka
-THEN broker deduplicates by (producer_id, sequence_number)
-
-GIVEN Kafka broker temporarily unavailable
-WHEN message send attempted
-THEN exponential backoff retry: 100ms, 200ms, 400ms
-
-GIVEN serialization error (e.g., invalid Decimal)
-WHEN error classified
-THEN ErrorType.UNRECOVERABLE (don't retry)
-
-GIVEN broker network error
-WHEN error classified
-THEN ErrorType.RECOVERABLE (retry with backoff)
-
-GIVEN max retries exhausted
-WHEN message still failing
-THEN send to dead-letter-queue (DLQ) topic
-
-GIVEN 1000 messages sent with broker failure on message 500
-WHEN broker recovers
-THEN all 1000 messages eventually delivered (no loss)
-```
-
-**Test Specifications**: Error injection, retry verification, DLQ tests
+- [ ] 18.2 Write infrastructure procedures
+  - Topic recreation (if accidentally deleted)
+  - Partition rebalancing (after broker addition/removal)
+  - Consumer group offset reset (for replaying data)
+  - Broker recovery (from backup, if applicable)
+  - _Requirements: [Operational support]_
 
 ---
 
-### Task 3.6: Implement Dead Letter Queue (DLQ)
+## Requirements Traceability Matrix
 
-**Estimate**: S (Small) - 2 days
-**Dependencies**: Task 3.5
-**Can Parallelize With**: Task 3.7
-
-**Objective**: Implement DLQ topic for failed messages with error context.
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN message fails after max retries
-WHEN sent to DLQ
-THEN DLQ topic created: cryptofeed.dlq.{original_topic}
-
-GIVEN DLQ message
-THEN contains: original_message, error, timestamp, retry_count
-
-GIVEN 100 messages, 5 unrecoverable errors
-WHEN messages processed
-THEN 95 in Kafka, 5 in DLQ
-
-GIVEN DLQ message consumed
-WHEN deserialized
-THEN original message recoverable via base64 decode
-```
+| Requirement ID | Requirement | Task(s) | Status |
+|---|---|---|---|
+| FR1 | Kafka Backend Implementation | 4, 4.1, 4.2, 4.3, 9 | Core |
+| FR2 | Topic Management | 1, 1.1, 1.2, 1.3, 6, 6.1, 6.2, 9.1, 15, 15.1 | Core |
+| FR3 | Partitioning Strategies | 2, 2.1, 2.2, 2.3, 2.4, 7, 7.1, 7.2, 7.3, 9.2 | Core |
+| FR4 | Serialization Integration | 3, 3.1, 3.2, 3.3, 8, 8.1, 8.2, 9 | Core |
+| FR5 | Delivery Guarantees | 4, 5.2, 9.3 | Testing |
+| FR6 | Monitoring & Observability | 17, 17.1, 17.2, 17.3, 14.2 | Tooling |
+| NFR1 | Performance | 10, 10.1, 10.2, 10.3 | Testing |
+| NFR2 | Reliability | 11, 11.1, 11.2 | Testing |
+| NFR3 | Configuration | 5, 5.1, 5.2, 5.3, 6.3 | Core |
 
 ---
 
-### Task 3.7: Implement Configuration Support (YAML + Python API)
+## Task Execution Sequence
 
-**Estimate**: M (Medium) - 2 days
-**Dependencies**: Task 3.3 (all components ready)
-**Can Parallelize With**: Phase 3 start
+### Critical Path
+1. **Tasks 1-5** (Core Components) - Enable basic Kafka producer functionality
+2. **Tasks 6-8** (Unit Tests) - Validate individual components
+3. **Task 9** (Integration Tests) - Verify end-to-end flow
+4. **Tasks 10-11** (Performance & Compatibility) - Ensure production readiness
+5. **Tasks 12-15** (Documentation) - Enable consumer adoption
+6. **Tasks 16-18** (Tooling) - Support operations and migration
 
-**Objective**: Support both YAML config files and Python API configuration.
-
-**Files to Create/Modify**:
-- `cryptofeed/config.py` - Add Kafka config parsing
-- `docs/examples/kafka_config.yaml` - Example config
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN YAML config with kafka section
-WHEN loaded via load_config()
-THEN KafkaCallback initialized with correct parameters
-
-GIVEN config with bootstrap_servers=['kafka1:9092', 'kafka2:9092']
-WHEN KafkaCallback initialized
-THEN producer connects to both brokers
-
-GIVEN Python API: KafkaCallback(bootstrap_servers=[...], acks='all')
-WHEN instantiated
-THEN exactly-once semantics enabled
-
-GIVEN environment variable: KAFKA_BOOTSTRAP_SERVERS='kafka:9092'
-WHEN loaded
-THEN overrides YAML config value
-
-GIVEN invalid config (e.g., acks='invalid')
-WHEN loaded
-THEN raises ConfigError with clear message
-```
-
-**Success Verification**:
-```bash
-pytest tests/unit/kafka/test_configuration.py -v
-# Expected: All config tests passing
-```
+### Parallel Execution Opportunities
+- Tasks 6-11 (testing) can run in parallel after Tasks 1-5 complete
+- Tasks 12-15 (documentation) can run in parallel with testing
+- Tasks 16-18 (tooling) can start after core and testing complete
 
 ---
 
-## Phase 3: Production Hardening (Tasks 3.8-3.12)
+## Acceptance Criteria Checklist
 
-### Task 3.8: Implement Prometheus Metrics
+### Phase 1 Completion
+- [ ] Consolidated and per-symbol topic naming both work
+- [ ] 4 partition key strategies selectable and tested
+- [ ] Message headers include routing metadata
+- [ ] Configuration models load from YAML and Python
+- [ ] KafkaCallback integrates all new components
 
-**Estimate**: M (Medium) - 2 days
-**Dependencies**: Phase 2 complete
+### Phase 2 Completion
+- [ ] All unit tests pass (topic naming, partitioning, headers, config)
+- [ ] Integration tests verify end-to-end Kafka flow
+- [ ] Performance benchmarks show 10K+ msg/s capability
+- [ ] Backward compatibility confirmed (per-symbol mode still works)
+- [ ] No performance regression vs existing implementation
 
-**Objective**: Add comprehensive Prometheus metrics for monitoring.
+### Phase 3 Completion
+- [ ] Consumer integration guide covers Flink, DuckDB, Python
+- [ ] Migration guide includes rollback procedures
+- [ ] Operator guide documents procedures and alerts
+- [ ] Spec documents updated with new strategy details
 
-**Files to Create**:
-- `cryptofeed/kafka_metrics.py` - Metrics definitions and recording
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN KafkaCallback with metrics_enabled=True
-WHEN messages sent
-THEN Prometheus counter incremented: cryptofeed_kafka_messages_sent_total
-
-GIVEN message sent
-WHEN latency measured
-THEN Prometheus histogram recorded: cryptofeed_kafka_produce_latency_seconds
-
-GIVEN 1000 messages at 100 msg/s
-WHEN throughput measured
-THEN metrics show correct rate
-
-GIVEN /metrics endpoint
-WHEN accessed
-THEN returns Prometheus-formatted metrics (text/plain)
-
-GIVEN metrics with labels (exchange, data_type)
-WHEN queried
-THEN can filter by label (e.g., data_type='Trade')
-```
-
-**Test Specifications**: Metric recording verification, endpoint tests
+### Phase 4 Completion
+- [ ] Topic migration tooling supports dry-run and resume
+- [ ] Grafana dashboard displays key metrics
+- [ ] Alerting rules defined and tested
+- [ ] Operational runbooks document all procedures
 
 ---
 
-### Task 3.9: Implement Structured Logging & Health Check
-
-**Estimate**: S (Small) - 1-2 days
-**Dependencies**: Phase 2 complete
-
-**Objective**: JSON-formatted logging and /metrics/kafka health endpoint.
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN INFO log event
-WHEN logged
-THEN JSON format: {"event": "...", "timestamp": "...", "data": {...}}
-
-GIVEN /metrics/kafka endpoint
-WHEN accessed
-THEN returns: {"status": "healthy", "brokers_available": 3, ...}
-
-GIVEN broker failure
-WHEN /metrics/kafka accessed
-THEN status='unhealthy', brokers_available < brokers_total
-
-GIVEN tail -f logs
-WHEN monitoring
-THEN JSON logs parseable via jq
-```
-
----
-
-### Task 3.10: Integration Testing with Real Kafka
-
-**Estimate**: L (Large) - 4-5 days
-**Dependencies**: Tasks 3.8-3.9
-
-**Objective**: End-to-end testing with docker-compose Kafka cluster.
-
-**Files to Create**:
-- `tests/integration/test_kafka_e2e.py` - End-to-end tests
-- `docker-compose.kafka.yml` - Kafka test environment
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN Kafka cluster via docker-compose (3 brokers)
-WHEN started
-THEN all brokers healthy, cluster stable
-
-GIVEN KafkaCallback connected to Kafka
-WHEN Trade message sent
-THEN message appears in cryptofeed.trades.* topic
-
-GIVEN 1000 Trade messages from Coinbase
-WHEN published and consumed
-THEN exactly 1000 messages in topic (no loss, no duplication)
-
-GIVEN OrderBook with 100 bid/ask levels
-WHEN serialized to Kafka
-THEN Flink/DuckDB consumer can deserialize correctly
-
-GIVEN broker failure (kill 1 of 3)
-WHEN KafkaCallback continues producing
-THEN no message loss, brief latency increase
-
-GIVEN all brokers fail
-WHEN brokers recover
-THEN KafkaCallback auto-reconnects (no manual restart needed)
-```
-
----
-
-### Task 3.11: Performance Benchmarking
-
-**Estimate**: M (Medium) - 2-3 days
-**Dependencies**: Task 3.10
-
-**Objective**: Benchmark against targets: 10K msg/s, p99 < 10ms, 50% size reduction.
-
-**Files to Create**:
-- `tests/benchmarks/test_kafka_perf.py` - Performance benchmarks
-- `docs/KAFKA_PERFORMANCE.md` - Performance analysis report
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN Trade message (250 bytes)
-WHEN serialized to protobuf
-THEN latency p99 < 2ms
-
-GIVEN 10,000 Trade messages/sec
-WHEN produced to Kafka
-THEN sustained latency p99 < 10ms (no memory leaks)
-
-GIVEN protobuf payload size
-WHEN compared to JSON
-THEN protobuf < 50% of JSON size
-
-GIVEN OrderBook (1000 bytes JSON)
-WHEN serialized to protobuf
-THEN size reduction 50-60%
-
-GIVEN throughput test
-WHEN 50,000 msg/sec attempted
-THEN either succeeds or documented limitation reached
-```
-
----
-
-### Task 3.12: Documentation & Consumer Integration Examples
-
-**Estimate**: M (Medium) - 2-3 days
-**Dependencies**: Task 3.11
-
-**Objective**: Complete documentation and consumer reference implementations.
-
-**Files to Create/Modify**:
-- `docs/KAFKA_PRODUCER_GUIDE.md` - User guide
-- `docs/KAFKA_ARCHITECTURE.md` - Architecture doc
-- `examples/kafka_producer_example.py` - Python example
-- `examples/kafka_consumer_flink.py` - Flink consumer example (reference)
-- `examples/kafka_consumer_duckdb.py` - DuckDB consumer example (reference)
-
-**Acceptance Criteria**:
-
-```gherkin
-GIVEN kafka_producer_example.py
-WHEN executed
-THEN connects to Kafka, publishes Trade messages to correct topics
-
-GIVEN consumer integration guide
-WHEN user reads it
-THEN understands: Flink, Spark, DuckDB, Python consumer patterns
-
-GIVEN troubleshooting guide
-WHEN user encounters error
-THEN finds diagnostic steps and resolution
-
-GIVEN architecture documentation
-WHEN user reviews it
-THEN understands: topic naming, partitioning, message flow, monitoring
-
-GIVEN example configurations
-WHEN user copies them
-THEN can customize and run with minimal changes
-```
-
----
-
-## Task Summary Table
-
-| ID | Phase | Task | Est. | Status |
-|----|-------|------|------|--------|
-| 3.1 | Foundation | KafkaCallback Base Class | M | Ready |
-| 3.2 | Foundation | Topic Management | M | Ready |
-| 3.3 | Foundation | Partitioning Strategies | M | Ready |
-| 3.4 | Message Processing | Serialization & Enrichment | M | Ready (can parallelize) |
-| 3.5 | Message Processing | Error Handling | M | Ready (can parallelize) |
-| 3.6 | Message Processing | Dead Letter Queue | S | Ready (can parallelize) |
-| 3.7 | Message Processing | Configuration | M | Ready (can parallelize) |
-| 3.8 | Production | Prometheus Metrics | M | Ready |
-| 3.9 | Production | Logging & Health Check | S | Ready |
-| 3.10 | Production | Integration Testing | L | Ready |
-| 3.11 | Production | Performance Benchmarking | M | Ready |
-| 3.12 | Production | Documentation | M | Ready |
-
-**Total Estimated Effort**: 31-38 days
-**Critical Path**: 3.1 → 3.2 → 3.3 → 3.4 → 3.5 → 3.6 → 3.7 → 3.8 → 3.9 → 3.10 → 3.11 → 3.12
-**Optimized Timeline**: ~3 weeks (Foundation: 6-7 days, Message Processing: 8-10 days with parallelization, Production: 8-10 days)
-
----
-
-## Engineering Excellence Checklist
+## Engineering Excellence Standards
 
 All tasks must satisfy:
-- ✅ **Test-First (TDD)**: Write tests before code
-- ✅ **100% Coverage**: New code coverage ≥90%
-- ✅ **No Mocks**: Use real Kafka cluster (docker-compose)
-- ✅ **Conventional Commits**: feat:, fix:, test:, docs: prefixes
-- ✅ **SOLID Principles**: Applied systematically
-- ✅ **Type Annotations**: On all public methods
-- ✅ **Docstrings**: Classes and methods documented
-- ✅ **Error Handling**: Clear messages and logging
-- ✅ **Integration Tests**: Real Kafka broker verification
-- ✅ **Performance Targets**: Documented and tracked
-- ✅ **Configuration Support**: YAML + Python API
-- ✅ **Production Ready**: Metrics, logging, health checks
+- ✅ **Natural Language**: Describe capabilities, not code structure (per rules)
+- ✅ **Task Integration**: Every task builds on previous outputs
+- ✅ **Flexible Sizing**: Sub-tasks 1-3 hours each, groups by logical cohesion
+- ✅ **Requirements Mapping**: All requirements covered, cross-referenced
+- ✅ **Code Focus**: Implementation and testing only, no deployment/docs exclusions
+- ✅ **Maximum 2 Levels**: Major + sub-task hierarchy only
+- ✅ **Sequential Numbering**: 1, 2, 3... (no repeats), 1.1, 1.2, 2.1... (resets)
+- ✅ **Checkbox Format**: Proper markdown with details and requirement refs
 
 ---
 
-## Sign-Off
+## Implementation Timeline
 
-This specification is complete and ready for implementation. Begin with Task 3.1 and proceed sequentially through Phase 1. After Task 3.3 completes, Tasks 3.4-3.7 can parallelize. Tasks 3.8+ proceed in sequence.
+**Weeks 1-2**: Phase 1 Core Implementation
+- Complete all 5 major tasks + sub-tasks
+- Output: Consolidated topics, 4 partition strategies, headers, configuration models
 
-**Next Steps**:
-1. Schedule 1-2 engineers for 3-week implementation
-2. Set up docker-compose Kafka cluster for testing
-3. Begin Phase 1 with Task 3.1
-4. Daily standup to track progress and unblock issues
+**Week 2-3**: Phase 2 Testing & Validation (can parallelize)
+- Complete tasks 6-11 in parallel where possible
+- Output: Unit tests, integration tests, performance benchmarks, backward compatibility verification
+
+**Week 3-4**: Phase 3 Documentation & Migration
+- Complete tasks 12-15 sequentially
+- Output: Consumer guides, migration guide, operator guide, spec updates
+
+**Week 4-5**: Phase 4 Tooling & Deployment
+- Complete tasks 16-18 sequentially
+- Output: Migration tooling, monitoring, operational runbooks
+
+---
+
+## Notes
+
+- **Protobuf Integration**: Tasks assume Spec 1 (protobuf-callback-serialization) is merged. If not available at task start, implement JSON fallback in Phase 1.
+- **Backward Compatibility**: Per-symbol topic naming must remain functional throughout and after implementation.
+- **Monitoring First**: Instrumentation (metrics, logging) should be added as each component is implemented, not deferred.
+- **Consumer Examples**: Reference implementations should not include consumer business logic - focus on deserialization and topic subscription patterns.
+- **Topic Scaling Benefit**: Moving from O(symbols × exchanges) to O(data_types) reduces topic count from 1000s to ~20, simplifying operations and reducing Kafka metadata overhead.
