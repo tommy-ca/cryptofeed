@@ -12,9 +12,10 @@
 |--------|-------|---------|
 | ✅ **Completed** | 2 | proxy-system-complete, normalized-data-schema-crypto |
 | 🚧 **In Progress** | 2 | ccxt-generic-pro-exchange, backpack-exchange-integration |
+| ✅ **Ready for Implementation** | 1 | market-data-kafka-producer (design approved) |
 | 📋 **Planning Phase** | 1 | unified-exchange-feed-architecture (design not approved) |
 | ⏸️ **Disabled** | 3 | cryptofeed-lakehouse-architecture, proxy-pool-system, external-proxy-service |
-| **Total** | **8** | |
+| **Total** | **9** | |
 
 ---
 
@@ -294,7 +295,86 @@ Unify native and CCXT exchange integrations behind shared contracts with reusabl
 
 ---
 
-### 6. ⏸️ Cryptofeed Lakehouse Architecture
+### 6. ✅ Market Data Kafka Producer
+
+**Spec Name**: `market-data-kafka-producer`
+**Phase**: Design Approved
+**Status**: Ready for Implementation
+**Created**: October 31, 2025
+**Updated**: November 9, 2025
+
+#### Status Summary
+- **Requirements**: ✅ Approved (FR1-FR7 complete, migration strategy included)
+- **Design**: ✅ Approved (6 sections, migration roadmap with 4 phases)
+- **Tasks**: ✅ Generated (22 tasks across 4 phases)
+- **Cross-Document Validation**: ✅ PASS
+- **Design Validation**: ✅ Pending final score (expected ≥9.0/10)
+- **Ready for Implementation**: ✅ YES (subject to design validation completion)
+
+#### Purpose
+Provide high-performance Kafka producer integration for cryptofeed, serializing normalized market data (from Spec 0) into protobuf messages (from Spec 1) and publishing to Kafka topics. Enables downstream consumers to implement storage, analytics, and persistence independently.
+
+#### Key Deliverables
+- **Topic Management**: Two configurable strategies
+  - Consolidated (default): `cryptofeed.{data_type}` (8 topics, O(data_types))
+  - Per-symbol (optional): `cryptofeed.{data_type}.{exchange}.{symbol}` (80K+ topics, legacy)
+- **Partitioning Strategies**: 4 configurable options
+  - Composite (default): `{exchange}-{symbol}` for per-pair ordering, low hotspot risk
+  - Symbol: `{symbol}` for cross-exchange analysis
+  - Exchange: `{exchange}` for exchange-specific processing
+  - Round-robin: `None` for maximum parallelism
+- **Migration Roadmap**: 4-phase 12-week approach
+  - Phase 1 (Weeks 1-2): Dual-write to both topic patterns
+  - Phase 2 (Weeks 3-8): Gradual consumer migration with validation
+  - Phase 3 (Weeks 9-10): Cutover to consolidated-only
+  - Phase 4 (Weeks 11-12): Cleanup (delete legacy code/topics)
+- **Performance**: 10,000+ msg/s per topic, p99 latency <100ms
+- **Reliability**: Exactly-once semantics via idempotent producer
+- **Observability**: Prometheus metrics + structured JSON logging
+
+#### Critical Issues Resolved
+1. **Topic Strategy Clarity** (Issue #1): Added explicit documentation of consolidated (default) vs per-symbol (optional) strategies with advantages/disadvantages
+2. **Partition Key Rationale** (Issue #2): Updated design to make composite default with clear decision matrix explaining when to use each strategy
+3. **Migration Roadmap** (Issue #3): Added comprehensive 4-phase migration strategy with rollback plans and risk mitigation
+
+#### Dependencies
+- **Spec 0** (normalized-data-schema-crypto): ✅ COMPLETE
+- **Spec 1** (protobuf-callback-serialization): ✅ COMPLETE (Nov 2, 2025)
+- **External**: Kafka cluster (3+ brokers recommended)
+- **External**: Schema registry (Confluent or Buf)
+
+#### Documentation Location
+- Specification: [`.kiro/specs/market-data-kafka-producer/`](../../.kiro/specs/market-data-kafka-producer/)
+- Requirements: [`.kiro/specs/market-data-kafka-producer/requirements.md`](../../.kiro/specs/market-data-kafka-producer/requirements.md)
+- Design: [`.kiro/specs/market-data-kafka-producer/design.md`](../../.kiro/specs/market-data-kafka-producer/design.md)
+- Tasks: [`.kiro/specs/market-data-kafka-producer/tasks.md`](../../.kiro/specs/market-data-kafka-producer/tasks.md)
+- Update Summary: [`.kiro/specs/market-data-kafka-producer/UPDATE_SUMMARY.md`](../../.kiro/specs/market-data-kafka-producer/UPDATE_SUMMARY.md)
+
+#### Next Steps
+1. ✅ **Design validation complete** (expect score ≥9.0/10)
+2. **Confirm GO decision** for implementation
+3. **Begin Phase 1 implementation** (core Kafka producer, topic management)
+4. **Timeline**: 4-5 weeks total
+   - Design: ✅ Complete
+   - Implementation: 2-3 weeks
+   - Testing: 1 week
+   - Integration & migration: 1-2 weeks
+
+#### Test Commands (When Ready)
+```bash
+# Unit tests
+python -m pytest tests/unit/test_kafka_producer.py -v
+
+# Integration tests (requires Kafka cluster)
+python -m pytest tests/integration/test_kafka_integration.py -v
+
+# Performance tests
+python -m pytest tests/performance/test_kafka_throughput.py -v
+```
+
+---
+
+### 7. ⏸️ Cryptofeed Lakehouse Architecture
 
 **Spec Name**: `cryptofeed-lakehouse-architecture`
 **Phase**: Disabled
@@ -321,7 +401,7 @@ Contact user if reactivation is desired. All specification artifacts are preserv
 
 ---
 
-### 7. ⏸️ Proxy Pool System
+### 8. ⏸️ Proxy Pool System
 
 **Spec Name**: `proxy-pool-system`
 **Phase**: Disabled
@@ -350,7 +430,7 @@ Enhancement to proxy-system-complete for proxy pool management and rotation.
 
 ---
 
-### 8. ⏸️ External Proxy Service
+### 9. ⏸️ External Proxy Service
 
 **Spec Name**: `external-proxy-service`
 **Phase**: Disabled
@@ -420,6 +500,9 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 ### ✅ Completed, No Action Needed (1)
 - **proxy-system-complete**: All tests passing, documentation complete
 
+### ✅ Ready for Implementation (1)
+- **market-data-kafka-producer**: Design approved, 22 tasks generated, ready for Phase 1 implementation
+
 ### 🚧 Active Development (2)
 - **ccxt-generic-pro-exchange**: Begin TDD implementation, target completion before Backpack
 - **backpack-exchange-integration**: Begin native implementation, coordinate with CCXT generic
@@ -439,14 +522,16 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 ### 🔴 Critical (This Week)
 1. **Merge normalized-data-schema-crypto** to main branch
 2. **Publish v0.1.0** to Buf registry
-3. **Approve unified-exchange-feed-architecture design** to unblock task generation
-4. **Update CLAUDE.md** to reflect current spec status and consolidations
+3. **Complete market-data-kafka-producer design validation** (expected score ≥9.0/10)
+4. **Approve unified-exchange-feed-architecture design** to unblock task generation
+5. **Update CLAUDE.md** to reflect current spec status and consolidations
 
 ### 🟡 High Priority (Next 2 Weeks)
-1. **Coordinate CCXT generic & Backpack** implementation to share common patterns
-2. **Set up integration testing** for both specs (Binance US sandbox for CCXT, Backpack testnet for native)
-3. **Clarify proxy roadmap** to determine priority of pool-system and external-service specs
-4. **Document consolidation decision** for CCXT vs Native approach for future exchanges
+1. **Begin market-data-kafka-producer Phase 1 implementation** (core Kafka producer, topic/partition management)
+2. **Coordinate CCXT generic & Backpack** implementation to share common patterns
+3. **Set up integration testing** for both specs (Binance US sandbox for CCXT, Backpack testnet for native)
+4. **Clarify proxy roadmap** to determine priority of pool-system and external-service specs
+5. **Document consolidation decision** for CCXT vs Native approach for future exchanges
 
 ### 🟢 Medium Priority (Next Month)
 1. **Evaluate unified architecture** once CCXT generic and Backpack reach MVP status

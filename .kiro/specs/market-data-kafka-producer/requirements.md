@@ -22,17 +22,53 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 - Configurable batch size, linger time, compression
 
 ### FR2: Topic Management
-- Topic naming convention: `cryptofeed.{data_type}.{exchange}.{symbol}`
-  - Example: `cryptofeed.trades.coinbase.btc-usd`
-- Auto-create topics with configurable partition count
+**Two topic strategies** (configurable):
+
+**Default: Consolidated Topics** (O(data_types) = 8 topics)
+- Topic naming: `cryptofeed.{data_type}`
+  - Examples: `cryptofeed.trades`, `cryptofeed.orderbook`, `cryptofeed.ticker`
+- Advantages: Single consumer subscription per data type, simplified downstream routing
+- Target: 10,000+ msg/s per topic (multi-exchange, multi-symbol aggregation)
+
+**Optional: Per-Symbol Topics** (O(symbols × exchanges) = 80,000+ topics)
+- Topic naming: `cryptofeed.{data_type}.{exchange}.{symbol}`
+  - Examples: `cryptofeed.trades.coinbase.btc-usd`, `cryptofeed.orderbook.binance.eth-usdt`
+- Advantages: Per-pair ordering guarantees, single-symbol consumer subscriptions
+- Legacy support: For transition period during migration
+
+**Common**:
+- Auto-create topics with configurable partition count (default: 12 partitions per topic)
 - Support topic prefix/namespace for multi-tenant deployments
 - Allow custom topic routing via configuration
+- Include routing metadata in message headers (exchange, symbol, data_type, schema_version)
 
 ### FR3: Partitioning Strategies
-- Default: Hash by symbol (ensures order per symbol)
-- Optional: Round-robin for maximum parallelism
-- Optional: Key by exchange (group by exchange)
-- Configurable via YAML
+**Four partitioning strategies** (configurable via YAML, default: composite):
+
+1. **Composite (Recommended Default)**: Partition key = `{exchange}-{symbol}`
+   - Ensures per-exchange-pair ordering guarantees
+   - Distributes across partitions when symbols per exchange > partition count
+   - Example: `coinbase-btc-usd`, `binance-eth-usdt`
+
+2. **Symbol-Only**: Partition key = `{symbol}`
+   - Groups same symbol across all exchanges in one partition
+   - Cross-exchange order preservation (useful for arbitrage scenarios)
+
+3. **Exchange-Only**: Partition key = `{exchange}`
+   - Groups all symbols for one exchange in same partition
+   - Useful when consumer processes exchange-specific logic
+
+4. **Round-Robin**: Partition key = `None`
+   - Maximum parallelism, no ordering guarantees
+   - When order irrelevant (e.g., aggregation windows)
+
+**Strategy Matrix** (when to use):
+| Strategy | Use Case | Ordering | Partition Distribution |
+|----------|----------|----------|------------------------|
+| Composite | Real-time trading (DEFAULT) | Per-pair | Excellent |
+| Symbol | Cross-exchange analysis | Per-symbol | Good |
+| Exchange | Exchange-specific processing | Per-exchange | Fair |
+| Round-robin | Aggregate analytics | None | Perfect (load balance) |
 
 ### FR4: Serialization Integration
 - Use `to_proto()` methods from Spec 1
@@ -48,12 +84,45 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 
 ### FR6: Monitoring & Observability
 - Prometheus metrics:
-  - `cryptofeed_kafka_messages_sent_total`
-  - `cryptofeed_kafka_bytes_sent_total`
-  - `cryptofeed_kafka_produce_latency_seconds`
-  - `cryptofeed_kafka_errors_total`
-- Structured logging (JSON format)
-- Health check endpoint
+  - `cryptofeed_kafka_messages_sent_total` (by data_type, exchange, topic_strategy)
+  - `cryptofeed_kafka_bytes_sent_total` (by data_type, exchange)
+  - `cryptofeed_kafka_produce_latency_seconds` (p50, p95, p99)
+  - `cryptofeed_kafka_errors_total` (by error_type, exchange)
+  - Topic health metrics (partition lag, replication status)
+- Structured logging (JSON format with correlation IDs)
+- Health check endpoint (Kafka broker connectivity, producer status)
+
+### FR7: Migration & Backward Compatibility
+**Problem**: Existing deployments use per-symbol topics; moving to consolidated topics requires coordination.
+
+**Solution**: Support dual-write transition period with gradual consumer migration.
+
+**Phase 1: Dual-Write (Weeks 1-2)**
+- Configure KafkaCallback to publish to **both** topic strategies simultaneously
+- Message published to consolidated `cryptofeed.{data_type}` AND per-symbol `cryptofeed.{data_type}.{exchange}.{symbol}`
+- No consumer changes required; existing consumers on per-symbol topics continue unchanged
+- New consumers can subscribe to consolidated topics
+
+**Phase 2: Consumer Migration (Weeks 3-8)**
+- Existing consumers migrate subscriptions from per-symbol to consolidated topics
+- Validation suite confirms dual-write message ordering equivalence
+- Rollback plan: disable dual-write, revert to per-symbol only
+
+**Phase 3: Cutover (Weeks 9-10)**
+- Disable per-symbol topic publishing (consolidated topics only)
+- Health monitoring for consumer processing latency and lag
+- Alert if any consumer lag increases >5 seconds
+
+**Phase 4: Cleanup (Weeks 11-12)**
+- Delete per-symbol topics and Kafka cleanup code
+- Archive legacy configuration examples
+- Document migration lessons learned
+
+**Backward Compatibility**:
+- Configuration flag: `topic_strategy: [consolidated | per_symbol | dual_write]`
+- Default for new deployments: `consolidated`
+- Default for upgrades: `dual_write` (automatic, no code changes)
+- Removal timeline: 4-5 weeks from initial dual-write deployment
 
 ## Non-Functional Requirements
 

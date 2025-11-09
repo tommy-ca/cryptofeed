@@ -199,25 +199,69 @@ Provide high-performance Kafka producer integration for cryptofeed, enabling dow
 
 ### 3.1 Topic Management
 
-#### 3.1.1 Topic Naming Convention
+#### 3.1.1 Topic Naming Conventions
 
-**Pattern**: `cryptofeed.{data_type}.{exchange}.{symbol}`
+**TWO Configurable Strategies**:
 
-**Examples**:
+**Strategy A: Consolidated Topics (Default)**
+- **Pattern**: `cryptofeed.{data_type}`
+- **Topic Count**: O(data_types) = 8 topics total
+- **Examples**:
+  ```
+  cryptofeed.trades        (all trades: Coinbase, Binance, Kraken, etc.)
+  cryptofeed.orderbook     (all L2 books)
+  cryptofeed.ticker        (all tickers)
+  cryptofeed.candle        (all candles)
+  cryptofeed.funding       (all funding rates)
+  ... (8 total for all data types)
+  ```
+- **Benefits**:
+  - Single consumer subscription per data type
+  - Simplified routing downstream
+  - Excellent scalability (10,000+ msg/s per topic)
+  - Multi-exchange/symbol aggregation in one topic
+  - Recommended for most use cases
+
+- **Message Routing**:
+  - Kafka message header `exchange` → identifies source exchange
+  - Kafka message header `symbol` → identifies trading pair
+  - Consumer filters/routes based on headers
+  - Example: Consumer subscribes `cryptofeed.trades`, filters via `exchange=binance`
+
+**Strategy B: Per-Symbol Topics (Optional, Legacy)**
+- **Pattern**: `cryptofeed.{data_type}.{exchange}.{symbol}`
+- **Topic Count**: O(symbols × exchanges) = 80,000+ topics at scale
+- **Examples**:
+  ```
+  cryptofeed.trades.coinbase.btc-usd
+  cryptofeed.orderbook.binance.eth-usdt
+  cryptofeed.ticker.kraken.sol-usd
+  cryptofeed.candle.bitmex.xbt-usd
+  cryptofeed.funding.dydx.btc-usd-perp
+  ```
+- **Benefits**:
+  - Per-pair ordering guarantees (single-symbol subscription)
+  - Legacy support for existing deployments
+  - Use during migration period only
+
+- **Drawbacks**:
+  - Topic explosion at scale (80K+ topics)
+  - Complex Kafka cluster management
+  - Consumer needs separate subscription per pair
+  - Deprecated in favor of consolidated topics
+
+**Configuration**:
+```yaml
+kafka:
+  topic_strategy: "consolidated"  # or "per_symbol" or "dual_write"
+  topic_prefix: "cryptofeed"
+  data_types:
+    - trades
+    - orderbook
+    - ticker
+    - candle
+    - ... (14 total)
 ```
-cryptofeed.trades.coinbase.btc-usd
-cryptofeed.orderbook.binance.eth-usdt
-cryptofeed.ticker.kraken.sol-usd
-cryptofeed.candle.bitmex.xbt-usd
-cryptofeed.funding.dydx.btc-usd-perp
-cryptofeed.liquidation.liquidations.btc-usd
-```
-
-**Benefits**:
-- Clear hierarchical structure (data type → exchange → symbol)
-- Easy subscription patterns: `cryptofeed.trades.*`, `cryptofeed.*.binance.*`
-- Supports both topic-per-symbol and topic-per-exchange strategies
-- Schema evolution per data type
 
 #### 3.1.2 Topic Creation Strategy
 
@@ -261,47 +305,67 @@ class TopicManager:
 
 ### 3.2 Partitioning Strategies
 
-#### 3.2.1 Symbol-Based Partitioning (Default)
+**Four Configurable Strategies** (default: composite):
 
-**Strategy**: Hash symbol → consistent partition
+#### 3.2.1 Composite Partitioning (Recommended Default)
+
+**Strategy**: Partition key = `{exchange}-{symbol}`
 
 ```python
-class SymbolPartitioner:
-    def get_partition_key(self, data_type: str,
-                         exchange: str,
-                         symbol: str) -> bytes:
+class CompositePartitioner:
+    def get_partition_key(self, exchange: str, symbol: str) -> bytes:
         """
-        Return partition key based on symbol.
+        Return partition key based on exchange + symbol.
 
         Guarantees:
-        - All messages for BTC-USD always → partition N (same broker)
-        - Ordering guaranteed within symbol
-        - Load balanced across symbols
-        """
-        # Normalize symbol
-        normalized = symbol.upper().replace('_', '-')
+        - All messages for (Coinbase, BTC-USD) always → partition N
+        - All messages for (Binance, BTC-USD) may → different partition
+        - Per-exchange-pair ordering preserved
 
-        # Return bytes for Kafka
-        return normalized.encode('utf-8')
-
-    def route(self, partition_count: int, key: bytes) -> int:
+        Example keys:
+        - "coinbase-btc-usd" → partition 0
+        - "binance-eth-usdt" → partition 1
+        - "kraken-sol-usd" → partition 2
         """
-        Route message to partition using consistent hash.
-
-        Hash(key) % num_partitions ensures same key always
-        maps to same partition (order preservation).
-        """
-        # Kafka uses this internally
-        return hash(key) % partition_count
+        # Normalize and compose key
+        normalized_symbol = symbol.upper().replace('_', '-')
+        key = f"{exchange.lower()}-{normalized_symbol}"
+        return key.encode('utf-8')
 ```
 
 **Trade-offs**:
-- ✅ **Pro**: Preserves order per symbol (FIFO)
-- ✅ **Pro**: Load balanced across symbols
-- ✅ **Pro**: Consumers can shard by symbol
-- ❌ **Con**: Hotspot if one symbol dominates (e.g., BTC-USD)
+- ✅ **Pro**: Per-pair ordering (real-time trading critical)
+- ✅ **Pro**: Excellent distribution across partitions (12 partitions × 1000 symbols = 12K buckets)
+- ✅ **Pro**: Handles hotspots better (BTC-USD distributed across exchanges)
+- ✅ **Pro**: Standard for market data use cases
+- ❌ **Con**: Cross-exchange pair analysis requires merging
 
-#### 3.2.2 Round-Robin Partitioning (Optional)
+**Recommended for**: Real-time market data, order matching, candle generation
+
+#### 3.2.2 Symbol-Only Partitioning (Optional)
+
+**Strategy**: Partition key = `{symbol}`
+
+```python
+class SymbolPartitioner:
+    def get_partition_key(self, symbol: str) -> bytes:
+        """
+        Route all messages for symbol across all exchanges → same partition.
+
+        Example: All BTC-USD (Coinbase, Binance, Kraken) → partition 0
+        """
+        normalized = symbol.upper().replace('_', '-')
+        return normalized.encode('utf-8')
+```
+
+**Use Case**: Cross-exchange arbitrage analysis, symbol-level aggregation
+
+**Trade-offs**:
+- ✅ **Pro**: All data for symbol together (arbitrage)
+- ✅ **Pro**: Simpler per-symbol subscription
+- ❌ **Con**: Hotspot risk (BTC-USD may dominate single partition)
+
+#### 3.2.3 Round-Robin Partitioning (Optional)
 
 ```python
 class RoundRobinPartitioner:
@@ -313,17 +377,17 @@ class RoundRobinPartitioner:
         Cycle through partitions sequentially.
 
         Guarantees:
-        - Maximum parallelism (messages distributed evenly)
-        - No ordering guarantees (different symbols may interleave)
+        - Maximum parallelism (even distribution)
+        - No ordering guarantees
         """
         partition = self.counter % partition_count
         self.counter += 1
         return partition
 ```
 
-**Use Case**: Analytics where ordering doesn't matter, want max throughput.
+**Use Case**: Analytics/aggregation where ordering doesn't matter, want max throughput
 
-#### 3.2.3 Exchange-Based Partitioning (Optional)
+#### 3.2.4 Exchange-Based Partitioning (Optional)
 
 ```python
 class ExchangePartitioner:
@@ -331,13 +395,21 @@ class ExchangePartitioner:
         """
         Route all messages for exchange → same partition.
 
-        Guarantees:
-        - All Coinbase trades/books → partition N
-        - All Binance → partition M
-        - Ordering per exchange (useful for exchange reconciliation)
+        Example: All Coinbase trades/books → partition 0
         """
         return exchange.lower().encode('utf-8')
 ```
+
+**Use Case**: Exchange-specific processing, exchange reconciliation
+
+**Partition Strategy Decision Matrix**:
+
+| Strategy | Partition Key | Ordering | Use Case | Hotspot Risk |
+|----------|---------------|----------|----------|--------------|
+| **Composite** (default) | `{exchange}-{symbol}` | Per-pair | Real-time trading | Low |
+| Symbol | `{symbol}` | Per-symbol | Cross-exchange analysis | High (BTC) |
+| Round-robin | `None` | None | Analytics | None |
+| Exchange | `{exchange}` | Per-exchange | Exchange ops | Medium |
 
 ### 3.3 Kafka Producer Configuration
 
@@ -828,9 +900,152 @@ All 20 cryptofeed data types integrate via Spec 1 (protobuf serialization):
 
 ---
 
-## 6. Performance Characteristics
+## 6. Migration & Backward Compatibility Roadmap
 
-### 6.1 Latency Targets
+### 6.1 Problem Statement
+
+**Challenge**: Existing deployments use per-symbol topics (`cryptofeed.{data_type}.{exchange}.{symbol}`), but consolidation to `cryptofeed.{data_type}` offers 99% reduction in topic count and improved downstream routing.
+
+**Requirement**: Enable smooth transition without breaking existing consumers.
+
+### 6.2 Migration Strategy: 4-Phase Approach (12 Weeks)
+
+#### Phase 1: Dual-Write (Weeks 1-2)
+
+**Goal**: Enable new consumers to subscribe consolidated topics while existing consumers continue unchanged.
+
+**Implementation**:
+- Configuration flag: `topic_strategy: dual_write`
+- KafkaCallback publishes **every message to BOTH topic patterns**:
+  - Consolidated: `cryptofeed.trades` (new)
+  - Per-symbol: `cryptofeed.trades.coinbase.btc-usd` (existing)
+- Zero code changes for existing consumers
+- New consumers can start subscribing consolidated topics
+
+**Validation**:
+- Message ordering equivalence tests (both topics receive identical messages in order)
+- Consumer lag monitoring (both topic types track independently)
+- Dead-letter queue monitoring (no increase in error rates)
+
+**Rollback**: Disable dual-write, revert to per-symbol only (reversible)
+
+#### Phase 2: Consumer Migration (Weeks 3-8)
+
+**Goal**: Migrate existing consumers from per-symbol to consolidated topics.
+
+**Process**:
+1. **Week 3**: Identify all active consumers subscribing per-symbol topics
+2. **Week 4-5**: Deploy consumer code changes to subscribe consolidated topics
+3. **Week 6-8**: Run dual consumers (old + new) in parallel, validate equivalence
+
+**Validation Suite**:
+```python
+# Ensure message ordering is preserved across migration
+assert consolidated_messages == per_symbol_messages
+assert consolidated_offsets == per_symbol_offsets
+```
+
+**Consumer Update Checklist**:
+- [ ] Update topic subscription: `cryptofeed.trades` instead of `cryptofeed.trades.*.`*
+- [ ] Add header-based routing: filter by `exchange` and `symbol` headers
+- [ ] Verify message ordering remains same
+- [ ] Run in dual-read mode for 1-2 weeks before cutover
+
+**Example Consumer Update**:
+```python
+# Old (per-symbol subscription)
+consumer.subscribe(['cryptofeed.trades.coinbase.*'])
+
+# New (consolidated subscription with filtering)
+consumer.subscribe(['cryptofeed.trades'])
+for msg in consumer:
+    if msg.headers['exchange'] == 'coinbase':  # Filter by header
+        process_trade(msg)
+```
+
+#### Phase 3: Cutover (Weeks 9-10)
+
+**Goal**: Disable per-symbol topic publishing; consolidated topics become authoritative.
+
+**Implementation**:
+- Configuration flag: `topic_strategy: consolidated` (default)
+- KafkaCallback publishes **only** to consolidated topics
+- Per-symbol topics remain accessible (read-only) for 1-2 weeks
+- All new consumers must subscribe consolidated topics
+
+**Health Monitoring**:
+- Alert if consolidated topic consumer lag > 5 seconds
+- Alert if consolidated topic message rate drops
+- Monitor per-symbol topic subscription count (should approach zero)
+
+**Rollback Plan**:
+- If issues detected: revert to `dual_write` mode within 24 hours
+- Restore per-symbol topic publishing
+- Investigate root cause before reattempting cutover
+
+#### Phase 4: Cleanup (Weeks 11-12)
+
+**Goal**: Remove legacy per-symbol code and topics.
+
+**Actions**:
+1. Delete per-symbol topics from Kafka cluster
+2. Remove per-symbol code path from KafkaCallback
+3. Remove `per_symbol` option from configuration
+4. Archive legacy configuration examples
+5. Document migration lessons learned
+
+**Verification**:
+- Zero subscriptions to per-symbol topics
+- All consumers successfully reading consolidated topics
+- No errors in application logs
+
+### 6.3 Backward Compatibility Matrix
+
+| Phase | Topic Strategy | Consolidated | Per-Symbol | Config Flag |
+|-------|---|---|---|---|
+| **Pre-Migration** | Single (legacy) | ❌ | ✅ | `per_symbol` |
+| **Phase 1** | Dual-write | ✅ | ✅ | `dual_write` |
+| **Phase 2** | Dual-write | ✅ | ✅ | `dual_write` |
+| **Phase 3** | Single (new) | ✅ | ❌* | `consolidated` |
+| **Phase 4** | Single (new) | ✅ | ❌ | `consolidated` |
+
+*Phase 3: Per-symbol topics remain readable for 1-2 weeks, but no new messages published
+
+### 6.4 Configuration Examples
+
+**Phase 1-2 (Dual-Write)**:
+```yaml
+kafka:
+  topic_strategy: dual_write
+  consolidated_topics: true
+  per_symbol_topics: true
+  partitioner: composite  # Use composite for consolidated topics
+```
+
+**Phase 3-4 (Consolidated Only)**:
+```yaml
+kafka:
+  topic_strategy: consolidated
+  consolidated_topics: true
+  per_symbol_topics: false
+  partitioner: composite
+```
+
+### 6.5 Risk Mitigation
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|-----------|
+| Message loss during cutover | Low | High | Dual-write validation + health checks |
+| Consumer lag spike | Medium | Medium | Staged rollout, rollback plan |
+| Partition rebalancing | Low | Low | Monitor consumer group rebalance time |
+| Schema incompatibility | Low | High | Test consumer code with consolidated topics |
+| Broker capacity | Low | Medium | Monitor topic partition count vs cluster size |
+
+---
+
+## 7. Performance Characteristics
+
+### 7.1 Latency Targets
 
 ```
 Latency (milliseconds) from Callback to Kafka ACK:
