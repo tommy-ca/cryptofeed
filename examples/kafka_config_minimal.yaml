@@ -1,0 +1,15 @@
+# Kafka Configuration - Minimal (Development/Testing)
+#
+# Minimal configuration with sensible defaults for local development.
+# Only bootstrap_servers is required; all other settings use defaults.
+#
+# Defaults:
+# - Topic strategy: consolidated
+# - Partition strategy: composite
+# - Acks: all (exactly-once semantics)
+# - Idempotence: true
+# - Compression: snappy
+
+# Kafka broker addresses (required)
+bootstrap_servers:
+  - localhost:9092
