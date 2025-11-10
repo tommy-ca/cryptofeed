@@ -194,7 +194,7 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
 
 ## Phase 2: Testing & Validation (Weeks 2-3)
 
-- [ ] 6. Write unit tests for topic naming and configuration
+- [x] 6. Write unit tests for topic naming and configuration
   - Test consolidated topic naming generation
   - Test per-symbol topic naming generation
   - Test topic prefix/namespace handling
@@ -202,28 +202,28 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - Test configuration validation and error handling
   - _Requirements: FR2 (Topic Management)_
 
-- [ ] 6.1 Test topic naming logic
+- [x] 6.1 Test topic naming logic
   - Verify consolidated topics use only data type: `cryptofeed.trades`
   - Verify per-symbol topics include exchange and symbol: `cryptofeed.trades.coinbase.btc-usd`
   - Test with various symbol formats (uppercase, lowercase, special chars)
   - Test topic name length validation against Kafka limits
   - _Requirements: FR2_
 
-- [ ] 6.2 Test topic strategy configuration
+- [x] 6.2 Test topic strategy configuration
   - Test loading consolidated strategy from config
   - Test loading per-symbol strategy from config
   - Test custom prefix configuration (e.g., acme.trades)
   - Test validation of invalid strategy values
   - _Requirements: FR2, NFR3_
 
-- [ ] 6.3 Test configuration parsing and validation
+- [x] 6.3 Test configuration parsing and validation
   - Test YAML parsing with valid configuration
   - Test error handling for invalid YAML syntax
   - Test Pydantic validation for field types and constraints
   - Test environment variable overrides
   - _Requirements: NFR3 (Configuration)_
 
-- [ ] 7. Write unit tests for partition key strategies
+- [x] 7. Write unit tests for partition key strategies
   - Test symbol-based partition key generation
   - Test composite partition key generation
   - Test exchange-based partition key generation
@@ -231,40 +231,40 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - Test consistency of partition keys (same symbol always generates same key)
   - _Requirements: FR3 (Partitioning Strategies)_
 
-- [ ] 7.1 Test symbol partitioner
+- [x] 7.1 Test symbol partitioner
   - Verify symbol keys are consistently hashed
   - Test symbol normalization before hashing
   - Verify same symbol produces identical partition keys across multiple calls
   - Test with various symbol formats (BTC-USD, BTC_USD, btc-usd)
   - _Requirements: FR3_
 
-- [ ] 7.2 Test composite and exchange partitioners
+- [x] 7.2 Test composite and exchange partitioners
   - Verify composite keys include exchange prefix
   - Verify exchange keys contain only exchange name
   - Test load distribution across different exchanges
   - _Requirements: FR3_
 
-- [ ] 7.3 Test partitioner factory selection
+- [x] 7.3 Test partitioner factory selection
   - Verify correct partitioner is selected based on configuration
   - Test invalid strategy value handling
   - Test default partitioner is composite
   - _Requirements: FR3_
 
-- [ ] 8. Write unit tests for message headers and enrichment
+- [x] 8. Write unit tests for message headers and enrichment
   - Test mandatory header generation
   - Test optional header generation
   - Test header value encoding to bytes
   - Test metadata extraction from message objects
   - _Requirements: FR4 (Serialization Integration)_
 
-- [ ] 8.1 Test header generation
+- [x] 8.1 Test header generation
   - Verify content-type header matches serialization format
   - Verify exchange and symbol headers are extracted correctly
   - Verify data_type header is set from callback class name
   - Test header value encoding to UTF-8 bytes
   - _Requirements: FR4_
 
-- [ ] 8.2 Test optional headers
+- [x] 8.2 Test optional headers
   - Verify schema_version header is set to v1
   - Verify producer_version header contains package version
   - Verify timestamp_generated header is ISO8601 format

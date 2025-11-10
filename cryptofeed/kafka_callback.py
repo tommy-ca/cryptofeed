@@ -387,9 +387,10 @@ class TopicManager:
         'production.cryptofeed.trades'
     """
 
-    # Supported data types (from cryptofeed/backends/protobuf_helpers.py)
+    # Supported data types (normalized to singular form for topic naming)
+    # These match the protobuf schema message types and topic naming conventions
     SUPPORTED_DATA_TYPES = {
-        'trades', 'orderbook', 'ticker', 'candle', 'funding',
+        'trade', 'orderbook', 'ticker', 'candle', 'funding',
         'liquidation', 'index', 'openinterest', 'fill', 'balance',
         'position', 'margin', 'order', 'transaction'
     }
@@ -433,16 +434,16 @@ class TopicManager:
     def _normalize_symbol(symbol: str) -> str:
         """Normalize symbol for topic naming.
 
-        Converts underscores to hyphens and ensures uppercase format.
-        E.g., 'btc_usdt' → 'BTC-USDT', 'btc/usdt' → 'BTC/USDT'
+        Converts underscores to hyphens and ensures lowercase format for per-symbol topics.
+        E.g., 'btc_usdt' → 'btc-usdt', 'BTC/USDT' → 'btc/usdt'
 
         Args:
             symbol: Trading symbol (e.g., 'BTC-USDT', 'btc_usdt')
 
         Returns:
-            Normalized symbol in uppercase with hyphens
+            Normalized symbol in lowercase with hyphens
         """
-        return str(symbol).upper().replace('_', '-')
+        return str(symbol).lower().replace('_', '-')
 
     @staticmethod
     def _normalize_exchange(exchange: str) -> str:
@@ -542,18 +543,21 @@ class TopicManager:
 _STOP_SENTINEL = object()
 
 
+# Mapping from callback method names (as exposed by __getattr__) to normalized topic names
+# Method names follow BackendCallback conventions (may be plural or have underscores)
+# Topic names are singular and normalized for TopicManager validation
 _SUPPORTED_METHODS: Dict[str, str] = {
-    "trade": "trades",
-    "orderbook": "orderbook",
-    "ticker": "ticker",
-    "candle": "candles",
-    "liquidation": "liquidations",
-    "funding": "funding",
-    "open_interest": "open_interest",
-    "order_info": "order_info",
-    "balances": "balances",
-    "transactions": "transactions",
-    "fills": "fills",
+    "trade": "trade",                   # method: trade → topic: trade
+    "orderbook": "orderbook",           # method: orderbook → topic: orderbook
+    "ticker": "ticker",                 # method: ticker → topic: ticker
+    "candle": "candle",                 # method: candle → topic: candle
+    "liquidation": "liquidation",       # method: liquidation → topic: liquidation
+    "funding": "funding",               # method: funding → topic: funding
+    "open_interest": "openinterest",    # method: open_interest → topic: openinterest (no underscore)
+    "order_info": "order",              # method: order_info → topic: order
+    "balances": "balance",              # method: balances (plural) → topic: balance (singular)
+    "transactions": "transaction",      # method: transactions (plural) → topic: transaction (singular)
+    "fills": "fill",                    # method: fills (plural) → topic: fill (singular)
 }
 
 
@@ -1334,4 +1338,44 @@ class HeaderEnricher:
         )
 
         # Combine all headers: mandatory first, then optional
+        return mandatory + optional
+
+    def enrich_message(
+        self,
+        message: Any,
+        data_type: str,
+        content_type: str = None,
+    ) -> list[tuple[bytes, bytes]]:
+        """Build headers for message enrichment (alias for build()).
+
+        This method provides an alternative API name for building headers.
+        It accepts an optional content_type parameter that overrides the
+        instance's configured content_type.
+
+        Args:
+            message: Message object with exchange and symbol attributes.
+            data_type: Data type name (e.g., 'trades', 'orderbook').
+            content_type: Optional override for content-type header.
+                         If not provided, uses instance's content_type.
+
+        Returns:
+            List of (header_name, header_value) tuples with bytes values.
+        """
+        # Use provided content_type or fall back to instance's default
+        ct = content_type if content_type is not None else self.content_type
+
+        # Build mandatory headers with overridden content_type if provided
+        mandatory = MessageHeaders.build(
+            message=message,
+            data_type=data_type,
+            content_type=ct,
+        )
+
+        # Build optional headers
+        optional = OptionalHeaders.build(
+            schema_version=self.schema_version,
+            producer_version=self.producer_version,
+            timestamp_generated=self.timestamp_generated,
+        )
+
         return mandatory + optional
