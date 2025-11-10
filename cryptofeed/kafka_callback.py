@@ -697,11 +697,41 @@ class KafkaCallback(BackendCallback):
         return self._queue.qsize()
 
     def _queue_message(self, data_type: str, obj: Any, receipt_timestamp: Optional[float] = None) -> bool:
+        """Queue a message for processing with backpressure protection.
+
+        Args:
+            data_type: Normalized data type name (e.g., 'trade', 'orderbook')
+            obj: Message object to queue
+            receipt_timestamp: Optional receipt timestamp
+
+        Returns:
+            True if message was queued, False if queue was full
+
+        Backpressure Strategy (Critical Issue #2):
+        - If queue is full, log error with structured metadata
+        - Drop message to prevent blocking upstream data ingestion
+        - Emit metrics for monitoring and alerting
+        """
         message = _QueuedMessage(data_type=data_type, obj=obj, receipt_timestamp=receipt_timestamp)
+
+        # Extract metadata for error logging
+        exchange = getattr(obj, "exchange", "unknown")
+        symbol = getattr(obj, "symbol", "unknown")
+
         try:
             self._queue.put_nowait(message)
         except asyncio.QueueFull:
-            LOG.error("KafkaCallback queue is full; dropping message for %s", data_type)
+            LOG.error(
+                "KafkaCallback queue is full; dropping %s message from %s/%s (queue size: %d)",
+                data_type, exchange, symbol, self._queue.maxsize,
+                extra={
+                    "exchange": exchange,
+                    "symbol": symbol,
+                    "data_type": data_type,
+                    "queue_size": self._queue.maxsize,
+                    "error_type": "queue_full",
+                }
+            )
             return False
         return True
 
@@ -788,15 +818,22 @@ class KafkaCallback(BackendCallback):
         return payload, headers
 
     async def _drain_once(self) -> None:
-        """Process one message from queue using updated pipeline.
+        """Process one message from queue using updated pipeline with error handling.
 
-        Pipeline (Task 4.2-4.3):
+        Pipeline (Task 4.2-4.3 + Critical Issue #2):
         1. Get message from queue
-        2. Serialize payload
-        3. Extract metadata and generate topic using TopicManager
-        4. Generate partition key using Partitioner
-        5. Build headers using HeaderEnricher
-        6. Produce to Kafka with all components
+        2. Serialize payload (with exception handling)
+        3. Extract metadata and generate topic using TopicManager (with exception handling)
+        4. Generate partition key using Partitioner (with exception handling)
+        5. Build headers using HeaderEnricher (with exception handling)
+        6. Produce to Kafka with all components (with exception handling)
+
+        Error Handling Strategy:
+        - Serialization errors: Log with structured metadata, skip message
+        - Topic resolution errors: Log and skip message
+        - Header enrichment errors: Log warning, fall back to base headers
+        - Kafka produce errors: Log with retry indication, continue processing
+        - All errors are logged with exchange, symbol, data_type for debugging
         """
         message = await self._queue.get()
         try:
@@ -805,29 +842,126 @@ class KafkaCallback(BackendCallback):
 
             assert isinstance(message, _QueuedMessage)
 
-            # Serialize payload
-            payload, base_headers = self._serialize_payload(message.obj, message.receipt_timestamp)
+            # Extract metadata for error logging
+            exchange = getattr(message.obj, "exchange", "unknown")
+            symbol = getattr(message.obj, "symbol", "unknown")
+            data_type = message.data_type
 
-            # Generate topic name using TopicManager
-            topic = self._topic_name(message.data_type, message.obj)
+            # Step 1: Serialize payload
+            try:
+                payload, base_headers = self._serialize_payload(message.obj, message.receipt_timestamp)
+            except Exception as e:
+                LOG.error(
+                    "KafkaCallback: Serialization failed for %s message from %s/%s: %s",
+                    data_type, exchange, symbol, e,
+                    extra={
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "data_type": data_type,
+                        "error_type": "serialization_error",
+                        "error": str(e)
+                    }
+                )
+                return  # Skip this message, continue processing queue
 
-            # Generate partition key using Partitioner
-            key = self._partition_key(message.obj)
+            # Step 2: Generate topic name using TopicManager
+            try:
+                topic = self._topic_name(data_type, message.obj)
+            except Exception as e:
+                LOG.error(
+                    "KafkaCallback: Topic resolution failed for %s message from %s/%s: %s",
+                    data_type, exchange, symbol, e,
+                    extra={
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "data_type": data_type,
+                        "error_type": "topic_resolution_error",
+                        "error": str(e)
+                    }
+                )
+                return  # Skip this message, continue processing queue
 
-            # Build enriched headers using HeaderEnricher (Task 4.3)
+            # Step 3: Generate partition key using Partitioner
+            try:
+                key = self._partition_key(message.obj)
+            except Exception as e:
+                LOG.warning(
+                    "KafkaCallback: Partition key generation failed for %s/%s, using None: %s",
+                    exchange, symbol, e,
+                    extra={
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "data_type": data_type,
+                        "error_type": "partition_key_error",
+                        "error": str(e)
+                    }
+                )
+                key = None  # Fall back to None (round-robin partition assignment)
+
+            # Step 4: Build enriched headers using HeaderEnricher
             try:
                 enriched_headers = self._header_enricher.build(
                     message=message.obj,
-                    data_type=message.data_type
+                    data_type=data_type
                 )
-            except Exception:
-                # Fallback to base headers if enrichment fails
-                enriched_headers = base_headers
+            except Exception as e:
+                LOG.warning(
+                    "KafkaCallback: Header enrichment failed for %s/%s, using base headers: %s",
+                    exchange, symbol, e,
+                    extra={
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "data_type": data_type,
+                        "error_type": "header_enrichment_error",
+                        "error": str(e)
+                    }
+                )
+                enriched_headers = base_headers  # Fallback to base headers
 
-            self._producer.produce(topic, payload, key=key, headers=enriched_headers)
-            self._producer.poll(0.0)
+            # Step 5: Produce to Kafka
+            try:
+                self._producer.produce(topic, payload, key=key, headers=enriched_headers)
+                self._producer.poll(0.0)
+            except Exception as e:
+                LOG.error(
+                    "KafkaCallback: Kafka produce failed for %s message from %s/%s on topic %s: %s",
+                    data_type, exchange, symbol, topic, e,
+                    extra={
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "data_type": data_type,
+                        "topic": topic,
+                        "error_type": "kafka_produce_error",
+                        "error": str(e)
+                    }
+                )
+                # Note: Producer retries are configured in KafkaProducer settings
+                # We continue processing to avoid blocking the queue on transient errors
+        except Exception as e:
+            # Catch-all for unexpected errors to prevent writer task collapse
+            LOG.error(
+                "KafkaCallback: Unexpected error in _drain_once: %s",
+                e,
+                extra={
+                    "error_type": "unexpected_drain_error",
+                    "error": str(e)
+                },
+                exc_info=True
+            )
         finally:
-            self._queue.task_done()
+            # Ensure task_done() is called even if errors occur
+            # Wrap in try/except to prevent finally block failures
+            try:
+                self._queue.task_done()
+            except Exception as e:
+                LOG.error(
+                    "KafkaCallback: Failed to mark task as done: %s",
+                    e,
+                    extra={
+                        "error_type": "task_done_error",
+                        "error": str(e)
+                    }
+                )
 
     async def _writer(self) -> None:
         while self._running:
