@@ -3,10 +3,39 @@ Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
+
+DEPRECATION NOTICE:
+This module (cryptofeed.backends.kafka) is deprecated as of market-data-kafka-producer spec.
+Please migrate to the unified KafkaCallback implementation in cryptofeed.kafka_callback.
+
+The legacy implementation bypasses:
+- TopicManager (consolidated topic strategy)
+- HeaderEnricher (structured message headers)
+- Partitioner (configurable partition strategies)
+- Enhanced error handling and backpressure protection
+
+Migration Guide:
+    # OLD (deprecated):
+    from cryptofeed.backends.kafka import TradeKafka, BookKafka
+
+    # NEW (recommended):
+    from cryptofeed.kafka_callback import KafkaCallback
+    from cryptofeed.kafka_callback import KafkaConfig
+
+    # Example:
+    config = KafkaConfig(
+        bootstrap_servers=['kafka:9092'],
+        topic={'strategy': 'consolidated'},
+        partition={'strategy': 'composite'}
+    )
+    callback = KafkaCallback(kafka_config=config, serialization_format='protobuf')
+
+This legacy module will be removed in a future release.
 '''
 from collections import defaultdict
 import asyncio
 import logging
+import warnings
 from typing import Optional, ByteString
 
 from aiokafka import AIOKafkaProducer
@@ -16,6 +45,16 @@ from cryptofeed.json_utils import json
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
 
 LOG = logging.getLogger('feedhandler')
+
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "cryptofeed.backends.kafka is deprecated. "
+    "Please migrate to cryptofeed.kafka_callback.KafkaCallback for TopicManager, "
+    "HeaderEnricher, and enhanced error handling. "
+    "See module docstring for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 
 class KafkaCallback(BackendQueue):
@@ -160,20 +199,44 @@ class KafkaCallback(BackendQueue):
 
 
 class TradeKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'trades'
     protobuf_data_type = 'trades'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TradeKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class FundingKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'funding'
     protobuf_data_type = 'funding'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "FundingKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class BookKafka(KafkaCallback, BackendBookCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'book'
     protobuf_data_type = 'orderbook'
 
     def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
+        warnings.warn(
+            "BookKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.snapshots_only = snapshots_only
         self.snapshot_interval = snapshot_interval
         self.snapshot_count = defaultdict(int)
@@ -181,40 +244,112 @@ class BookKafka(KafkaCallback, BackendBookCallback):
 
 
 class TickerKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'ticker'
     protobuf_data_type = 'ticker'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TickerKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class OpenInterestKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'open_interest'
     protobuf_data_type = 'open_interest'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "OpenInterestKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class LiquidationsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'liquidations'
     protobuf_data_type = 'liquidation'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "LiquidationsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class CandlesKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'candles'
     protobuf_data_type = 'candles'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "CandlesKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class OrderInfoKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'order_info'
     protobuf_data_type = 'order_info'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "OrderInfoKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class TransactionsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'transactions'
     protobuf_data_type = 'transactions'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TransactionsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class BalancesKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'balances'
     protobuf_data_type = 'balances'
 
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "BalancesKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
+
 
 class FillsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'fills'
     protobuf_data_type = 'fills'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "FillsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
