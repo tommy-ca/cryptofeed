@@ -1,0 +1,39 @@
+# Kafka Configuration - Consolidated Topics (Recommended)
+#
+# This configuration uses consolidated topics (O(data_types)) instead of
+# per-symbol topics (O(symbols × exchanges)). Recommended for production.
+#
+# Topic naming: cryptofeed.{data_type}
+# Examples: cryptofeed.trade, cryptofeed.candle, cryptofeed.l2_book
+#
+# Partition routing: Composite (exchange-symbol) ensures per-exchange-symbol ordering
+# while distributing load across partitions.
+
+# Kafka broker addresses (required)
+bootstrap_servers:
+  - kafka1:9092
+  - kafka2:9092
+  - kafka3:9092
+
+# Producer settings (delivery guarantees)
+acks: all                # Wait for all replicas to acknowledge
+idempotence: true        # Prevent duplicate messages
+retries: 3               # Retry failed sends
+retry_backoff_ms: 100    # Backoff between retries (ms)
+
+# Producer settings (performance)
+batch_size: 16384        # Batch size in bytes (16KB)
+linger_ms: 10            # Wait time before sending batch (ms)
+compression_type: snappy # Compression algorithm (none, gzip, snappy, lz4, zstd)
+
+# Topic configuration
+topic:
+  strategy: consolidated   # Use consolidated topics (O(data_types))
+  prefix: cryptofeed       # Topic name prefix
+  partitions_per_topic: 12 # Number of partitions per topic
+  replication_factor: 3    # Replication factor for high availability
+
+# Partition configuration
+partition:
+  strategy: composite      # Route by exchange-symbol (recommended)
+                          # Options: composite, symbol, exchange, round_robin

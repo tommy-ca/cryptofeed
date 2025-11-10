@@ -1,0 +1,39 @@
+# Kafka Configuration - Per-Symbol Topics (Backward Compatible)
+#
+# This configuration uses per-symbol topics (O(symbols × exchanges)) for
+# backward compatibility with existing consumers.
+#
+# Topic naming: cryptofeed.{data_type}.{exchange}.{symbol}
+# Examples: cryptofeed.trade.coinbase.btc-usd, cryptofeed.candle.binance.eth-usdt
+#
+# Partition routing: Symbol-based ensures same symbol always lands in same partition
+# regardless of exchange.
+
+# Kafka broker addresses (required)
+bootstrap_servers:
+  - kafka1:9092
+  - kafka2:9092
+  - kafka3:9092
+
+# Producer settings (delivery guarantees)
+acks: all                # Wait for all replicas to acknowledge
+idempotence: true        # Prevent duplicate messages
+retries: 3               # Retry failed sends
+retry_backoff_ms: 100    # Backoff between retries (ms)
+
+# Producer settings (performance)
+batch_size: 16384        # Batch size in bytes (16KB)
+linger_ms: 10            # Wait time before sending batch (ms)
+compression_type: snappy # Compression algorithm
+
+# Topic configuration
+topic:
+  strategy: per_symbol     # Use per-symbol topics (backward compatible)
+  prefix: cryptofeed       # Topic name prefix
+  partitions_per_topic: 3  # Fewer partitions per topic (more topics)
+  replication_factor: 3    # Replication factor
+
+# Partition configuration
+partition:
+  strategy: symbol         # Route by symbol only (cross-exchange analysis)
+                          # Options: composite, symbol, exchange, round_robin
