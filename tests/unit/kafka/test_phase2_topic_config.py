@@ -29,20 +29,20 @@ class TestTaskSixOneTopicNamingLogic:
     """Test topic naming logic for consolidated vs per-symbol strategies."""
 
     def test_consolidated_topic_single_data_type(self):
-        """Consolidated strategy should generate cryptofeed.trades for trades."""
+        """Consolidated strategy should generate cryptofeed.trade for trade."""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC-USD',
             exchange='coinbase',
             strategy='consolidated'
         )
-        assert topic == 'cryptofeed.trades', \
+        assert topic == 'cryptofeed.trade', \
             "Consolidated strategy should return cryptofeed.<data_type>"
 
     def test_consolidated_topic_multiple_data_types(self):
         """Consolidated strategy should handle multiple data types."""
         test_cases = [
-            ('trades', 'cryptofeed.trades'),
+            ('trade', 'cryptofeed.trade'),
             ('orderbook', 'cryptofeed.orderbook'),
             ('ticker', 'cryptofeed.ticker'),
             ('candle', 'cryptofeed.candle'),
@@ -62,29 +62,29 @@ class TestTaskSixOneTopicNamingLogic:
     def test_per_symbol_topic_naming(self):
         """Per-symbol strategy should generate cryptofeed.{type}.{exchange}.{symbol}."""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC-USD',
             exchange='coinbase',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.trades.coinbase.btc-usd', \
+        assert topic == 'cryptofeed.trade.coinbase.btc-usd', \
             "Per-symbol strategy should include exchange and symbol"
 
     def test_per_symbol_topic_case_normalization(self):
         """Per-symbol topics should normalize symbol and exchange to lowercase."""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC-USD',
             exchange='COINBASE',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.trades.coinbase.btc-usd', \
+        assert topic == 'cryptofeed.trade.coinbase.btc-usd', \
             "Exchange and symbol should be lowercase in per-symbol topics"
 
     def test_symbol_normalization_underscore_to_hyphen(self):
         """Symbol normalization should convert underscores to hyphens."""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC_USD',
             exchange='binance',
             strategy='per_symbol'
@@ -102,7 +102,7 @@ class TestTaskSixOneTopicNamingLogic:
         ]
         for symbol_input, expected_normalized in test_cases:
             topic = TopicManager.get_topic(
-                data_type='trades',
+                data_type='trade',
                 symbol=symbol_input,
                 exchange='test',
                 strategy='per_symbol'
@@ -117,7 +117,7 @@ class TestTaskSixOneTopicNamingLogic:
         long_exchange = 'B' * 100
 
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol=long_symbol,
             exchange=long_exchange,
             strategy='per_symbol'
@@ -129,18 +129,18 @@ class TestTaskSixOneTopicNamingLogic:
     def test_consolidated_ignores_symbol_exchange(self):
         """Consolidated strategy should ignore symbol and exchange parameters."""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC-USD',
             exchange='coinbase',
             strategy='consolidated'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='ETH-USDT',
             exchange='binance',
             strategy='consolidated'
         )
-        assert topic1 == topic2 == 'cryptofeed.trades', \
+        assert topic1 == topic2 == 'cryptofeed.trade', \
             "Consolidated strategy should produce identical topics for same data_type"
 
 
