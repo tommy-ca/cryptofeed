@@ -558,6 +558,10 @@ _SUPPORTED_METHODS: Dict[str, str] = {
     "balances": "balance",              # method: balances (plural) → topic: balance (singular)
     "transactions": "transaction",      # method: transactions (plural) → topic: transaction (singular)
     "fills": "fill",                    # method: fills (plural) → topic: fill (singular)
+    "index": "index",                   # method: index → topic: index
+    "indices": "index",                 # method: indices (plural) → topic: index (singular)
+    "position": "position",             # method: position → topic: position
+    "positions": "position",            # method: positions (plural) → topic: position (singular)
 }
 
 
