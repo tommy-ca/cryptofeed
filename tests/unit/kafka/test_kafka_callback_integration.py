@@ -286,8 +286,9 @@ class TestCompleteMessagePipeline:
             connection_timeout_ms=50,
             producer_factory=_producer_factory(_StubProducer),
         )
-        topic = callback._topic_name('trades', trade_message)
-        assert topic == 'cryptofeed.trades'
+        # Use normalized data type 'trade' (singular, per Critical Issue #1)
+        topic = callback._topic_name('trade', trade_message)
+        assert topic == 'cryptofeed.trade'
 
     def test_topic_name_generation_per_symbol_strategy(self, trade_message):
         """Test topic name generation using TopicManager with per_symbol strategy."""
@@ -300,8 +301,9 @@ class TestCompleteMessagePipeline:
             connection_timeout_ms=50,
             producer_factory=_producer_factory(_StubProducer),
         )
-        topic = callback._topic_name('trades', trade_message)
-        assert topic == 'cryptofeed.trades.coinbase.BTC-USD'
+        # Use normalized data type 'trade' (singular, per Critical Issue #1)
+        topic = callback._topic_name('trade', trade_message)
+        assert topic == 'cryptofeed.trade.coinbase.btc-usd'
 
     def test_topic_name_with_custom_prefix(self, trade_message):
         """Test topic name generation with custom prefix."""
@@ -317,8 +319,9 @@ class TestCompleteMessagePipeline:
             connection_timeout_ms=50,
             producer_factory=_producer_factory(_StubProducer),
         )
-        topic = callback._topic_name('trades', trade_message)
-        assert topic == 'production.cryptofeed.trades'
+        # Use normalized data type 'trade' (singular, per Critical Issue #1)
+        topic = callback._topic_name('trade', trade_message)
+        assert topic == 'production.cryptofeed.trade'
 
     def test_partition_key_generation_composite_strategy(self, trade_message):
         """Test partition key generation using CompositePartitioner."""
