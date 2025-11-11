@@ -29,9 +29,6 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Status**: Production ready, native integration guide pending
   - **Next Step**: Create native integration guide and ED25519 troubleshooting documentation
 
-### 🚧 In Progress Specifications
-(None - all active specs have either completed or are awaiting approval)
-
 - `protobuf-callback-serialization`: ✅ COMPLETE (Nov 2, 2025) - Backend-only binary serialization for data feed callbacks
   - **Scope**: Protobuf serialization for 14 data types, BackendCallback integration with Kafka/Redis/ZMQ support
   - **Implementation**: 484 LOC in `cryptofeed/backends/protobuf_helpers.py`, 6 atomic commits
@@ -57,6 +54,9 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Documentation**: Design (1,270 lines), requirements, 18 task specifications, user guides, migration roadmap
   - **Atomic Commits** (4 critical fixes): a4eeb951, 83db6544, 4bd21d74, 7386221c
   - **Next Step**: Merge to main for production deployment
+
+### 🚧 In Progress Specifications
+(None - all active specs have either completed or are awaiting approval)
 
 ### 📋 Planning Phase
 - `unified-exchange-feed-architecture`: Design generated (Oct 20, 2025) - Unify native and CCXT integrations behind shared contracts
