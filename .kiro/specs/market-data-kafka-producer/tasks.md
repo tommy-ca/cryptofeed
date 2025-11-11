@@ -486,33 +486,37 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - Generate migration completion report
   - _Requirements: [Tooling]_
 
-- [ ] 17. Create monitoring dashboard and metrics setup
+- [x] 17. Create monitoring dashboard and metrics setup
   - Deploy Prometheus scrape configuration for Kafka producer
   - Create Grafana dashboard for key metrics
   - Setup alerting rules for critical conditions
   - Document metric definitions and interpretation
   - _Requirements: FR6 (Monitoring & Observability)_
+  - _Completed: Nov 11, 2025 - PrometheusMetricsExporter class with 9 metrics, alert rules, Grafana dashboard_
 
-- [ ] 17.1 Setup Prometheus collection
+- [x] 17.1 Setup Prometheus collection
   - Configure Prometheus to scrape `/metrics` endpoint
   - Define metric collection interval (10s recommended)
   - Setup data retention policy (30 days recommended)
   - Configure Alertmanager for alert routing
   - _Requirements: FR6_
+  - _Completed: Nov 11, 2025 - prometheus.md with full configuration guide_
 
-- [ ] 17.2 Create Grafana dashboard
+- [x] 17.2 Create Grafana dashboard
   - Build dashboard showing messages sent over time
   - Add latency percentile graphs (p50, p95, p99)
   - Add error rate and DLQ message tracking
   - Include per-exchange and per-data-type breakdowns
   - _Requirements: FR6_
+  - _Completed: Nov 11, 2025 - grafana-dashboard.json with 9 panels covering all metrics_
 
-- [ ] 17.3 Define alerting rules
+- [x] 17.3 Define alerting rules
   - Alert if producer queue lag exceeds 10K messages
   - Alert if p99 latency exceeds 50ms
   - Alert if error rate exceeds 1%
   - Alert if Kafka brokers unavailable
   - _Requirements: FR6_
+  - _Completed: Nov 11, 2025 - alert-rules.yaml with 8 alerts (critical/warning/info) and recording rules_
 
 - [ ] 18. Create comprehensive operational runbook
   - Document incident response procedures

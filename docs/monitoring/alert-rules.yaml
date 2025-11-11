@@ -1,0 +1,361 @@
+# Prometheus Alert Rules for Kafka Producer Monitoring
+#
+# Status: Production Ready
+# Date: November 11, 2025
+# Scope: Kafka producer health, performance, and reliability
+#
+# Usage:
+# 1. Copy to /etc/prometheus/alert-rules.yaml
+# 2. Reference in prometheus.yml: rule_files: ['/etc/prometheus/alert-rules.yaml']
+# 3. Reload Prometheus config: curl -X POST http://localhost:9090/-/reload
+#
+# Alert Severity Levels:
+# - critical: Page immediately (5min SLA response)
+# - warning: Notify team (30min SLA response)
+# - info: Dashboard only (no notification)
+
+---
+
+groups:
+  - name: kafka_producer_alerts
+    interval: 10s
+    rules:
+
+      # ====================================================================
+      # CRITICAL ALERTS - Page Immediately
+      # ====================================================================
+
+      # Error Rate Alert: > 1% for 5 minutes
+      - alert: KafkaProducerErrorRateHigh
+        expr: |
+          (sum(rate(produce_errors_total[5m])) /
+           (sum(rate(messages_produced_total[5m])) + sum(rate(produce_errors_total[5m])))) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          service: kafka-producer
+          component: producer
+        annotations:
+          summary: "Kafka producer error rate > 1%"
+          description: |
+            Kafka producer error rate has exceeded 1% threshold for 5 minutes.
+            Current error rate: {{ printf "%.2f" $value | humanizePercentage }}
+
+            Action Items:
+            1. Check producer logs: journalctl -u cryptofeed-kafka-producer -f
+            2. Verify Kafka brokers are online: kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+            3. Check network connectivity to brokers
+            4. Review error types: sum by (error_type) (rate(produce_errors_total[5m]))
+          runbook: "/docs/kafka/troubleshooting.md#producer-error-rate"
+
+      # P99 Latency Alert: > 50ms for 10 minutes
+      - alert: KafkaProducerLatencyCritical
+        expr: |
+          histogram_quantile(0.99, rate(produce_latency_seconds_bucket[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          service: kafka-producer
+          component: latency
+        annotations:
+          summary: "Kafka producer P99 latency > 50ms"
+          description: |
+            Kafka producer P99 latency has exceeded 50ms for 10 minutes.
+            Current P99 latency: {{ printf "%.2f" $value | humanizeDuration }}
+
+            Action Items:
+            1. Check Kafka broker health: kubectl describe node <broker-node>
+            2. Verify network latency: ping <broker-ip>
+            3. Check broker CPU/memory: jconsole or JMX metrics
+            4. Review partition distribution: kafka-topics.sh --describe --topic <topic>
+            5. Consider scaling producers or optimizing batch settings
+          runbook: "/docs/kafka/troubleshooting.md#high-latency"
+
+      # Buffer Critical Alert: > 95% for 5 minutes
+      - alert: KafkaProducerBufferCritical
+        expr: |
+          kafka_buffer_utilization_percent > 95
+        for: 5m
+        labels:
+          severity: critical
+          service: kafka-producer
+          component: buffer
+        annotations:
+          summary: "Kafka producer buffer utilization critical (>95%)"
+          description: |
+            Kafka producer buffer utilization has exceeded 95% for 5 minutes.
+            Current utilization: {{ $value | humanizePercentage }}
+            Producer ID: {{ $labels.producer_id }}
+
+            Action Items:
+            1. Check Kafka broker responsiveness
+            2. Review producer configuration (batch.size, linger.ms)
+            3. Scale consumers to reduce lag
+            4. Consider emergency restart if buffer remains full
+            5. Check for network issues: MTR <broker-ip>
+          runbook: "/docs/kafka/troubleshooting.md#buffer-full"
+
+      # Producer Disconnected: No messages for 5 minutes
+      - alert: KafkaProducerDisconnected
+        expr: |
+          (time() - timestamp(max(messages_produced_total))) > 300
+        for: 1m
+        labels:
+          severity: critical
+          service: kafka-producer
+          component: connectivity
+        annotations:
+          summary: "Kafka producer disconnected (no messages for 5min)"
+          description: |
+            Kafka producer has not sent any messages for 5 minutes.
+            This indicates producer is offline or severely stuck.
+
+            Action Items:
+            1. Check producer process: ps aux | grep cryptofeed-kafka-producer
+            2. Check producer logs for errors
+            3. Verify Kafka cluster accessibility
+            4. Restart producer if necessary
+            5. Review deployment for recent changes
+          runbook: "/docs/kafka/troubleshooting.md#producer-offline"
+
+      # ====================================================================
+      # WARNING ALERTS - Notify Team
+      # ====================================================================
+
+      # P99 Latency Warning: > 15ms for 10 minutes
+      - alert: KafkaProducerLatencyHigh
+        expr: |
+          histogram_quantile(0.99, rate(produce_latency_seconds_bucket[5m])) > 0.015
+        for: 10m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: latency
+        annotations:
+          summary: "Kafka producer P99 latency elevated (>15ms)"
+          description: |
+            Kafka producer P99 latency has exceeded 15ms warning threshold for 10 minutes.
+            Current P99 latency: {{ printf "%.2f" $value | humanizeDuration }}
+            Average latency: {{ printf "%.3f" (avg(rate(produce_latency_seconds_sum[5m])) / avg(rate(produce_latency_seconds_count[5m]))) | humanizeDuration }}
+
+            Action Items:
+            1. Monitor trend for next 30 minutes
+            2. Check broker load: kafka-broker-api-versions.sh --bootstrap-server localhost:9092
+            3. Review network latency to brokers
+            4. Consider optimizing batch size or linger.ms
+            5. Check for noisy neighbor processes on broker nodes
+          runbook: "/docs/kafka/troubleshooting.md#latency-optimization"
+
+      # Buffer Warning: > 80% for 10 minutes
+      - alert: KafkaProducerBufferHigh
+        expr: |
+          kafka_buffer_utilization_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: buffer
+        annotations:
+          summary: "Kafka producer buffer utilization high (>80%)"
+          description: |
+            Kafka producer buffer utilization has exceeded 80% for 10 minutes.
+            Current utilization: {{ $value | humanizePercentage }}
+            Producer ID: {{ $labels.producer_id }}
+
+            Action Items:
+            1. Monitor for next 30 minutes
+            2. Check Kafka broker responsiveness metrics
+            3. Review consumer lag to identify slow consumers
+            4. Adjust buffer.memory or batch.size if needed
+            5. Consider scaling consumer group
+          runbook: "/docs/kafka/troubleshooting.md#buffer-optimization"
+
+      # Partition Lag High: > 100 records for 15 minutes
+      - alert: KafkaPartitionLagHigh
+        expr: |
+          max(kafka_partition_lag_records) > 100
+        for: 15m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: lag
+        annotations:
+          summary: "Kafka partition lag exceeded threshold (>100 records)"
+          description: |
+            Kafka partition lag has exceeded 100 records for 15 minutes.
+            Max partition lag: {{ $value | humanize }} records
+            Most lagged partition: {{ with query "max by (partition) (kafka_partition_lag_records)" }}{{ . | first | .metric.partition }}{{ end }}
+
+            Action Items:
+            1. Check consumer group status
+            2. Verify consumers are running and healthy
+            3. Review consumer processing performance
+            4. Check for consumer lag trends
+            5. May need to scale consumer group
+          runbook: "/docs/kafka/troubleshooting.md#high-consumer-lag"
+
+      # Error Rate Warning: > 0.1% for 5 minutes
+      - alert: KafkaProducerErrorsDetected
+        expr: |
+          (sum(rate(produce_errors_total[5m])) /
+           (sum(rate(messages_produced_total[5m])) + sum(rate(produce_errors_total[5m])))) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: producer
+        annotations:
+          summary: "Kafka producer errors detected (>0.1%)"
+          description: |
+            Kafka producer error rate has exceeded 0.1% for 5 minutes.
+            Current error rate: {{ printf "%.3f" $value | humanizePercentage }}
+            Error rate (messages/sec): {{ sum(rate(produce_errors_total[5m])) | humanize }}/sec
+
+            Top error types:
+            {{ range query "topk(3, sum by (error_type) (rate(produce_errors_total[5m])))" }}
+              - {{ .metric.error_type }}: {{ .value | humanize }}/sec
+            {{ end }}
+
+            Action Items:
+            1. Analyze error types in detail
+            2. Check producer logs for patterns
+            3. Verify Kafka broker availability
+            4. Review recent deployments
+          runbook: "/docs/kafka/troubleshooting.md#producer-errors"
+
+      # Serialization Latency High: > 1ms for 10 minutes
+      - alert: SerializationLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(serialization_latency_seconds_bucket[5m])) > 0.001
+        for: 10m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: serialization
+        annotations:
+          summary: "Protobuf serialization latency elevated (>1ms)"
+          description: |
+            Message serialization latency has exceeded 1ms P95 for 10 minutes.
+            Current P95 latency: {{ printf "%.2f" $value | humanizeDuration }}
+
+            Action Items:
+            1. Check for recent schema changes
+            2. Review message sizes for bloat
+            3. Profile serialization performance
+            4. Consider schema optimization
+          runbook: "/docs/kafka/troubleshooting.md#serialization-performance"
+
+      # Message Size Anomaly: Sustained growth
+      - alert: MessageSizeAnomalousGrowth
+        expr: |
+          avg(rate(message_size_bytes_sum[5m])) / avg(rate(message_size_bytes_count[5m]))
+          > on() group_left
+          (avg_over_time(avg(rate(message_size_bytes_sum[1h] offset 1h)) / avg(rate(message_size_bytes_count[1h] offset 1h))[5m:5m]) * 1.5)
+        for: 20m
+        labels:
+          severity: warning
+          service: kafka-producer
+          component: serialization
+        annotations:
+          summary: "Message size growing anomalously"
+          description: |
+            Message sizes are growing beyond normal baseline.
+            Current average: {{ printf "%.0f" $value }} bytes
+            1-hour baseline: {{ printf "%.0f" (. | first) }} bytes
+
+            Action Items:
+            1. Check for schema changes or field additions
+            2. Review payload data types
+            3. Investigate specific data types with size increases
+            4. May indicate data quality issues upstream
+          runbook: "/docs/kafka/troubleshooting.md#message-size-anomaly"
+
+      # ====================================================================
+      # INFO ALERTS - Dashboard Only
+      # ====================================================================
+
+      # Low Throughput: < 100 messages/sec for 5 minutes
+      - alert: KafkaProducerLowThroughput
+        expr: |
+          sum(rate(messages_produced_total[5m])) < 100
+        for: 5m
+        labels:
+          severity: info
+          service: kafka-producer
+          component: throughput
+        annotations:
+          summary: "Kafka producer throughput low (<100 msg/sec)"
+          description: |
+            Kafka producer throughput has dropped below 100 messages/sec.
+            Current throughput: {{ sum(rate(messages_produced_total[5m])) | humanize }}/sec
+
+            This may indicate:
+            - Low market activity (normal during off-hours)
+            - Feed connection issues
+            - Broker saturation causing backpressure
+          dashboard: "http://grafana.local:3000/d/kafka-producer"
+
+      # Broker Latency Elevated: P95 > 20ms for 15 minutes
+      - alert: KafkaBrokerLatencyElevated
+        expr: |
+          histogram_quantile(0.95, rate(kafka_broker_latency_seconds_bucket[5m])) > 0.02
+        for: 15m
+        labels:
+          severity: info
+          service: kafka-producer
+          component: broker
+        annotations:
+          summary: "Kafka broker latency elevated (P95 > 20ms)"
+          description: |
+            Kafka broker round-trip latency has elevated.
+            Current P95: {{ printf "%.2f" $value | humanizeDuration }}
+            Affected broker: {{ $labels.broker_id }}
+            Operation: {{ $labels.operation }}
+          runbook: "/docs/kafka/troubleshooting.md#broker-latency"
+
+      # ====================================================================
+      # RECORDING RULES (Pre-compute common queries)
+      # ====================================================================
+
+      # Per-exchange error rate (hourly)
+      - record: kafka_producer:error_rate:5m
+        expr: |
+          sum by (exchange) (rate(produce_errors_total[5m])) /
+          (sum by (exchange) (rate(messages_produced_total[5m])) + sum by (exchange) (rate(produce_errors_total[5m])))
+
+      # Per-data-type latency P99 (5 minute window)
+      - record: kafka_producer:latency_p99:5m
+        expr: |
+          histogram_quantile(0.99, sum by (data_type, le) (rate(produce_latency_seconds_bucket[5m])))
+
+      # Per-data-type throughput (messages/sec)
+      - record: kafka_producer:throughput:5m
+        expr: |
+          sum by (data_type) (rate(messages_produced_total[5m]))
+
+      # Average message size by data type
+      - record: kafka_producer:message_size_avg:5m
+        expr: |
+          sum by (data_type) (rate(message_size_bytes_sum[5m])) /
+          sum by (data_type) (rate(message_size_bytes_count[5m]))
+
+      # Serialization latency P95 by data type
+      - record: kafka_producer:serialization_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (data_type, le) (rate(serialization_latency_seconds_bucket[5m])))
+
+---
+
+# Alerting Configuration
+# This section configures how alerts are sent to notifiers
+#
+# Note: This should be configured in prometheus.yml under 'alerting:'
+# Example:
+#
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#             - localhost:9093
+#   rules:
+#     - '/etc/prometheus/alert-rules.yaml'
