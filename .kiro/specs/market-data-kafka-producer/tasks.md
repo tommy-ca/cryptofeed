@@ -131,34 +131,38 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - _Requirements: FR4 (Serialization Integration)_
   - _Completed: OptionalHeaders class with defaults and customization_
 
-- [ ] 4. Update KafkaCallback class with new features
+- [x] 4. Update KafkaCallback class with new features
   - Extend existing KafkaCallback with topic strategy configuration parameter
   - Add partition key strategy selection via configuration
   - Integrate message header enrichment into message pipeline
   - Update writer() method to use partition keys and headers in produce() call
   - _Requirements: FR1, FR2, FR3, FR4_
+  - _Completed: Nov 10, 2025 - KafkaCallback refactored (lines 575-977) with full integration_
 
-- [ ] 4.1 Refactor KafkaCallback initialization
+- [x] 4.1 Refactor KafkaCallback initialization
   - Add `topic_strategy` parameter (default: consolidated)
   - Add `partition_key_strategy` parameter (default: composite)
   - Instantiate topic manager with strategy configuration
   - Instantiate partitioner based on strategy configuration
   - _Requirements: FR1, FR2, FR3_
+  - _Completed: Constructor with TopicManager and PartitionerFactory integration (lines 587-662)_
 
-- [ ] 4.2 Update message serialization pipeline
+- [x] 4.2 Update message serialization pipeline
   - Extract metadata (exchange, symbol, data_type) from message objects
   - Call topic manager to generate topic name
   - Call partitioner to generate partition key
   - Call enricher to add message headers
   - Pass headers to producer.produce() call
   - _Requirements: FR4_
+  - _Completed: Message pipeline in _drain_once() (lines 824-968) with full integration_
 
-- [ ] 4.3 Update writer() method to use new components
+- [x] 4.3 Update writer() method to use new components
   - Refactor _drain_once() loop to use updated pipeline
   - Ensure partition keys are passed to producer.produce()
   - Ensure headers are passed to producer.produce()
   - Maintain backward compatibility with existing producer configuration
   - _Requirements: FR1, FR2, FR3, FR4_
+  - _Completed: _writer() method integration (lines 750-977) with backward compatibility_
 
 - [x] 5. Create configuration schema with Pydantic models
   - Define KafkaTopicConfig class with topic strategy and partition settings
@@ -295,12 +299,13 @@ Comprehensive task list for scaling Kafka topics organization from O(symbols × 
   - _Requirements: FR3_
   - _Completed: Nov 10, 2025 - 4 integration tests passing, PartitionAssertions helper class created_
 
-- [ ] 9.3 Test exactly-once delivery semantics
+- [x] 9.3 Test exactly-once delivery semantics
   - Configure producer with idempotence enabled
   - Produce messages and simulate producer restart
   - Verify no duplicate messages in topic (using message deduplication)
   - Test with multiple data types (trades, orderbook, ticker)
   - _Requirements: FR5 (Delivery Guarantees)_
+  - _Completed: Nov 11, 2025 - TestExactlyOnceDelivery class in test_phase2_error_handling.py with 3 tests_
 
 - [ ] 10. Write performance benchmarking tests
   - Benchmark throughput: messages/second with consolidated topics
