@@ -18,20 +18,20 @@ class TestConsolidatedNaming:
     """Test consolidated topic naming strategy: cryptofeed.{data_type}"""
 
     def test_consolidated_trades_topic(self):
-        """Consolidated strategy produces cryptofeed.trades"""
+        """Consolidated strategy produces cryptofeed.trade"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_consolidated_orderbook_topic(self):
         """Consolidated strategy produces cryptofeed.orderbook"""
         topic = TopicManager.get_topic(
             data_type='orderbook',
-            symbol='ETH-USD',
+            symbol='eth-usd',
             exchange='coinbase',
             strategy='consolidated'
         )
@@ -41,7 +41,7 @@ class TestConsolidatedNaming:
         """Consolidated strategy produces cryptofeed.ticker"""
         topic = TopicManager.get_topic(
             data_type='ticker',
-            symbol='SOL-USDT',
+            symbol='sol-usdt',
             exchange='binance',
             strategy='consolidated'
         )
@@ -51,7 +51,7 @@ class TestConsolidatedNaming:
         """Consolidated strategy produces cryptofeed.candle"""
         topic = TopicManager.get_topic(
             data_type='candle',
-            symbol='BTC-USD',
+            symbol='btc-usd',
             exchange='coinbase',
             strategy='consolidated'
         )
@@ -61,7 +61,7 @@ class TestConsolidatedNaming:
         """Consolidated strategy produces cryptofeed.funding"""
         topic = TopicManager.get_topic(
             data_type='funding',
-            symbol='BTC-USDT-PERP',
+            symbol='btc-usdt-perp',
             exchange='binance',
             strategy='consolidated'
         )
@@ -71,7 +71,7 @@ class TestConsolidatedNaming:
         """Consolidated strategy produces cryptofeed.liquidation"""
         topic = TopicManager.get_topic(
             data_type='liquidation',
-            symbol='BTC-USDT',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
@@ -80,38 +80,38 @@ class TestConsolidatedNaming:
     def test_consolidated_ignores_symbol_and_exchange(self):
         """Consolidated strategy ignores symbol and exchange parameters"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='ETH-USD',
+            data_type='trade',
+            symbol='eth-usd',
             exchange='coinbase',
             strategy='consolidated'
         )
-        assert topic1 == topic2 == 'cryptofeed.trades'
+        assert topic1 == topic2 == 'cryptofeed.trade'
 
     def test_consolidated_data_type_lowercase(self):
         """Data type must be lowercase in topic name"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
         assert 'TRADES' not in topic
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_consolidated_is_default_strategy(self):
         """Consolidated is default strategy when not specified"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance'
         )
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
 
 # =============================================================================
@@ -121,62 +121,62 @@ class TestPerSymbolNaming:
     """Test per-symbol topic naming strategy: cryptofeed.{data_type}.{exchange}.{symbol}"""
 
     def test_per_symbol_trades_topic(self):
-        """Per-symbol strategy produces cryptofeed.trades.binance.BTC-USDT"""
+        """Per-symbol strategy produces cryptofeed.trade.binance.btc-usdt"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.trades.binance.BTC-USDT'
+        assert topic == 'cryptofeed.trade.binance.btc-usdt'
 
     def test_per_symbol_orderbook_topic(self):
-        """Per-symbol strategy produces cryptofeed.orderbook.coinbase.ETH-USD"""
+        """Per-symbol strategy produces cryptofeed.orderbook.coinbase.eth-usd"""
         topic = TopicManager.get_topic(
             data_type='orderbook',
-            symbol='ETH-USD',
+            symbol='eth-usd',
             exchange='coinbase',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.orderbook.coinbase.ETH-USD'
+        assert topic == 'cryptofeed.orderbook.coinbase.eth-usd'
 
     def test_per_symbol_ticker_topic(self):
-        """Per-symbol strategy produces cryptofeed.ticker.kraken.SOL-USD"""
+        """Per-symbol strategy produces cryptofeed.ticker.kraken.sol-usd"""
         topic = TopicManager.get_topic(
             data_type='ticker',
-            symbol='SOL-USD',
+            symbol='sol-usd',
             exchange='kraken',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.ticker.kraken.SOL-USD'
+        assert topic == 'cryptofeed.ticker.kraken.sol-usd'
 
     def test_per_symbol_funding_topic(self):
-        """Per-symbol strategy produces cryptofeed.funding.dydx.BTC-USD-PERP"""
+        """Per-symbol strategy produces cryptofeed.funding.dydx.btc-usd-perp"""
         topic = TopicManager.get_topic(
             data_type='funding',
-            symbol='BTC-USD-PERP',
+            symbol='btc-usd-perp',
             exchange='dydx',
             strategy='per_symbol'
         )
-        assert topic == 'cryptofeed.funding.dydx.BTC-USD-PERP'
+        assert topic == 'cryptofeed.funding.dydx.btc-usd-perp'
 
     def test_per_symbol_includes_all_components(self):
         """Per-symbol topic includes data_type, exchange, and symbol"""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='XYZ-ABC',
             exchange='test_exchange',
             strategy='per_symbol'
         )
-        assert 'trades' in topic.lower()
+        assert 'trade' in topic.lower()
         assert 'test_exchange' in topic.lower()
         assert 'XYZ-ABC' in topic or 'xyz-abc' in topic.lower()
 
     def test_per_symbol_exchange_normalization(self):
         """Exchange name is included in topic (case may normalize)"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='Binance',
             strategy='per_symbol'
         )
@@ -186,14 +186,14 @@ class TestPerSymbolNaming:
     def test_per_symbol_different_symbols_different_topics(self):
         """Different symbols produce different topics"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='ETH-USDT',
+            data_type='trade',
+            symbol='eth-usdT',
             exchange='binance',
             strategy='per_symbol'
         )
@@ -202,14 +202,14 @@ class TestPerSymbolNaming:
     def test_per_symbol_different_exchanges_different_topics(self):
         """Different exchanges produce different topics"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='coinbase',
             strategy='per_symbol'
         )
@@ -225,30 +225,30 @@ class TestTopicPrefixSupport:
     def test_prefix_consolidated_topic(self):
         """Prefix prepended to consolidated topic"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated',
             prefix='production'
         )
-        assert topic == 'production.cryptofeed.trades'
+        assert topic == 'production.cryptofeed.trade'
 
     def test_prefix_per_symbol_topic(self):
         """Prefix prepended to per-symbol topic"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol',
             prefix='production'
         )
-        assert topic == 'production.cryptofeed.trades.binance.BTC-USDT'
+        assert topic == 'production.cryptofeed.trade.binance.btc-usdt'
 
     def test_prefix_staging_environment(self):
         """Prefix supports staging environment naming"""
         topic = TopicManager.get_topic(
             data_type='orderbook',
-            symbol='ETH-USD',
+            symbol='eth-usd',
             exchange='coinbase',
             strategy='consolidated',
             prefix='staging'
@@ -269,32 +269,32 @@ class TestTopicPrefixSupport:
     def test_empty_prefix_no_leading_dot(self):
         """Empty prefix produces no leading dot"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated',
             prefix=''
         )
         assert not topic.startswith('.')
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_none_prefix_no_leading_dot(self):
         """None prefix produces no leading dot"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated',
             prefix=None
         )
         assert not topic.startswith('.')
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_whitespace_only_prefix_handled(self):
         """Whitespace-only prefix treated as empty"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated',
             prefix='   '
@@ -306,24 +306,24 @@ class TestTopicPrefixSupport:
     def test_prefix_with_multiple_dot_components(self):
         """Prefix can contain dots (e.g., company.environment)"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated',
             prefix='company.production'
         )
-        assert topic == 'company.production.cryptofeed.trades'
+        assert topic == 'company.production.cryptofeed.trade'
 
     def test_prefix_plus_per_symbol_full_path(self):
         """Prefix with per-symbol creates full hierarchical path"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol',
             prefix='prod'
         )
-        assert topic == 'prod.cryptofeed.trades.binance.BTC-USDT'
+        assert topic == 'prod.cryptofeed.trade.binance.btc-usdt'
 
 
 # =============================================================================
@@ -336,8 +336,8 @@ class TestErrorHandling:
         """Invalid strategy raises ValueError"""
         with pytest.raises(ValueError) as exc_info:
             TopicManager.get_topic(
-                data_type='trades',
-                symbol='BTC-USDT',
+                data_type='trade',
+                symbol='btc-usdt',
                 exchange='binance',
                 strategy='invalid_strategy'
             )
@@ -348,7 +348,7 @@ class TestErrorHandling:
         with pytest.raises(ValueError) as exc_info:
             TopicManager.get_topic(
                 data_type='invalid_type',
-                symbol='BTC-USDT',
+                symbol='btc-usdt',
                 exchange='binance',
                 strategy='consolidated'
             )
@@ -359,7 +359,7 @@ class TestErrorHandling:
         # Symbol is required for per_symbol strategy
         with pytest.raises((ValueError, TypeError)):
             TopicManager.get_topic(
-                data_type='trades',
+                data_type='trade',
                 symbol=None,
                 exchange='binance',
                 strategy='per_symbol'
@@ -370,8 +370,8 @@ class TestErrorHandling:
         # Exchange is required for per_symbol strategy
         with pytest.raises((ValueError, TypeError)):
             TopicManager.get_topic(
-                data_type='trades',
-                symbol='BTC-USDT',
+                data_type='trade',
+                symbol='btc-usdt',
                 exchange=None,
                 strategy='per_symbol'
             )
@@ -380,8 +380,8 @@ class TestErrorHandling:
         """Non-string strategy raises error"""
         with pytest.raises((ValueError, TypeError)):
             TopicManager.get_topic(
-                data_type='trades',
-                symbol='BTC-USDT',
+                data_type='trade',
+                symbol='btc-usdt',
                 exchange='binance',
                 strategy=123
             )
@@ -394,7 +394,7 @@ class TestEdgeCases:
     """Test edge cases and all supported data types"""
 
     @pytest.mark.parametrize('data_type', [
-        'trades', 'orderbook', 'ticker', 'candle', 'funding',
+        'trade', 'orderbook', 'ticker', 'candle', 'funding',
         'liquidation', 'index', 'openinterest', 'fill', 'balance',
         'position', 'margin', 'order', 'transaction'
     ])
@@ -402,14 +402,14 @@ class TestEdgeCases:
         """All 14+ data types work with consolidated strategy"""
         topic = TopicManager.get_topic(
             data_type=data_type,
-            symbol='BTC-USDT',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
         assert topic == f'cryptofeed.{data_type}'
 
     @pytest.mark.parametrize('data_type', [
-        'trades', 'orderbook', 'ticker', 'candle', 'funding',
+        'trade', 'orderbook', 'ticker', 'candle', 'funding',
         'liquidation', 'index', 'openinterest', 'fill', 'balance',
         'position', 'margin', 'order', 'transaction'
     ])
@@ -417,54 +417,54 @@ class TestEdgeCases:
         """All 14+ data types work with per-symbol strategy"""
         topic = TopicManager.get_topic(
             data_type=data_type,
-            symbol='BTC-USDT',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
-        assert topic == f'cryptofeed.{data_type}.binance.BTC-USDT'
+        assert topic == f'cryptofeed.{data_type}.binance.btc-usdt'
 
     def test_symbol_with_special_characters(self):
         """Symbols with special characters handled correctly"""
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='BTC/USDT',
             exchange='binance',
             strategy='per_symbol'
         )
         # Symbol should be normalized (slashes typically converted)
-        assert 'cryptofeed.trades' in topic
+        assert 'cryptofeed.trade' in topic
         assert 'binance' in topic.lower()
 
     def test_symbol_case_insensitive_per_symbol(self):
         """Per-symbol strategy handles symbol case appropriately"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
         # Topics should match (case normalized or preserved consistently)
         # At least should contain the same components
-        assert 'trades' in topic1.lower() and 'trades' in topic2.lower()
+        assert 'trade' in topic1.lower() and 'trade' in topic2.lower()
         assert 'binance' in topic1.lower() and 'binance' in topic2.lower()
 
     def test_exchange_case_handling(self):
         """Exchange name case handled appropriately"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='Binance',
             strategy='per_symbol'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
@@ -481,37 +481,37 @@ class TestBackwardCompatibility:
     def test_per_symbol_maintains_legacy_path(self):
         """Per-symbol strategy produces legacy topic format"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
-        # Should match existing format: cryptofeed.trades.binance.BTC-USDT
+        # Should match existing format: cryptofeed.trade.binance.btc-usdt
         assert 'cryptofeed' in topic
-        assert 'trades' in topic
+        assert 'trade' in topic
         assert 'binance' in topic.lower()
 
     def test_default_strategy_is_safe_default(self):
         """Default strategy produces sensible default behavior"""
         topic = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance'
         )
         # Default should be consolidated (simpler)
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_mixed_strategy_deployments_different_topics(self):
         """Consolidated and per-symbol strategies produce different topics"""
         consolidated = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='consolidated'
         )
         per_symbol = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
@@ -528,27 +528,27 @@ class TestIntegration:
         """Generate topic from mock Trade object"""
         mock_trade = Mock()
         mock_trade.exchange = 'binance'
-        mock_trade.symbol = 'BTC-USDT'
+        mock_trade.symbol = 'btc-usdt'
 
         topic = TopicManager.get_topic(
-            data_type='trades',
+            data_type='trade',
             symbol=mock_trade.symbol,
             exchange=mock_trade.exchange,
             strategy='consolidated'
         )
-        assert topic == 'cryptofeed.trades'
+        assert topic == 'cryptofeed.trade'
 
     def test_multiple_exchanges_produce_distinct_topics(self):
         """Multiple exchanges with same symbol produce distinct per-symbol topics"""
         topic1 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='binance',
             strategy='per_symbol'
         )
         topic2 = TopicManager.get_topic(
-            data_type='trades',
-            symbol='BTC-USDT',
+            data_type='trade',
+            symbol='btc-usdt',
             exchange='coinbase',
             strategy='per_symbol'
         )
@@ -561,8 +561,8 @@ class TestIntegration:
         """Consolidated strategy aggregates multiple exchanges"""
         topics = [
             TopicManager.get_topic(
-                data_type='trades',
-                symbol='BTC-USDT',
+                data_type='trade',
+                symbol='btc-usdt',
                 exchange=exchange,
                 strategy='consolidated'
             )
@@ -570,4 +570,4 @@ class TestIntegration:
         ]
         # All should map to same consolidated topic
         assert len(set(topics)) == 1
-        assert topics[0] == 'cryptofeed.trades'
+        assert topics[0] == 'cryptofeed.trade'
