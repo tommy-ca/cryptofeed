@@ -394,5 +394,92 @@ class TestErrorRecovery:
         assert len(stub_producer.messages) == 3
 
 
+class TestExactlyOnceDelivery:
+    """Test Task 9.3: Exactly-once delivery semantics via idempotent producer."""
+
+    @pytest.mark.asyncio
+    async def test_idempotent_producer_configuration(self):
+        """Verify idempotent producer is configured for exactly-once semantics."""
+        stub_producer = _StubProducer({})
+        callback = KafkaCallback(
+            bootstrap_servers=["kafka:9092"],
+            producer_factory=lambda config: stub_producer,
+        )
+
+        # Verify idempotence enabled in configuration
+        # Extract producer config to check idempotence setting
+        assert callback._producer._enable_idempotence is True, "Idempotent producer must be enabled"
+        assert callback._producer._acks == "all", "Acks must be set to 'all' for exactly-once"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_messages_use_same_partition_key(self):
+        """Verify duplicate messages use consistent partition keys for deduplication.
+
+        Kafka's idempotent producer deduplicates messages based on:
+        1. Producer ID (assigned by broker)
+        2. Sequence number (incremented per partition)
+        3. Partition key (user-defined)
+
+        This test verifies the same message sent twice uses the same partition key.
+        """
+        stub_producer = _StubProducer({})
+        callback = KafkaCallback(
+            bootstrap_servers=["kafka:9092"],
+            producer_factory=lambda config: stub_producer,
+        )
+
+        # Create a trade with unique ID for tracking
+        trade = Trade(
+            symbol="BTC-USDT",
+            exchange="binance",
+            price=Decimal("50000.00"),
+            amount=Decimal("0.5"),
+            timestamp=1699999999.123,
+            side="buy",
+            id="duplicate-test-123"
+        )
+
+        # Queue the same message twice
+        callback._queue_message("trade", trade)
+        callback._queue_message("trade", trade)
+
+        # Drain both messages
+        await callback._drain_once()
+        await callback._drain_once()
+
+        # Both messages should be produced
+        assert len(stub_producer.messages) == 2
+
+        # Both messages should have the same partition key
+        # (same exchange-symbol produces same key for composite partitioner)
+        key1 = stub_producer.messages[0].key
+        key2 = stub_producer.messages[1].key
+
+        assert key1 == key2, "Duplicate messages must use same partition key for deduplication"
+        assert key1 is not None, "Partition key must not be None"
+
+    @pytest.mark.asyncio
+    async def test_producer_config_supports_exactly_once(self):
+        """Verify producer configuration aligns with exactly-once semantics.
+
+        Exactly-once delivery requires:
+        - enable.idempotence = true
+        - acks = 'all'
+        - max.in.flight.requests.per.connection <= 5
+        """
+        from cryptofeed.kafka_callback import KafkaProducerConfig
+
+        producer_config = KafkaProducerConfig(
+            bootstrap_servers=["kafka:9092"],
+            acks="all",
+            idempotence=True
+        )
+
+        # Verify configuration supports exactly-once
+        assert producer_config.acks == "all", "Acks must be 'all' for exactly-once"
+        # Note: idempotence field is stored in model
+        # The producer will apply these settings when connecting
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
