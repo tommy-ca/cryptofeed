@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Literal
@@ -1640,3 +1640,115 @@ class HeaderEnricher:
         )
 
         return mandatory + optional
+
+# ============================================================================
+# Health Check Models and Implementation (Task 17.3)
+# ============================================================================
+
+
+class HealthStatus(str, Enum):
+    """Health check status levels."""
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+
+
+@dataclass(slots=True)
+class HealthCheckResponse:
+    """Health check response model (Task 17.3).
+
+    Attributes:
+        status: Overall health status (healthy/degraded/unhealthy)
+        kafka_connected: Whether Kafka broker is connected
+        buffer_health: Buffer utilization (0.0-1.0, where 0=empty, 1.0=full)
+        queue_size: Current queue size in messages
+        messages_produced: Total messages produced
+        errors_total: Total errors encountered
+        circuit_breaker_state: Circuit breaker state (CLOSED/OPEN/HALF_OPEN)
+        last_message_timestamp: Unix timestamp of last message
+        memory_bytes: Memory usage in bytes
+        uptime_seconds: Producer uptime in seconds
+    """
+    status: str
+    kafka_connected: bool
+    buffer_health: float
+    queue_size: int
+    messages_produced: int
+    errors_total: int
+    circuit_breaker_state: str
+    last_message_timestamp: Optional[float]
+    memory_bytes: int
+    uptime_seconds: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        data = self.to_dict()
+        # Handle float precision
+        data["buffer_health"] = round(data["buffer_health"], 2)
+        return dumps_bytes(data).decode("utf-8")
+
+
+class HealthCheckDeterminer:
+    """Determines health status based on metrics (Task 17.3)."""
+
+    @staticmethod
+    def determine_status(
+        kafka_connected: bool,
+        buffer_utilization: float,
+        error_rate: float,
+        circuit_breaker_state: str,
+    ) -> str:
+        """Determine health status based on metrics.
+
+        Status Logic:
+        - HEALTHY: Kafka connected, buffer < 80%, error rate < 0.1%, circuit CLOSED
+        - DEGRADED: Kafka connected, buffer 80-95%, error rate 0.1-1%, circuit HALF_OPEN
+        - UNHEALTHY: Kafka disconnected, buffer >= 95%, error rate >= 1%, circuit OPEN
+
+        Args:
+            kafka_connected: Whether Kafka broker is accessible
+            buffer_utilization: Buffer utilization percentage (0-100)
+            error_rate: Error rate as decimal (0-1)
+            circuit_breaker_state: Circuit breaker state
+
+        Returns:
+            Health status string
+        """
+        # Check for unhealthy conditions
+        if not kafka_connected:
+            return HealthStatus.UNHEALTHY.value
+        if buffer_utilization >= 95:
+            return HealthStatus.UNHEALTHY.value
+        if error_rate >= 0.01:  # >= 1%
+            return HealthStatus.UNHEALTHY.value
+        if circuit_breaker_state == "OPEN":
+            return HealthStatus.UNHEALTHY.value
+
+        # Check for degraded conditions
+        if buffer_utilization >= 80:
+            return HealthStatus.DEGRADED.value
+        if error_rate >= 0.001:  # >= 0.1%
+            return HealthStatus.DEGRADED.value
+        if circuit_breaker_state == "HALF_OPEN":
+            return HealthStatus.DEGRADED.value
+
+        # Otherwise healthy
+        return HealthStatus.HEALTHY.value
+
+    @staticmethod
+    def get_http_status_code(health_status: str) -> int:
+        """Get HTTP status code for health status.
+
+        Args:
+            health_status: Health status string
+
+        Returns:
+            HTTP status code (200 for healthy, 503 for degraded/unhealthy)
+        """
+        if health_status == HealthStatus.HEALTHY.value:
+            return 200
+        return 503
