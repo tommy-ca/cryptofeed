@@ -676,6 +676,292 @@ All tasks must satisfy:
 
 ---
 
+## Phase 5: Migration Execution (Weeks 1-4, Post-Production-Ready)
+
+**Timeline**: 4 weeks
+**Strategy**: Blue-Green cutover (parallel operation, non-disruptive)
+**Success Criteria**: Zero message loss, <5s consumer lag, <0.1% error rate, validated monitoring
+
+### Week 1: Parallel Deployment & Dual-Write
+
+- [ ] 20. Deploy new KafkaCallback in parallel with legacy backend
+  - Deploy cryptofeed with new KafkaCallback enabled in consolidated topic mode
+  - Keep legacy KafkaCallback running unchanged
+  - Enable dual-write mode: produce to both legacy (per-symbol) and new (consolidated) topics
+  - Validate both topic sets receive messages simultaneously
+  - Monitor for any configuration or connectivity issues
+  - _Requirements: [Blue-Green deployment, parallel operation]_
+  - _Estimated Effort_: 1 day
+
+- [ ] 20.1 Setup dual-write configuration
+  - Create configuration that instantiates both legacy and new callbacks
+  - Route each Feed instance through both callbacks in parallel
+  - Implement exception isolation: failure in one callback doesn't crash other
+  - Add logging to track dual-write status per feed/exchange
+  - _Requirements: [Configuration management]_
+
+- [ ] 20.2 Deploy to staging environment
+  - Deploy cryptofeed with dual-write config to staging cluster
+  - Enable new backend producing to consolidated topics: `cryptofeed.{type}`
+  - Verify legacy topics still receive messages: `cryptofeed.{type}.{ex}.{sym}`
+  - Monitor Kafka broker for both topic sets for 2-4 hours
+  - Confirm CPU/memory/network impact is within acceptable range
+  - _Requirements: [Staging validation]_
+
+- [ ] 20.3 Deploy to production (controlled rollout)
+  - Deploy to 10% of producer instances first
+  - Monitor error rates, latency, and broker metrics for 2 hours
+  - If healthy: expand to 50% of instances
+  - If healthy: expand to 100% of instances
+  - Total rollout time: ~6 hours with incremental validation
+  - _Requirements: [Canary deployment]_
+
+- [ ] 21. Validate message equivalence between legacy and new
+  - Sample messages from both legacy and new topics for same period
+  - Compare message counts per exchange/data type (expect 1:1 ratio)
+  - Hash message contents to detect missing or corrupted messages
+  - Alert if count mismatch exceeds 0.1%
+  - Document any discrepancies and root cause
+  - _Requirements: [Data integrity validation]_
+  - _Estimated Effort_: 1 day
+
+- [ ] 21.1 Implement message count validation
+  - Query legacy topics for 1-hour windows
+  - Query new consolidated topics for same 1-hour windows
+  - Compare counts per (exchange, data_type) tuple
+  - Generate report showing match/mismatch breakdown
+  - Set automated validation to run hourly
+  - _Requirements: [Automated validation]_
+
+- [ ] 21.2 Implement message content validation
+  - Sample 1,000 messages per hour from each topic
+  - Deserialize legacy JSON and new protobuf messages
+  - Compare key fields (exchange, symbol, price, quantity, timestamp)
+  - Hash message payload to detect corruption
+  - Alert if any hash mismatches detected
+  - _Requirements: [Content integrity]_
+
+### Week 2: Consumer Validation & Preparation
+
+- [ ] 22. Update consumer subscriptions to new consolidated topics
+  - Create consumer configuration for consolidated topic subscription pattern
+  - Provide migration guide for each consumer type (Flink, Python, Custom)
+  - Document wildcard subscription patterns for new topics
+  - Test consumer startup with new topic subscriptions in staging
+  - Validate offset management and checkpointing with new topics
+  - _Requirements: [Consumer migration support]_
+  - _Estimated Effort_: 2 days
+
+- [ ] 22.1 Create consumer migration templates
+  - Flink: Update source configuration from per-topic list to wildcard pattern
+  - Python: Update aiokafka consumer subscription from specific topics to regex pattern
+  - Custom: Provide code snippets for topic regex subscription and message deserialization
+  - Include offset commit strategy recommendations
+  - _Requirements: [Consumer templates]_
+
+- [ ] 22.2 Test consumer migrations in staging
+  - Deploy Flink job with new topic subscriptions
+  - Deploy Python consumer with new subscriptions
+  - Verify both consume messages from consolidated topics
+  - Check offset commit behavior (should work identically)
+  - Validate end-to-end latency from Kafka to storage
+  - _Requirements: [Consumer validation]_
+
+- [ ] 23. Implement monitoring for dual-write comparison
+  - Create Prometheus queries comparing legacy vs new topic metrics
+  - Build dashboard panel showing message count ratio (should be 1:1)
+  - Add alert if ratio drifts >0.1% (indicates missing messages)
+  - Document baseline metrics for reference
+  - _Requirements: [Monitoring & alerting]_
+  - _Estimated Effort_: 1 day
+
+- [ ] 23.1 Deploy dual-write monitoring dashboard
+  - Add dashboard showing message counts: legacy vs new (side-by-side)
+  - Add dashboard showing latency comparison (p50, p95, p99)
+  - Add dashboard showing error rate comparison
+  - Include per-exchange breakdown for legacy and new
+  - Set background color to indicate healthy dual-write state
+  - _Requirements: [Operational visibility]_
+
+- [ ] 23.2 Configure dual-write comparison alerts
+  - Alert if new topic message count < 99.9% of legacy topic count
+  - Alert if new topic error rate > legacy topic error rate × 1.5
+  - Alert if new topic p99 latency > 50ms (production threshold)
+  - Configure alert routing to on-call team
+  - _Requirements: [Operational alerting]_
+
+### Week 3: Gradual Consumer Migration (Per Exchange)
+
+- [ ] 24. Migrate consumers incrementally by exchange
+  - Order exchanges by volume: Coinbase → Binance → Others
+  - Migrate 1 exchange per business day to allow rollback capability
+  - For each exchange: update consumer subscriptions, verify data flow, monitor for 4 hours
+  - Document any issues and resolutions
+  - Keep rollback plan ready (<5 min switch back to legacy topics)
+  - _Requirements: [Gradual rollout, consumer migration]_
+  - _Estimated Effort_: 3 days
+
+- [ ] 24.1 Migrate Coinbase consumers (Day 1)
+  - Update consumer subscription: `cryptofeed.trades` (wildcard) instead of per-symbol topics
+  - Verify consumer lag remains <5 seconds
+  - Verify downstream storage (Iceberg/DuckDB) receives all messages
+  - Monitor for 4+ hours: error rates, latency, data quality
+  - Document any issues (if none, proceed to next exchange)
+  - _Requirements: [First exchange migration]_
+
+- [ ] 24.2 Migrate Binance consumers (Day 2)
+  - Repeat Coinbase procedure for Binance feed
+  - Compare performance between Coinbase (already migrated) and Binance (just migrated)
+  - Cross-verify no data loss or duplication in downstream storage
+  - _Requirements: [Second exchange migration]_
+
+- [ ] 24.3 Migrate remaining exchanges (Days 3-5)
+  - Repeat procedure for remaining exchanges: Kraken, OKX, Bybit, etc.
+  - One exchange per day maintains safety margin for issue detection
+  - Accumulate confidence that migration is safe through repeated success
+  - _Requirements: [Remaining exchanges migration]_
+
+- [ ] 25. Validate consumer lag and data completeness
+  - Check consumer lag on all migrated consumers (should be <5 seconds)
+  - Query downstream storage and verify record counts match expected
+  - Spot-check data integrity: compare fields across legacy and new paths
+  - Generate daily report of validation results
+  - Alert if any consumer exceeds 5-second lag threshold
+  - _Requirements: [Data completeness validation]_
+  - _Estimated Effort_: 1 day (continuous monitoring)
+
+- [ ] 25.1 Monitor consumer lag by exchange
+  - Track consumer lag metric for each migrated exchange (Prometheus query)
+  - Plot lag over time, compare before/after migration
+  - Alert if lag exceeds 5 seconds for any migrated consumer
+  - Archive lag metrics for post-migration analysis
+  - _Requirements: [Consumer lag monitoring]_
+
+- [ ] 25.2 Validate downstream data completeness
+  - Daily: compare row counts in downstream storage (legacy vs new source topics)
+  - Daily: spot-check 100 messages per exchange for data integrity
+  - Daily: verify no duplicates in downstream storage
+  - Report: generate daily validation summary
+  - _Requirements: [Data validation]_
+
+### Week 4: Monitoring & Stabilization
+
+- [ ] 26. Monitor production stability and performance
+  - Run with all consumers on new consolidated topics (full cutover achieved)
+  - Monitor for 1 week: error rates, latency, consumer lag, Kafka metrics
+  - Compare pre-migration and post-migration performance metrics
+  - Document any performance improvements or regressions
+  - Gather team feedback on operational impact
+  - _Requirements: [Production monitoring, stability validation]_
+  - _Estimated Effort_: Continuous (1 week)
+
+- [ ] 26.1 Monitor Kafka broker metrics
+  - Track broker CPU, memory, disk I/O (should be unchanged)
+  - Track topic partition rebalancing events (should be none post-migration)
+  - Track compression ratios (new should be ~63% smaller than JSON)
+  - Track metadata operations (should decrease as fewer topics exist)
+  - _Requirements: [Infrastructure metrics]_
+
+- [ ] 26.2 Monitor producer/consumer application metrics
+  - Track message latency: p50, p95, p99 (should be <5ms)
+  - Track throughput: messages/second (should meet production targets)
+  - Track error rate: <0.1% (success indicator)
+  - Track DLQ message count (should remain low)
+  - _Requirements: [Application metrics]_
+
+- [ ] 27. Decommission legacy per-symbol topics
+  - Archive old per-symbol topics (snapshot to S3 if needed for compliance)
+  - Delete old topic partitions from Kafka cluster
+  - Verify no consumers or producers reference old topics
+  - Document archived topics location and retention period
+  - This marks the end of Blue-Green migration
+  - _Requirements: [Topic cleanup, archive management]_
+  - _Estimated Effort_: 0.5 days
+
+- [ ] 27.1 Archive legacy topics
+  - Export old per-symbol topics to S3 (if needed for data retention policies)
+  - Document archive location and format
+  - Update compliance/audit logs with archival date
+  - Retain for 30 days for incident investigation capability
+  - _Requirements: [Data retention, compliance]_
+
+- [ ] 27.2 Delete legacy topics from Kafka
+  - Verify no active consumers read from old topics (check consumer group offsets)
+  - Verify no producers write to old topics (check producer metrics)
+  - Delete old topic partitions via Kafka AdminClient
+  - Monitor Kafka broker for 2-4 hours post-deletion (should see metadata cleanup)
+  - _Requirements: [Infrastructure cleanup]_
+
+- [ ] 28. Execute post-migration validation
+  - Run comprehensive test suite to verify new system behavior
+  - Compare pre-migration and post-migration metrics (latency, throughput, error rate)
+  - Verify monitoring/alerting rules are tuned correctly (no false positives)
+  - Gather operational team feedback
+  - Create post-migration report for stakeholders
+  - _Requirements: [Validation, stakeholder communication]_
+  - _Estimated Effort_: 1 day
+
+- [ ] 28.1 Run production validation test suite
+  - Execute scenario tests: normal operation, broker failure, producer restart
+  - Verify exactly-once semantics maintained (no duplicates in downstream)
+  - Verify partition ordering preserved (same symbol messages in order)
+  - Verify headers present in all messages (routing metadata validated)
+  - Document any gaps discovered
+  - _Requirements: [Production validation]_
+
+- [ ] 28.2 Create post-migration report
+  - Document migration timeline and actual vs planned durations
+  - Compare pre and post-migration performance metrics
+  - Document any issues encountered and resolutions
+  - Gather feedback from operational and engineering teams
+  - Include recommendations for future migrations
+  - Share results with stakeholders
+  - _Requirements: [Documentation, stakeholder communication]_
+
+### Post-Migration (Week 5+): Legacy Support Standby
+
+- [ ] 29. Maintain legacy backend on standby for rollback capability
+  - Keep legacy KafkaCallback running on subset of producer instances (10%)
+  - Keep legacy per-symbol topics running (do not delete)
+  - Maintain monitoring for legacy topics
+  - Document quick-rollback procedure (<5 minutes)
+  - Timeline: 2 weeks post-migration (through end of Week 6)
+  - _Requirements: [Rollback capability, operational safety]_
+  - _Estimated Effort_: Continuous monitoring (2 weeks)
+
+- [ ] 29.1 Maintain rollback standby infrastructure
+  - Deploy legacy producers on 10% of instances
+  - Keep per-symbol topics created but with lower priority
+  - Monitor legacy topics for message flow (should be minimal)
+  - Document exact steps to activate rollback if needed
+  - Verify rollback can be executed in <5 minutes
+  - _Requirements: [Standby infrastructure]_
+
+- [ ] 29.2 Execute post-migration cleanup
+  - After 2-week standby period (end of Week 6), assess rollback risk
+  - If no production incidents tied to migration: decommission legacy backend
+  - If issues identified: extend standby period by 1 week
+  - Document decision and rationale
+  - Archive this operational runbook for reference
+  - _Requirements: [Final cleanup decision]_
+
+---
+
+## Migration Success Criteria
+
+| Criterion | Target | Validation Method |
+|-----------|--------|-------------------|
+| **Message Loss** | Zero | Dual-write count validation (must match ±0.1%) |
+| **Consumer Lag** | <5 seconds | Prometheus query on consumer lag metric |
+| **Error Rate** | <0.1% | DLQ message count / total messages produced |
+| **Latency (p99)** | <5ms | Percentile calculation from latency histogram |
+| **Throughput** | ≥100k msg/s | Messages produced per second metric |
+| **Data Integrity** | 100% match | Spot-check hash validation of 1000 messages |
+| **Monitoring** | Functional | Dashboard shows all metrics, alerts fire correctly |
+| **Rollback Time** | <5 minutes | Execute rollback procedure, measure time to stability |
+
+---
+
 ## Notes
 
 - **Protobuf Integration**: Tasks assume Spec 1 (protobuf-callback-serialization) is merged. If not available at task start, implement JSON fallback in Phase 1.
@@ -683,3 +969,4 @@ All tasks must satisfy:
 - **Monitoring First**: Instrumentation (metrics, logging) should be added as each component is implemented, not deferred.
 - **Consumer Examples**: Reference implementations should not include consumer business logic - focus on deserialization and topic subscription patterns.
 - **Topic Scaling Benefit**: Moving from O(symbols × exchanges) to O(data_types) reduces topic count from 1000s to ~20, simplifying operations and reducing Kafka metadata overhead.
+- **Migration Execution**: Phase 5 (Tasks 20-29) implements the Blue-Green strategy documented in LEGACY_VS_NEW_KAFKA_COMPARISON.md. Execute after Phase 4 completion and 493+ test pass validation.
