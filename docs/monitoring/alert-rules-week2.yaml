@@ -1,0 +1,286 @@
+"""
+Prometheus Alert Rules for Market Data Kafka Producer
+
+Configuration for critical, warning, and info-level alerts with runbooks.
+
+Usage:
+  prometheus:
+    rule_files:
+      - '/etc/prometheus/rules/alert-rules-week2.yaml'
+"""
+
+groups:
+  - name: kafka_producer_alerts
+    interval: 15s
+    rules:
+
+      # CRITICAL ALERTS (Immediate Action Required)
+
+      - alert: KafkaProducerErrorRateHigh
+        expr: rate(cryptofeed_kafka_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "High error rate in Kafka producer ({{ $value | humanizePercentage }})"
+          description: |
+            Kafka producer error rate is {{ $value | humanizePercentage }}
+            (threshold: 1%)
+
+            Check:
+            1. Producer logs for exception details
+            2. Kafka broker availability (disk space, network)
+            3. Message serialization issues (protobuf schema changes)
+            4. Consumer group coordination (rebalancing)
+          runbook: "docs/kafka/troubleshooting.md#error-rate-high"
+          dashboard: "http://grafana:3000/d/kafka-producer"
+
+      - alert: ConsumerLagHigh
+        expr: cryptofeed_kafka_consumer_lag_messages > 30
+        for: 5m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "Consumer lag exceeded 30 seconds ({{ $value }} messages)"
+          description: |
+            Consumer lag is {{ $value }} messages
+            (threshold: 30 messages = ~5 seconds @ 6 msg/s avg)
+
+            Actions:
+            1. Check consumer group status (rebalancing?)
+            2. Scale up consumers (increase replicas)
+            3. Check broker load (CPU, memory, disk)
+            4. Reduce consumer batch size
+          runbook: "docs/kafka/troubleshooting.md#lag-high"
+          dashboard: "http://grafana:3000/d/kafka-producer"
+
+      - alert: KafkaBrokerDown
+        expr: kafka_broker_info{state="down"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform-ops
+        annotations:
+          summary: "Kafka broker down ({{ $labels.broker_id }})"
+          description: |
+            Kafka broker {{ $labels.broker_id }} is reported as down.
+            This may indicate:
+            - Network connectivity issue
+            - Broker process crash
+            - Disk full
+            - ZooKeeper coordination failure
+
+            Immediate actions:
+            1. SSH to broker and check process status
+            2. Check disk space and logs
+            3. Verify network connectivity
+            4. Restart broker if needed
+          runbook: "docs/kafka/troubleshooting.md#broker-down"
+          dashboard: "http://grafana:3000/d/kafka-brokers"
+
+      # WARNING ALERTS (Investigate and Plan Action)
+
+      - alert: ProducerLatencyHigh
+        expr: histogram_quantile(0.99, rate(cryptofeed_kafka_produce_latency_seconds_bucket[5m])) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Producer latency p99 exceeded 10ms ({{ $value | humanizeDuration }})"
+          description: |
+            99th percentile producer latency is {{ $value | humanizeDuration }}
+            (threshold: 10ms warning, 50ms critical)
+
+            This may indicate:
+            1. High broker load (check CPU, disk I/O)
+            2. Network latency increase
+            3. Consumer group rebalancing
+            4. Serialization performance (protobuf parsing)
+
+            Investigation:
+            - Query Prometheus for trend data
+            - Check broker metrics (CPU, memory, disk)
+            - Profile producer code
+            - Check network latency
+          runbook: "docs/kafka/troubleshooting.md#latency-high"
+          dashboard: "http://grafana:3000/d/kafka-producer"
+
+      - alert: DLQMessageRateHigh
+        expr: rate(cryptofeed_kafka_dlq_messages_total[5m]) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "DLQ message rate {{ $value | humanize }} msg/s (threshold: 0.1%)"
+          description: |
+            Dead Letter Queue message rate is {{ $value | humanize }} msg/s
+
+            This indicates messages are failing to process:
+            1. Invalid message format (deserialization errors)
+            2. Consumer application errors
+            3. Schema version mismatch
+
+            Actions:
+            1. Check DLQ messages for error patterns
+            2. Review consumer error logs
+            3. Verify protobuf schema compatibility
+            4. Check consumer group status
+          runbook: "docs/kafka/troubleshooting.md#dlq-high"
+          dashboard: "http://grafana:3000/d/kafka-producer"
+
+      - alert: ProducerQueueLagHigh
+        expr: cryptofeed_kafka_producer_queue_lag > 10000
+        for: 5m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Producer queue lag exceeded 10K messages ({{ $value }} messages)"
+          description: |
+            Producer internal queue has {{ $value }} messages waiting to send.
+            This indicates producer can't keep up with message generation rate.
+
+            Causes:
+            1. Broker latency (slow ACKs)
+            2. Network congestion
+            3. Producer buffer misconfiguration
+            4. Broker throughput limit
+
+            Resolution:
+            1. Increase linger_ms (batches messages)
+            2. Increase batch_size
+            3. Scale brokers (more partitions)
+            4. Add producer instances
+          runbook: "docs/kafka/troubleshooting.md#queue-lag-high"
+          dashboard: "http://grafana:3000/d/kafka-producer"
+
+      # INFO ALERTS (Monitor and Trend)
+
+      - alert: KafkaTopicPartitionUnbalanced
+        expr: (max(kafka_topic_partition_size_bytes) - min(kafka_topic_partition_size_bytes)) > 1e9
+        for: 30m
+        labels:
+          severity: info
+          team: platform-ops
+        annotations:
+          summary: "Partition size imbalance ({{ $value | humanize }}B difference)"
+          description: |
+            Kafka topic partition sizes are imbalanced by {{ $value | humanize }}B
+            This indicates some partitions are receiving more data than others,
+            which may lead to hot partitions and uneven broker load.
+
+            Investigation:
+            1. Check partition key distribution
+            2. Review consumer lag by partition
+            3. Check if specific symbols/exchanges are hot
+
+            Resolution (if needed):
+            1. Increase partition count (leader rebalancing)
+            2. Review partition key strategy
+            3. Monitor performance impact
+          runbook: "docs/kafka/troubleshooting.md#partition-unbalanced"
+
+      - alert: ProducerBufferUtilizationHigh
+        expr: cryptofeed_kafka_producer_buffer_utilization > 0.8
+        for: 10m
+        labels:
+          severity: info
+          team: data-engineering
+        annotations:
+          summary: "Producer buffer utilization {{ $value | humanizePercentage }}"
+          description: |
+            Producer buffer is {{ $value | humanizePercentage }} full.
+            While not critical, this indicates producer is under load.
+
+            Monitor for:
+            1. Increasing error rates
+            2. Producer latency increase
+            3. Message queue lag growth
+
+            If sustained, consider:
+            1. Increase buffer_memory configuration
+            2. Scale producer instances
+            3. Increase linger_ms to batch more efficiently
+          runbook: "docs/kafka/troubleshooting.md#buffer-high"
+
+      - alert: SchemaVersionMismatch
+        expr: rate(cryptofeed_kafka_schema_mismatch_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Schema version mismatch detected ({{ $value }} events/sec)"
+          description: |
+            Producer is generating messages with mismatched schema versions.
+            This may cause consumer deserialization failures.
+
+            Check:
+            1. Producer code version (should use latest schema)
+            2. Consumer schema registry configuration
+            3. Schema evolution compatibility
+
+            Resolution:
+            1. Verify producer is using correct schema version
+            2. Update schema registry if necessary
+            3. Restart consumers to pick up new schema
+          runbook: "docs/kafka/troubleshooting.md#schema-mismatch"
+
+  # RECORDING RULES (Pre-calculated metrics for dashboard efficiency)
+  - name: kafka_producer_recording_rules
+    interval: 15s
+    rules:
+
+      - record: kafka:error_rate:5m
+        expr: rate(cryptofeed_kafka_errors_total[5m]) * 100
+
+      - record: kafka:error_rate:1h
+        expr: rate(cryptofeed_kafka_errors_total[1h]) * 100
+
+      - record: kafka:latency:p50
+        expr: histogram_quantile(0.50, rate(cryptofeed_kafka_produce_latency_seconds_bucket[5m]))
+
+      - record: kafka:latency:p95
+        expr: histogram_quantile(0.95, rate(cryptofeed_kafka_produce_latency_seconds_bucket[5m]))
+
+      - record: kafka:latency:p99
+        expr: histogram_quantile(0.99, rate(cryptofeed_kafka_produce_latency_seconds_bucket[5m]))
+
+      - record: kafka:throughput:1m
+        expr: rate(cryptofeed_kafka_messages_sent_total[1m])
+
+      - record: kafka:throughput:5m
+        expr: rate(cryptofeed_kafka_messages_sent_total[5m])
+
+      - record: kafka:consumer_lag:by_group
+        expr: cryptofeed_kafka_consumer_lag_messages
+
+      - record: kafka:topic_count:consolidated
+        expr: count(kafka_topic_info{topic=~"cryptofeed\\..*"})
+
+      - record: kafka:message_size:avg
+        expr: avg(cryptofeed_kafka_message_size_bytes)
+
+# Configuration for Prometheus:
+#
+# Add to prometheus.yml:
+# ```yaml
+# rule_files:
+#   - '/etc/prometheus/rules/alert-rules-week2.yaml'
+#
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#             - 'localhost:9093'
+# ```
+#
+# Reload Prometheus:
+# curl -X POST http://localhost:9090/-/reload
+#
+# Verify rules loaded:
+# curl http://localhost:9090/api/v1/rules | jq '.data.groups[] | select(.name | startswith("kafka")) | .rules[] | .alert'
