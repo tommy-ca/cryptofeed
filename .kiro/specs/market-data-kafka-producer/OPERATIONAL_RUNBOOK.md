@@ -6,33 +6,55 @@
 
 ## 🚀 DEPLOYMENT PROCEDURE (Week 1, Task 20)
 
+### Security Configuration (REQUIRED BEFORE EXECUTION)
+
+⚠️ **CRITICAL**: All hostnames and ports must be configured for your infrastructure. This runbook uses environment variables for secure configuration management.
+
+**Required Environment Variables**:
+```bash
+export KAFKA_BOOTSTRAP_SERVERS="<your-kafka-brokers>"      # e.g., kafka1:9092,kafka2:9092,kafka3:9092
+export PROMETHEUS_HOST="<your-prometheus>"                 # e.g., prometheus.internal:9090
+export GRAFANA_HOST="<your-grafana>"                       # e.g., grafana.internal:3000
+export SCHEMA_REGISTRY_URL="<your-schema-registry>"        # e.g., http://schema-registry.internal:8081
+export STAGING_KAFKA_BROKERS="<your-staging-brokers>"      # e.g., staging-kafka1:9092,staging-kafka2:9092
+export PROD_KAFKA_BROKERS="<your-prod-brokers>"            # e.g., prod-kafka1:9092,prod-kafka2:9092
+export KAFKA_DATA_DIR="<your-kafka-data-dir>"              # e.g., /var/lib/kafka or /data/kafka
+```
+
+**Security Requirements**:
+- [ ] All hostnames are internal/private (no public IPs)
+- [ ] TLS/SSL enabled for all connections (use `--command-config client.properties` with security settings)
+- [ ] VPN/network isolation in place (verify with IT/Security)
+- [ ] Monitoring endpoints protected by authentication (Prometheus, Grafana)
+- [ ] Schema Registry requires API key authentication
+
 ### Pre-Deployment Checklist (30 min, T-30 from start)
 
 ```bash
 # 1. Infrastructure validation
-kafka-configs.sh --bootstrap-server kafka:9092 --describe --entity-type brokers
+kafka-configs.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS --describe --entity-type brokers
 # Verify: 3+ brokers, all healthy
 
 # 2. Prometheus health check
-curl -s http://prometheus:9090/api/v1/query?query=up | grep -q '"value":\[' && echo "✅ Prometheus OK" || echo "❌ Prometheus DOWN"
+curl -s http://$PROMETHEUS_HOST/api/v1/query?query=up | grep -q '"value":\[' && echo "✅ Prometheus OK" || echo "❌ Prometheus DOWN"
 
 # 3. Grafana access verify
-curl -s http://grafana:3000/api/health | grep -q "ok" && echo "✅ Grafana OK" || echo "❌ Grafana DOWN"
+curl -s http://$GRAFANA_HOST/api/health | grep -q "ok" && echo "✅ Grafana OK" || echo "❌ Grafana DOWN"
 
 # 4. Schema Registry status
-curl -s http://schema-registry:8081/subjects | grep -q "\[\]" && echo "✅ Schema Registry OK" || echo "⚠️ Check Schema Registry"
+curl -s $SCHEMA_REGISTRY_URL/subjects | grep -q "\[\]" && echo "✅ Schema Registry OK" || echo "⚠️ Check Schema Registry"
 
 # 5. Staging cluster health
-python -c "from kafka import KafkaProducer; KafkaProducer(bootstrap_servers='staging-kafka:9092').close(); print('✅ Staging Kafka OK')" || echo "❌ Staging Kafka DOWN"
+python -c "from kafka import KafkaProducer; KafkaProducer(bootstrap_servers='$STAGING_KAFKA_BROKERS').close(); print('✅ Staging Kafka OK')" || echo "❌ Staging Kafka DOWN"
 
 # 6. Production cluster health (READ-ONLY CHECK)
-python -c "from kafka import KafkaConsumer; KafkaConsumer(bootstrap_servers='prod-kafka:9092').close(); print('✅ Production Kafka OK')" || echo "❌ Production Kafka DOWN"
+python -c "from kafka import KafkaConsumer; KafkaConsumer(bootstrap_servers='$PROD_KAFKA_BROKERS').close(); print('✅ Production Kafka OK')" || echo "❌ Production Kafka DOWN"
 
 # 7. Network connectivity test
-ping -c 1 staging-kafka && ping -c 1 prod-kafka && echo "✅ Network OK"
+ping -c 1 $(echo $STAGING_KAFKA_BROKERS | cut -d: -f1) && ping -c 1 $(echo $PROD_KAFKA_BROKERS | cut -d: -f1) && echo "✅ Network OK"
 
 # 8. Disk space check
-df -h /data/kafka | tail -1 | awk '{if ($5 > 80) print "⚠️  DISK >" $5; else print "✅ Disk OK"}'
+df -h $KAFKA_DATA_DIR | tail -1 | awk '{if ($5 > 80) print "⚠️  DISK >" $5; else print "✅ Disk OK"}'
 
 # 9. Team readiness
 echo "✅ All pre-deployment checks complete"
@@ -40,15 +62,64 @@ echo "✅ All pre-deployment checks complete"
 
 **If ANY check fails**: STOP and escalate to Level 2 engineering + DevOps
 
+### TLS/Security Hardening (REQUIRED)
+
+⚠️ **CRITICAL SECURITY**: All connections must use TLS/SSL encryption in production.
+
+**Kafka TLS Configuration**:
+```bash
+# Create client configuration with TLS
+cat > client.properties << 'EOF'
+security.protocol=SSL
+ssl.truststore.location=/path/to/truststore.jks
+ssl.truststore.password=${TRUSTSTORE_PASSWORD}
+ssl.keystore.location=/path/to/keystore.jks
+ssl.keystore.password=${KEYSTORE_PASSWORD}
+ssl.key.password=${KEY_PASSWORD}
+ssl.enabled.protocols=TLSv1.2,TLSv1.3
+ssl.cipher.suites=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+EOF
+
+# Export variables (replace with actual values)
+export TRUSTSTORE_PASSWORD="<your-truststore-password>"
+export KEYSTORE_PASSWORD="<your-keystore-password>"
+export KEY_PASSWORD="<your-key-password>"
+
+# Verify certificate validity
+openssl x509 -in /path/to/cert.pem -text -noout | grep -A2 "Validity"
+
+# Test TLS connection
+kafka-broker-api-versions.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --command-config client.properties
+```
+
+**Pre-Execution Checklist**:
+- [ ] TLS certificates generated and signed by trusted CA
+- [ ] Certificates valid for entire 4-week migration window (check expiry dates)
+- [ ] All team members have client credentials (certs, keystores)
+- [ ] TLS configuration tested in staging environment
+- [ ] Certificate rotation procedure documented
+- [ ] Secret management (passwords, keys) configured in secure vault (Vault, Secrets Manager, etc.)
+
 ---
 
 ### Topic Creation (1 hour, T+0 to T+1)
+
+⚠️ **ENVIRONMENT CONFIGURATION REQUIRED**:
+```bash
+# Set these BEFORE running the topic creation script
+export KAFKA_BOOTSTRAP_SERVERS="<your-kafka-brokers>"  # e.g., kafka1:9092,kafka2:9092,kafka3:9092
+export KAFKA_COMMAND_CONFIG="client.properties"         # Path to TLS client config from previous section
+```
 
 ```bash
 #!/bin/bash
 set -e
 
-KAFKA_BROKER="kafka:9092"
+# Use environment variable (from security configuration above)
+KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:?Error: KAFKA_BOOTSTRAP_SERVERS not set}"
+KAFKA_COMMAND_CONFIG="${KAFKA_COMMAND_CONFIG:?Error: KAFKA_COMMAND_CONFIG not set}"
+
 TOPICS=("cryptofeed.trade" "cryptofeed.l2_update" "cryptofeed.ticker" "cryptofeed.funding" "cryptofeed.open_interest")
 PARTITIONS=4
 REPLICATION=3
@@ -57,7 +128,8 @@ REPLICATION=3
 for topic in "${TOPICS[@]}"; do
   echo "Creating topic: $topic"
   kafka-topics.sh \
-    --bootstrap-server $KAFKA_BROKER \
+    --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+    --command-config $KAFKA_COMMAND_CONFIG \
     --create \
     --topic "$topic" \
     --partitions $PARTITIONS \
@@ -70,7 +142,8 @@ done
 # Validate creation
 for topic in "${TOPICS[@]}"; do
   count=$(kafka-topics.sh \
-    --bootstrap-server $KAFKA_BROKER \
+    --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+    --command-config $KAFKA_COMMAND_CONFIG \
     --describe \
     --topic "$topic" | wc -l)
 
@@ -87,6 +160,140 @@ echo "✅ All topics created successfully"
 
 **On Success**: Proceed to staging validation
 **On Failure**: Cleanup (see Rollback Procedures below) and retry
+
+---
+
+### Audit Logging & Compliance (REQUIRED)
+
+⚠️ **MANDATORY**: All operations must be audited for compliance and troubleshooting.
+
+**Kafka Audit Logging Configuration**:
+```bash
+# Enable Kafka broker audit logs (add to broker configs)
+cat >> /etc/kafka/server.properties << 'EOF'
+
+# Audit Logging
+listeners=PLAINTEXT://0.0.0.0:9092,SSL://0.0.0.0:9093
+log.message.format.version=2.8.0
+log4j.appender.auditAppender=org.apache.log4j.DailyRollingFileAppender
+log4j.appender.auditAppender.File=${kafka.logs.dir}/kafka-audit.log
+log4j.appender.auditAppender.DatePattern='.'yyyy-MM-dd-HH
+log4j.additivity.kafka.authorizer.logger.AuditLogger=false
+log4j.logger.kafka.authorizer.logger.AuditLogger=INFO,auditAppender
+EOF
+
+# Restart brokers to apply audit logging
+```
+
+**Application-Level Audit Logging**:
+```bash
+# Enable producer audit logs (Python/application)
+export LOG_LEVEL="INFO"
+export AUDIT_LOG_FILE="/var/log/cryptofeed/producer-audit.log"
+export AUDIT_LOG_ROTATION="daily"
+export AUDIT_LOG_RETENTION_DAYS="30"
+
+# Monitor audit logs during migration
+tail -f /var/log/kafka/kafka-audit.log
+tail -f /var/log/cryptofeed/producer-audit.log
+```
+
+**Audit Log Retention Policy**:
+- [ ] Broker audit logs: Retain for 90 days (compliance requirement)
+- [ ] Producer application logs: Retain for 30 days (operational support)
+- [ ] Elasticsearch/Splunk: Index all audit logs for searchability
+- [ ] CloudWatch/DataDog: Alert on unusual producer activity
+- [ ] Weekly review: Audit log analysis for anomalies or errors
+
+**Pre-Execution Checklist**:
+- [ ] Audit logging enabled on all Kafka brokers
+- [ ] Log rotation configured and tested
+- [ ] Storage capacity verified (estimate: 50-100GB for 4-week migration)
+- [ ] Log aggregation system (Splunk, ELK, CloudWatch) configured
+- [ ] Alert rules set for log parsing errors or access violations
+- [ ] Log access controls in place (only SRE/DevOps can view audit logs)
+
+---
+
+### Access Control & Permissions (REQUIRED)
+
+⚠️ **CRITICAL**: Proper access controls must be configured for infrastructure and applications.
+
+**Kafka ACL Configuration**:
+```bash
+# Enable Kafka broker authorizer
+kafka-configs.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --entity-type brokers \
+  --entity-name 0 \
+  --alter \
+  --add-config authorizer.class.name=kafka.security.authorizer.AclAuthorizer
+
+# Producer ACL (allow producer to create/write topics)
+kafka-acls.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --add \
+  --allow-principal User:cryptofeed-producer \
+  --operation Create \
+  --operation Write \
+  --operation Describe \
+  --resource-type Topic \
+  --resource-name 'cryptofeed.*'
+
+# Consumer ACL (allow consumers to read)
+kafka-acls.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --add \
+  --allow-principal User:cryptofeed-consumer \
+  --operation Read \
+  --operation Describe \
+  --resource-type Topic \
+  --resource-name 'cryptofeed.*'
+
+# Schema Registry ACL (restrict schema access)
+curl -X POST http://$SCHEMA_REGISTRY_URL/acls \
+  -H "Content-Type: application/json" \
+  -d '{
+    "principal": "cryptofeed-producer",
+    "operation": "CreateSubject",
+    "scope": "cryptofeed.*"
+  }'
+```
+
+**Role-Based Access Control (RBAC)**:
+
+| Role | Team | Permissions | Duration |
+|------|------|-------------|----------|
+| **Operator** | DevOps | Topic creation, broker config, rollback | 6 weeks |
+| **Admin** | Engineering Lead | All operations, ACL management | 6 weeks |
+| **Monitor** | SRE | Read metrics, logs, dashboard | 6 weeks |
+| **View** | QA | Read-only access to topics, logs | 6 weeks |
+| **Tester** | Consumer teams | Read test topics, create temporary topics | 6 weeks |
+
+**Kubernetes RBAC** (if applicable):
+```bash
+# Create namespace and service accounts
+kubectl create namespace kafka-migration
+kubectl create serviceaccount cryptofeed-producer -n kafka-migration
+kubectl create serviceaccount cryptofeed-consumer -n kafka-migration
+
+# Role for producer
+kubectl create role cryptofeed-producer -n kafka-migration \
+  --verb=get,list,watch,create \
+  --resource=configmaps,secrets
+
+# Role binding
+kubectl create rolebinding cryptofeed-producer-binding \
+  --clusterrole=cryptofeed-producer \
+  --serviceaccount=kafka-migration:cryptofeed-producer
+```
+
+**Pre-Execution Checklist**:
+- [ ] Kafka ACLs configured for all principal identities
+- [ ] RBAC roles created for DevOps, Engineering, SRE, QA
+- [ ] Producer and consumer permissions validated in staging
+- [ ] Kubernetes service accounts created (if applicable)
+- [ ] SSH key pairs generated and distributed to teams
+- [ ] Vault/Secrets Manager configured for credential rotation
+- [ ] Access audit log configured to track permission changes
+- [ ] Emergency access procedure documented (break-glass access)
 
 ---
 
