@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Optional, Literal
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
