@@ -1,0 +1,47 @@
+{
+  "name": "cryptofeed-data-flow-architecture",
+  "version": "0.1.0",
+  "status": "design-approved",
+  "created": "2025-11-14",
+  "updated": "2025-11-14",
+  "description": "Complete architectural analysis and documentation of data flow from exchange APIs (REST/WebSocket) through normalization, protobuf serialization, and Kafka publishing",
+  "scope": "architecture_documentation",
+  "language": "english",
+  "phases": {
+    "requirements": {
+      "status": "approved",
+      "created": "2025-11-14",
+      "completed": "2025-11-14",
+      "file": "requirements.md"
+    },
+    "design": {
+      "status": "approved",
+      "created": "2025-11-14",
+      "completed": "2025-11-14",
+      "file": "design.md"
+    },
+    "implementation": {
+      "status": "pending",
+      "file": "tasks.md"
+    }
+  },
+  "dependencies": {
+    "required": [
+      "market-data-kafka-producer",
+      "normalized-data-schema-crypto",
+      "protobuf-callback-serialization",
+      "ccxt-generic-pro-exchange",
+      "backpack-exchange-integration"
+    ],
+    "optional": []
+  },
+  "tags": [
+    "architecture",
+    "data-flow",
+    "documentation",
+    "exchanges",
+    "kafka",
+    "protobuf",
+    "normalization"
+  ]
+}
