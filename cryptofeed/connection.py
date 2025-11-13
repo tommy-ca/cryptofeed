@@ -9,7 +9,8 @@ import time
 import asyncio
 from asyncio import Queue, CancelledError
 from contextlib import asynccontextmanager, suppress
-from typing import List, Union, AsyncIterable
+from typing import List, Union, AsyncIterable, Callable, Optional
+from urllib.parse import urlparse
 from decimal import Decimal
 import atexit
 from dataclasses import dataclass
@@ -20,10 +21,11 @@ from websockets.asyncio.client import connect, ClientConnection
 from websockets.protocol import State
 import aiohttp
 from aiohttp.typedefs import StrOrURL
-from yapic import json as json_parser
+from cryptofeed.json_utils import loads as json_loads
 
 from cryptofeed.exceptions import ConnectionClosed
 from cryptofeed.symbols import str_to_symbol
+from cryptofeed.proxy import get_proxy_injector, log_proxy_usage
 
 
 LOG = logging.getLogger('feedhandler')
@@ -46,7 +48,7 @@ class HTTPSync(Connection):
 
         r.raise_for_status()
         if json:
-            return json_parser.loads(r.text, parse_float=Decimal)
+            return json_loads(r.text, parse_float=Decimal)
         if text:
             return r.text
         return r
@@ -128,15 +130,22 @@ class AsyncConnection(Connection):
 
 
 class HTTPAsyncConn(AsyncConnection):
-    def __init__(self, conn_id: str, proxy: StrOrURL = None):
+    def __init__(self, conn_id: str, proxy: StrOrURL = None, exchange_id: str = None):
         """
         conn_id: str
             id associated with the connection
         proxy: str, URL
-            proxy url (GET only)
+            proxy url (GET only) - deprecated, use proxy system instead
+        exchange_id: str
+            exchange identifier for proxy configuration
         """
         super().__init__(f'{conn_id}.http.{self.conn_count}')
         self.proxy = proxy
+        self._legacy_proxy = proxy
+        self._current_proxy: Optional[StrOrURL] = None
+        self.exchange_id = exchange_id
+        self._request_proxy_kwargs: dict = {}
+        self._proxy_release: Callable[[], None] = lambda: None
 
     @property
     def is_open(self) -> bool:
@@ -154,10 +163,73 @@ class HTTPAsyncConn(AsyncConnection):
             LOG.warning('%s: HTTP session already created', self.id)
         else:
             LOG.debug('%s: create HTTP session', self.id)
-            self.conn = aiohttp.ClientSession()
+            
+            # Get proxy URL if configured through proxy system
+            proxy_url = None
+            release_proxy = self._proxy_release
+            injector = get_proxy_injector()
+            if injector and self.exchange_id:
+                proxy_url, release_proxy = injector.lease_proxy(self.exchange_id, 'http')
+
+            if proxy_url is not None:
+                proxy = proxy_url
+                self._current_proxy = proxy_url
+            else:
+                proxy = self._legacy_proxy
+                self._current_proxy = None
+
+            self.proxy = proxy
+
+            self._proxy_release = release_proxy
+
+            if proxy:
+                log_proxy_usage(transport='http', exchange_id=self.exchange_id, proxy_url=proxy)
+
+            self._request_proxy_kwargs = {}
+
+            if proxy:
+                scheme = (urlparse(proxy).scheme or '').lower()
+            else:
+                scheme = ''
+
+            if proxy and scheme in {'socks4', 'socks4a', 'socks5', 'socks5h'}:
+                try:
+                    from aiohttp_socks import ProxyConnector
+                except ModuleNotFoundError as exc:
+                    raise ImportError(
+                        "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                    ) from exc
+
+                connector = ProxyConnector.from_url(proxy)
+                try:
+                    self.conn = aiohttp.ClientSession(connector=connector)
+                except Exception:
+                    release_proxy()
+                    raise
+            else:
+                if proxy:
+                    self._request_proxy_kwargs = {"proxy": proxy}
+                try:
+                    self.conn = aiohttp.ClientSession()
+                except Exception:
+                    release_proxy()
+                    raise
+            
             self.sent = 0
             self.received = 0
             self.last_message = None
+
+    async def close(self):
+        if self.is_open:
+            conn = self.conn
+            self.conn = None
+            try:
+                await conn.close()
+            finally:
+                self._proxy_release()
+                self._proxy_release = lambda: None
+                self._current_proxy = None
+            LOG.info('%s: closed connection %r', self.id, conn.__class__.__name__)
 
     async def read(self, address: str, header=None, params=None, return_headers=False, retry_count=0, retry_delay=60) -> str:
         if not self.is_open:
@@ -165,7 +237,12 @@ class HTTPAsyncConn(AsyncConnection):
 
         LOG.debug("%s: requesting data from %s", self.id, address)
         while True:
-            async with self.conn.get(address, headers=header, params=params, proxy=self.proxy) as response:
+            async with self.conn.get(
+                address,
+                headers=header,
+                params=params,
+                **self._request_proxy_kwargs,
+            ) as response:
                 data = await response.text()
                 self.last_message = time.time()
                 self.received += 1
@@ -188,7 +265,12 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.post(address, data=msg, headers=header) as response:
+            async with self.conn.post(
+                address,
+                data=msg,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 self.sent += 1
                 data = await response.read()
                 if self.raw_data_callback:
@@ -208,7 +290,11 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.delete(address, headers=header) as response:
+            async with self.conn.delete(
+                address,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 self.sent += 1
                 data = await response.read()
                 if self.raw_data_callback:
@@ -241,7 +327,11 @@ class HTTPPoll(HTTPAsyncConn):
                 LOG.error('%s: connection closed in read()', self.id)
                 raise ConnectionClosed
 
-            async with self.conn.get(address, headers=header, proxy=self.proxy) as response:
+            async with self.conn.get(
+                address,
+                headers=header,
+                **self._request_proxy_kwargs,
+            ) as response:
                 data = await response.text()
                 self.received += 1
                 self.last_message = time.time()
@@ -291,18 +381,25 @@ class HTTPConcurrentPoll(HTTPPoll):
 
 class WSAsyncConn(AsyncConnection):
 
-    def __init__(self, address: str, conn_id: str, authentication=None, subscription=None, **kwargs):
+    def __init__(self, address: str, conn_id: str, authentication=None, subscription=None, exchange_id: str = None, **kwargs):
         """
         address: str
             the websocket address to connect to
         conn_id: str
             the identifier of this connection
+        authentication: Callable
+            function pointer for authentication
+        subscription: dict
+            optional connection information  
+        exchange_id: str
+            exchange identifier for proxy configuration
         kwargs:
             passed into the websocket connection.
         """
         if not address.startswith("wss://"):
             raise ValueError(f'Invalid address, must be a wss address. Provided address is: {address!r}')
         self.address = address
+        self.exchange_id = exchange_id
         super().__init__(f'{conn_id}.ws.{self.conn_count}', authentication=authentication, subscription=subscription)
         self.ws_kwargs = kwargs
 
@@ -320,7 +417,13 @@ class WSAsyncConn(AsyncConnection):
             if self.authentication:
                 self.address, self.ws_kwargs = await self.authentication(self.address, self.ws_kwargs)
 
-            self.conn = await connect(self.address, **self.ws_kwargs)
+            # Use proxy injector if available
+            injector = get_proxy_injector()
+            if injector and self.exchange_id:
+                self.conn = await injector.create_websocket_connection(self.address, self.exchange_id, **self.ws_kwargs)
+            else:
+                self.conn = await connect(self.address, **self.ws_kwargs)
+                
         self.sent = 0
         self.received = 0
         self.last_message = None

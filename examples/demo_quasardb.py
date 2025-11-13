@@ -1,3 +1,5 @@
+# ruff: noqa: F403,F405
+
 from cryptofeed import FeedHandler
 from cryptofeed.exchanges import *
 from cryptofeed.backends.quasardb import *

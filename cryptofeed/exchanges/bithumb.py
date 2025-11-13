@@ -10,7 +10,7 @@ from typing import Tuple, Dict
 from datetime import datetime as dt
 from datetime import timedelta
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.symbols import Symbol, Symbols
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint

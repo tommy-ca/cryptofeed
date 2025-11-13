@@ -10,7 +10,7 @@ import hmac
 import time
 from urllib.parse import urlparse
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.defines import BID, ASK, BUY, L2_BOOK, SELL, TICKER, TRADES
 from cryptofeed.exchange import RestExchange

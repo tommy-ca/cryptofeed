@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "trade",
+  "type": "object",
+  "properties": {
+    "exchange": { "type": "string" },
+    "instrument": { "type": "string" },
+    "trade_id": { "type": ["string", "null"], "description": "Exchange trade identifier" },
+    "side": { "type": "string", "enum": ["buy", "sell"] },
+    "price": { "type": "string", "description": "Decimal as string, canonical scale 1e-8" },
+    "amount": { "type": "string", "description": "Decimal as string, canonical scale 1e-8" },
+    "ts_event": { "type": "integer", "description": "Event timestamp in microseconds" },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "raw_id": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "required": ["exchange", "instrument", "side", "price", "amount", "ts_event"]
+}

@@ -8,7 +8,7 @@ from collections import defaultdict
 
 import zmq
 import zmq.asyncio
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendQueue, BackendBookCallback, BackendCallback
 
@@ -22,6 +22,10 @@ class ZMQCallback(BackendQueue):
         self.dynamic_key = dynamic_key
         self.running = True
 
+    async def __call__(self, dtype, receipt_timestamp: float):
+        # Use parent class serialization handling
+        await BackendCallback.__call__(self, dtype, receipt_timestamp)
+
     async def writer(self):
         ctx = zmq.asyncio.Context.instance()
         con = ctx.socket(zmq.PUB)
@@ -29,11 +33,18 @@ class ZMQCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 for update in updates:
+                    if isinstance(update, bytes):
+                        # Protobuf: send as multipart with binary payload
+                        topic = f"{self.key}-protobuf"
+                        await con.send_multipart([topic.encode(), update])
+                        continue
+
+                    # JSON: send as string with metadata
                     if self.dynamic_key:
-                        update = f'{update["exchange"]}-{self.key}-{update["symbol"]} {json.dumps(update)}'
+                        message = f'{update["exchange"]}-{self.key}-{update["symbol"]} {json.dumps(update)}'
                     else:
-                        update = f'{self.key} {json.dumps(update)}'
-                    await con.send_string(update)
+                        message = f'{self.key} {json.dumps(update)}'
+                    await con.send_string(message)
 
 
 class TradeZMQ(ZMQCallback, BackendCallback):

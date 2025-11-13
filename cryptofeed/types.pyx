@@ -409,6 +409,19 @@ cdef class OrderBook:
         self.checksum = None
         self.raw = None
 
+    # Expose bids/asks for parity tests and convenience
+    property bids:
+        def __get__(self):
+            return self.book.bids
+        def __set__(self, value):
+            self.book.bids = value
+
+    property asks:
+        def __get__(self):
+            return self.book.asks
+        def __set__(self, value):
+            self.book.asks = value
+
     @staticmethod
     def from_dict(data: dict) -> OrderBook:
         ob = OrderBook(data['exchange'], data['symbol'], bids=data['book'][BID], asks=data['book'][ASK])

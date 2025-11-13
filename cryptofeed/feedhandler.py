@@ -5,6 +5,7 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import asyncio
+from collections.abc import Mapping
 from cryptofeed.connection import Connection
 import logging
 import signal
@@ -19,7 +20,7 @@ try:
 except ImportError:
     SIGNALS = (SIGABRT, SIGINT, SIGTERM)
 
-from yapic import json
+from cryptofeed.json_utils import dumps as json_dumps
 
 from cryptofeed.config import Config
 from cryptofeed.defines import L2_BOOK
@@ -27,6 +28,7 @@ from cryptofeed.feed import Feed
 from cryptofeed.log import get_logger
 from cryptofeed.nbbo import NBBO
 from cryptofeed.exchanges import EXCHANGE_MAP
+from cryptofeed.proxy import ProxyConfig, ProxySettings, init_proxy_system, load_proxy_settings
 
 
 LOG = logging.getLogger('feedhandler')
@@ -48,13 +50,15 @@ def setup_signal_handlers(loop):
 
 
 class FeedHandler:
-    def __init__(self, config=None, raw_data_collection=None):
+    def __init__(self, config=None, raw_data_collection=None, proxy_settings=None):
         """
         config: str, dict or None
             if str, absolute path (including file name) of the config file. If not provided, config can also be a dictionary of values, or
             can be None, which will default options. See docs/config.md for more information.
         raw_data_collection: callback (see AsyncFileCallback) or None
             if set, enables collection of raw data from exchanges. ALL https/wss traffic from the exchanges will be collected.
+        proxy_settings: ProxySettings, dict, or None
+            optional explicit proxy configuration. Environment variables take precedence over config and explicit settings.
         """
         self.feeds = []
         self.config = Config(config=config)
@@ -78,6 +82,81 @@ class FeedHandler:
             except ImportError:
                 LOG.info("FH: uvloop not initialized")
 
+        self._initialize_proxy_system(proxy_settings)
+
+    def _initialize_proxy_system(self, explicit_settings):
+        """Initialize proxy system using env → YAML → explicit precedence."""
+
+        def _coerce_to_plain_dict(value):
+            if isinstance(value, Mapping):
+                return {k: _coerce_to_plain_dict(v) for k, v in value.items()}
+            return value
+
+        def _normalize_root_config(value):
+            if isinstance(value, str):
+                return {
+                    'enabled': True,
+                    'default': {
+                        'http': value,
+                        'websocket': value,
+                    },
+                }
+            return value
+
+        env_settings = load_proxy_settings()
+
+        config_settings = None
+        if 'proxy' in self.config:
+            raw_proxy_config = _normalize_root_config(self.config['proxy'])
+            if raw_proxy_config:
+                config_settings = ProxySettings(**_coerce_to_plain_dict(raw_proxy_config))
+
+        explicit_proxy_settings = None
+        if explicit_settings is not None:
+            normalized_explicit = _normalize_root_config(explicit_settings)
+            if isinstance(explicit_settings, ProxySettings):
+                explicit_proxy_settings = explicit_settings
+            elif isinstance(normalized_explicit, Mapping):
+                explicit_proxy_settings = ProxySettings(**_coerce_to_plain_dict(normalized_explicit))
+            else:
+                raise TypeError('proxy_settings must be a ProxySettings instance or mapping')
+
+        def _merge_settings(base: ProxySettings, override: ProxySettings) -> ProxySettings:
+            data = {
+                'enabled': base.enabled,
+                'default': base.default,
+                'exchanges': dict(base.exchanges),
+            }
+
+            fields_set = override.model_fields_set
+
+            if 'enabled' in fields_set:
+                data['enabled'] = override.enabled
+
+            if 'default' in fields_set:
+                data['default'] = override.default
+
+            if 'exchanges' in fields_set:
+                merged = {k.casefold(): v for k, v in data['exchanges'].items()}
+                for key, value in override.exchanges.items():
+                    merged[key.casefold()] = value
+                data['exchanges'] = merged
+
+            return ProxySettings(**data)
+
+        settings = ProxySettings()
+
+        if config_settings is not None:
+            settings = _merge_settings(settings, config_settings)
+
+        if explicit_proxy_settings is not None:
+            settings = _merge_settings(settings, explicit_proxy_settings)
+
+        if env_settings.model_fields_set:
+            settings = _merge_settings(settings, env_settings)
+
+        init_proxy_system(settings)
+
     def add_feed(self, feed, loop=None, **kwargs):
         """
         feed: str or class
@@ -89,20 +168,197 @@ class FeedHandler:
             newly instantiated object
         """
         if isinstance(feed, str):
-            if feed in EXCHANGE_MAP:
-                self.feeds.append((EXCHANGE_MAP[feed](config=self.config, **kwargs)))
+            feed_key = feed.upper()
+            if feed_key == "BACKPACK_CCXT":
+                raise ValueError(
+                    "Backpack ccxt integration has been removed. Configure the native 'BACKPACK' feed instead."
+                )
+
+            if feed_key in EXCHANGE_MAP:
+                feed_cls = EXCHANGE_MAP[feed_key]
+                config_override = kwargs.pop("config", None)
+
+                if feed_key == "BACKPACK":
+                    from cryptofeed.config import Config as FeedConfig
+                    from cryptofeed.exchanges.backpack.config import BackpackConfig
+
+                    handler_config_arg = self.config
+
+                    backpack_config = None
+
+                    if isinstance(config_override, BackpackConfig):
+                        backpack_config = config_override
+                    elif isinstance(config_override, Mapping):
+                        # Treat mappings without Backpack-specific keys as handler config overrides
+                        backpack_keys = {'exchange_id', 'enable_private_channels', 'window_ms', 'use_sandbox', 'proxies', 'auth'}
+                        if backpack_keys.isdisjoint(config_override.keys()):
+                            handler_config_arg = config_override
+                            backpack_config = self._resolve_backpack_config(None)
+                        else:
+                            backpack_config = self._resolve_backpack_config(config_override)
+                    elif config_override is not None:
+                        handler_config_arg = config_override
+                        resolution_source = handler_config_arg
+                        if not isinstance(resolution_source, FeedConfig):
+                            try:
+                                resolution_source = FeedConfig(config=resolution_source)
+                            except Exception:
+                                resolution_source = self.config
+                        backpack_config = self._resolve_backpack_config(resolution_source)
+                    else:
+                        backpack_config = self._resolve_backpack_config(None)
+
+                    backpack_override = kwargs.pop("backpack_config", None)
+                    if isinstance(backpack_override, BackpackConfig):
+                        backpack_config = backpack_override
+
+                    self.feeds.append(
+                        (
+                            feed_cls(
+                                config=handler_config_arg,
+                                backpack_config=backpack_config,
+                                **kwargs,
+                            )
+                        )
+                    )
+                else:
+                    config_value = config_override if config_override is not None else self.config
+                    self.feeds.append((feed_cls(config=config_value, **kwargs)))
             else:
                 raise ValueError("Invalid feed specified")
         else:
             self.feeds.append((feed))
         if self.raw_data_collection:
-            self.raw_data_collection.write_header(self.feeds[-1].id, json.dumps(self.feeds[-1]._feed_config))
+            self.raw_data_collection.write_header(self.feeds[-1].id, json_dumps(self.feeds[-1]._feed_config))
 
         if self.running:
             if loop is None:
                 loop = asyncio.get_event_loop()
 
             self.feeds[-1].start(loop)
+
+    def _bp_to_plain_mapping(self, value):
+        from cryptofeed.config import Config, AttrDict
+        if isinstance(value, AttrDict):
+            return {k: self._bp_to_plain_mapping(v) for k, v in value.items()}
+        if isinstance(value, Config):
+            return self._bp_to_plain_mapping(value.config)
+        if isinstance(value, Mapping):
+            return {k: self._bp_to_plain_mapping(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._bp_to_plain_mapping(v) for v in value]
+        return value
+
+    def _bp_candidate_from(self, value):
+        from cryptofeed.config import Config, AttrDict
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+        if value is None:
+            return None
+        if isinstance(value, BackpackConfig):
+            return value
+        if isinstance(value, Config):
+            value = value.config
+        if isinstance(value, AttrDict):
+            value = dict(value)
+        if isinstance(value, Mapping):
+            return value
+        return None
+
+    def _bp_lookup_backpack_section(self, config_source):
+        if not isinstance(config_source, Mapping):
+            return None
+        def _match_key(source: Mapping, target: str):
+            for key, value in source.items():
+                if isinstance(key, str) and key.casefold() == target:
+                    return value
+            return None
+        direct = _match_key(config_source, "backpack")
+        if direct:
+            return direct
+        exchanges = None
+        for key, value in config_source.items():
+            if isinstance(key, str) and key.casefold() == "exchanges":
+                exchanges = value
+                break
+        if isinstance(exchanges, Mapping):
+            return _match_key(exchanges, "backpack")
+        return None
+
+    def _bp_validate_and_build(self, candidate_data, is_explicit):
+        from pydantic import ValidationError
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+        if candidate_data is None:
+            return None
+        allowed_keys = set(BackpackConfig.model_fields.keys())
+        if not isinstance(candidate_data, Mapping) or not candidate_data:
+            return None
+        data = dict(candidate_data)
+        invalid = set(data.keys()).difference(allowed_keys)
+        if invalid:
+            if is_explicit:
+                raise ValueError(
+                    f"Backpack configuration contains unsupported keys: {sorted(invalid)}"
+                )
+            return None
+        proxies_value = data.get('proxies')
+        if isinstance(proxies_value, str):
+            data['proxies'] = ProxyConfig(url=proxies_value)
+        elif isinstance(proxies_value, Mapping):
+            data['proxies'] = ProxyConfig(**proxies_value)
+        elif proxies_value is not None and not isinstance(proxies_value, ProxyConfig):
+            if is_explicit:
+                raise ValueError("Backpack proxies must be a URL or mapping with url/pool")
+            return None
+        try:
+            return BackpackConfig.model_validate(data)
+        except ValidationError as exc:
+            if is_explicit:
+                raise exc
+            return None
+
+    def _resolve_backpack_config(self, explicit):
+        """
+        Derive a BackpackConfig instance from explicit overrides or handler config.
+        """
+        from cryptofeed.config import Config
+        from cryptofeed.exchanges.backpack.config import BackpackConfig
+
+        if isinstance(explicit, BackpackConfig):
+            return explicit
+
+        candidates: list[tuple[object, bool]] = []
+        seen: set[int] = set()
+
+        explicit_candidate = self._bp_candidate_from(explicit)
+        if isinstance(explicit_candidate, BackpackConfig):
+            return explicit_candidate
+        if isinstance(explicit, Mapping) and not isinstance(explicit, Config) and explicit_candidate is not None and id(explicit_candidate) not in seen:
+            candidates.append((explicit_candidate, True))
+            seen.add(id(explicit_candidate))
+
+        root_plain = self._bp_to_plain_mapping(self.config.config if isinstance(self.config, Config) else self.config)
+        if isinstance(explicit_candidate, Mapping):
+            section = self._bp_candidate_from(self._bp_lookup_backpack_section(explicit_candidate))
+            if section is not None and id(section) not in seen:
+                candidates.append((section, True))
+                seen.add(id(section))
+        section_root = self._bp_candidate_from(self._bp_lookup_backpack_section(root_plain) if isinstance(root_plain, Mapping) else None)
+        if section_root is not None and id(section_root) not in seen:
+            candidates.append((section_root, False))
+            seen.add(id(section_root))
+
+        if not candidates:
+            return BackpackConfig()
+
+        for candidate, is_explicit in candidates:
+            if isinstance(candidate, BackpackConfig):
+                return candidate
+            plain = self._bp_to_plain_mapping(candidate)
+            built = self._bp_validate_and_build(plain, is_explicit)
+            if built is not None:
+                return built
+
+        return BackpackConfig()
 
     def add_nbbo(self, feeds: List[Feed], symbols: List[str], callback, config=None):
         """

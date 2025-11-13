@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from cryptofeed.exchanges import Binance
-from yapic import json as json_parser
+from cryptofeed.json_utils import json as json_parser
 
 
 def temp_f(r, address, json=False, text=False, uuid=None):

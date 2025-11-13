@@ -1,6 +1,10 @@
 .vscode/
 .worktrees/
 Pipfile.lock
+gen/
+pyscn/
+.pyscn/
+reports/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

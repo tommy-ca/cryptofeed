@@ -1,0 +1,218 @@
+"""Backpack message adapters converting raw payloads to cryptofeed types."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Dict, Iterable, List, Optional
+
+from cryptofeed.defines import ASK, BID
+from cryptofeed.types import OrderBook, Trade, Ticker
+
+
+def _microseconds_to_seconds(value: Optional[int | float]) -> Optional[float]:
+    if value is None:
+        return None
+    return float(value) / 1_000_000.0 if value > 1_000_000 else float(value)
+
+
+@dataclass(slots=True)
+class TradePayload:
+    symbol: str
+    price: Decimal
+    amount: Decimal
+    side: Optional[str]
+    trade_id: Optional[str]
+    sequence: Optional[int]
+    timestamp: Optional[float]
+    raw: dict
+
+
+class BackpackTradeAdapter:
+    """Convert Backpack trade payloads into cryptofeed Trade objects."""
+
+    def __init__(self, exchange: str):
+        self._exchange = exchange
+
+    def parse(self, payload: dict, *, normalized_symbol: str) -> Trade:
+        trade = self._parse_payload(payload, normalized_symbol)
+        return Trade(
+            exchange=self._exchange,
+            symbol=trade.symbol,
+            side=trade.side,
+            amount=trade.amount,
+            price=trade.price,
+            timestamp=trade.timestamp or 0.0,
+            id=trade.trade_id,
+            raw=payload,
+        )
+
+    def _parse_payload(self, payload: dict, normalized_symbol: str) -> TradePayload:
+        price_raw = payload.get("price") or payload.get("p")
+        amount_raw = payload.get("size") or payload.get("q")
+        if price_raw is None or amount_raw is None:
+            raise ValueError("trade payload missing price or size fields")
+
+        price = Decimal(str(price_raw))
+        amount = Decimal(str(amount_raw))
+        timestamp = payload.get("timestamp") or payload.get("ts")
+        sequence = payload.get("sequence") or payload.get("s")
+        trade_id = payload.get("id") or payload.get("t")
+
+        return TradePayload(
+            symbol=normalized_symbol,
+            price=price,
+            amount=amount,
+            side=payload.get("side"),
+            trade_id=str(trade_id) if trade_id is not None else None,
+            sequence=sequence,
+            timestamp=_microseconds_to_seconds(timestamp),
+            raw=payload,
+        )
+
+
+@dataclass(frozen=True)
+class OrderBookSnapshot:
+    symbol: str
+    bids: Iterable[Iterable]
+    asks: Iterable[Iterable]
+    timestamp: Optional[int | float] = None
+    sequence: Optional[int] = None
+    raw: Optional[dict] = None
+
+    @classmethod
+    def from_payload(cls, *, symbol: str, **payload: dict) -> "OrderBookSnapshot":
+        return cls(
+            symbol=symbol,
+            bids=payload.get("bids", []),
+            asks=payload.get("asks", []),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload or None,
+        )
+
+
+@dataclass(frozen=True)
+class OrderBookDelta:
+    symbol: str
+    bids: Optional[Iterable[Iterable]] = None
+    asks: Optional[Iterable[Iterable]] = None
+    timestamp: Optional[int | float] = None
+    sequence: Optional[int] = None
+    raw: Optional[dict] = None
+
+    @classmethod
+    def from_payload(cls, *, symbol: str, **payload: dict) -> "OrderBookDelta":
+        return cls(
+            symbol=symbol,
+            bids=payload.get("bids"),
+            asks=payload.get("asks"),
+            timestamp=payload.get("timestamp"),
+            sequence=payload.get("sequence"),
+            raw=payload or None,
+        )
+
+
+class BackpackOrderBookAdapter:
+    """Maintain Backpack order book state and emit cryptofeed OrderBook objects."""
+
+    def __init__(self, exchange: str, *, max_depth: int = 0):
+        self._exchange = exchange
+        self._max_depth = max_depth
+        self._books: Dict[str, OrderBook] = {}
+
+    def apply_snapshot(self, snapshot: OrderBookSnapshot) -> OrderBook:
+        bids_processed = self._levels_to_map(snapshot.bids)
+        asks_processed = self._levels_to_map(snapshot.asks)
+
+        order_book = OrderBook(
+            exchange=self._exchange,
+            symbol=snapshot.symbol,
+            bids=bids_processed,
+            asks=asks_processed,
+            max_depth=self._max_depth,
+        )
+        order_book.timestamp = _microseconds_to_seconds(snapshot.timestamp)
+        order_book.sequence_number = snapshot.sequence
+        order_book.raw = snapshot.raw
+        self._books[snapshot.symbol] = order_book
+        return order_book
+
+    def apply_delta(self, delta: OrderBookDelta) -> OrderBook:
+        if delta.symbol not in self._books:
+            raise KeyError(f"No snapshot for symbol {delta.symbol}")
+
+        book = self._books[delta.symbol]
+        if delta.bids:
+            self._update_levels(book, BID, delta.bids)
+        if delta.asks:
+            self._update_levels(book, ASK, delta.asks)
+
+        book.timestamp = _microseconds_to_seconds(delta.timestamp)
+        book.sequence_number = delta.sequence
+        book.delta = {
+            BID: [tuple(self._normalize_level(level)) for level in delta.bids] if delta.bids else [],
+            ASK: [tuple(self._normalize_level(level)) for level in delta.asks] if delta.asks else [],
+        }
+        book.raw = delta.raw
+        return book
+
+    # Legacy API wrappers -------------------------------------------------
+    def apply_snapshot_from_payload(self, **payload: dict) -> OrderBook:
+        symbol = payload.pop("normalized_symbol", None) or payload.pop("symbol")
+        snapshot = OrderBookSnapshot.from_payload(symbol=symbol, **payload)
+        return self.apply_snapshot(snapshot)
+
+    def apply_delta_from_payload(self, **payload: dict) -> OrderBook:
+        symbol = payload.pop("normalized_symbol", None) or payload.pop("symbol")
+        delta = OrderBookDelta.from_payload(symbol=symbol, **payload)
+        return self.apply_delta(delta)
+
+    def _normalize_level(self, level: Iterable) -> List[Decimal]:
+        price, size = level[0], level[1]
+        return [Decimal(str(price)), Decimal(str(size))]
+
+    def _levels_to_map(self, levels: Iterable[Iterable]) -> Dict[Decimal, Decimal]:
+        processed: Dict[Decimal, Decimal] = {}
+        for level in levels:
+            if len(level) < 2:
+                raise ValueError("order book level missing price/size")
+            price = Decimal(str(level[0]))
+            size = Decimal(str(level[1]))
+            processed[price] = size
+        return processed
+
+    def _update_levels(self, book: OrderBook, side: str, levels: Iterable[Iterable]):
+        price_map = book.book.bids if side == BID else book.book.asks
+        for level in levels:
+            price = Decimal(str(level[0]))
+            size = Decimal(str(level[1]))
+            if size == 0:
+                if price in price_map:
+                    del price_map[price]
+            else:
+                price_map[price] = size
+
+
+class BackpackTickerAdapter:
+    """Convert Backpack ticker payloads into cryptofeed Ticker objects."""
+
+    def __init__(self, exchange: str):
+        self._exchange = exchange
+
+    def parse(self, payload: dict, *, normalized_symbol: str) -> Ticker:
+        last_raw = payload.get("last") or payload.get("price")
+        last_price = Decimal(str(last_raw)) if last_raw is not None else Decimal("0")
+        bid_val = payload.get("bestBid") or payload.get("bid")
+        ask_val = payload.get("bestAsk") or payload.get("ask")
+        bid_dec = Decimal(str(bid_val)) if bid_val is not None else last_price
+        ask_dec = Decimal(str(ask_val)) if ask_val is not None else last_price
+        timestamp = _microseconds_to_seconds(payload.get("timestamp") or payload.get("ts")) or 0.0
+
+        return Ticker(
+            exchange=self._exchange,
+            symbol=normalized_symbol,
+            bid=bid_dec,
+            ask=ask_dec,
+            timestamp=timestamp,
+            raw=payload,
+        )

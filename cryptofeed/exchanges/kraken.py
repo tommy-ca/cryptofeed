@@ -9,7 +9,7 @@ from collections import defaultdict
 import logging
 from typing import Dict, Tuple
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import BID, ASK, BUY, CANDLES, KRAKEN, L2_BOOK, SELL, TICKER, TRADES

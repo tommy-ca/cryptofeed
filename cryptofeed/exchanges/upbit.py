@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Dict, Tuple
 import uuid
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BUY, L2_BOOK, SELL, TRADES, UPBIT

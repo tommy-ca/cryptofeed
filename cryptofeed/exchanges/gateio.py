@@ -10,7 +10,7 @@ from decimal import Decimal
 import time
 from typing import Dict, Tuple
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import BID, ASK, CANDLES, GATEIO, L2_BOOK, TICKER, TRADES, BUY, SELL

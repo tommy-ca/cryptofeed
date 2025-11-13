@@ -3,23 +3,62 @@ Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
+
+DEPRECATION NOTICE:
+This module (cryptofeed.backends.kafka) is deprecated as of market-data-kafka-producer spec.
+Please migrate to the unified KafkaCallback implementation in cryptofeed.kafka_callback.
+
+The legacy implementation bypasses:
+- TopicManager (consolidated topic strategy)
+- HeaderEnricher (structured message headers)
+- Partitioner (configurable partition strategies)
+- Enhanced error handling and backpressure protection
+
+Migration Guide:
+    # OLD (deprecated):
+    from cryptofeed.backends.kafka import TradeKafka, BookKafka
+
+    # NEW (recommended):
+    from cryptofeed.kafka_callback import KafkaCallback
+    from cryptofeed.kafka_callback import KafkaConfig
+
+    # Example:
+    config = KafkaConfig(
+        bootstrap_servers=['kafka:9092'],
+        topic={'strategy': 'consolidated'},
+        partition={'strategy': 'composite'}
+    )
+    callback = KafkaCallback(kafka_config=config, serialization_format='protobuf')
+
+This legacy module will be removed in a future release.
 '''
 from collections import defaultdict
 import asyncio
 import logging
+import warnings
 from typing import Optional, ByteString
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import RequestTimedOutError, KafkaConnectionError, NodeNotReadyError
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
 
 LOG = logging.getLogger('feedhandler')
 
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "cryptofeed.backends.kafka is deprecated. "
+    "Please migrate to cryptofeed.kafka_callback.KafkaCallback for TopicManager, "
+    "HeaderEnricher, and enhanced error handling. "
+    "See module docstring for migration guide.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 
 class KafkaCallback(BackendQueue):
-    def __init__(self, key=None, numeric_type=float, none_to=None, **kwargs):
+    def __init__(self, key=None, serialization_format=None, numeric_type=float, none_to=None, **kwargs):
         """
         You can pass configuration options to AIOKafkaProducer as keyword arguments.
         (either individual kwargs, an unpacked dictionary `**config_dict`, or both)
@@ -43,8 +82,13 @@ class KafkaCallback(BackendQueue):
         self.key: str = key or self.default_key
         self.numeric_type = numeric_type
         self.none_to = none_to
+        self.set_serialization_format(serialization_format)
         # Do not allow writer to send messages until connection confirmed
         self.running = False
+
+    async def __call__(self, dtype, receipt_timestamp: float):
+        # Use parent class serialization handling (handles both JSON and Protobuf)
+        await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
     def _default_serializer(self, to_bytes: dict | str) -> ByteString:
         if isinstance(to_bytes, dict):
@@ -76,13 +120,38 @@ class KafkaCallback(BackendQueue):
                         LOG.info(f'{self.__class__.__name__}: "{self.producer.client._client_id}" connected to cluster containing {len(self.producer.client.cluster.brokers())} broker(s)')
                         self.running = True
 
-    def topic(self, data: dict) -> str:
-        return f"{self.key}-{data['exchange']}-{data['symbol']}"
+    def _default_serializer(self, to_bytes: dict | str) -> ByteString:
+        if isinstance(to_bytes, dict):
+            return json.dumpb(to_bytes)
+        elif isinstance(to_bytes, str):
+            return to_bytes.encode()
+        elif isinstance(to_bytes, bytes):
+            return to_bytes
+        else:
+            raise TypeError(f'{type(to_bytes)} is not a valid Serialization type')
 
-    def partition_key(self, data: dict) -> Optional[bytes]:
+    def topic(self, data: dict | bytes) -> str:
+        """Determine topic based on data format and metadata."""
+        if isinstance(data, bytes):
+            # Protobuf: use data type for hierarchical topic
+            data_type = getattr(self, 'protobuf_data_type', self.key)
+            return f"cryptofeed.market.{data_type}.protobuf"
+
+        # JSON: use key, exchange, symbol for backward compatibility
+        if isinstance(data, dict):
+            return f"{self.key}-{data.get('exchange', 'unknown')}-{data.get('symbol', 'unknown')}"
+
+        return self.key
+
+    def partition_key(self, data: dict | bytes) -> Optional[bytes]:
+        """Get partition key from symbol when available."""
+        if isinstance(data, dict):
+            symbol = data.get('symbol')
+            if symbol:
+                return str(symbol).encode('utf-8')
         return None
 
-    def partition(self, data: dict) -> Optional[int]:
+    def partition(self, data: dict | bytes) -> Optional[int]:
         return None
 
     async def writer(self):
@@ -90,11 +159,32 @@ class KafkaCallback(BackendQueue):
         while self.running:
             async with self.read_queue() as updates:
                 for index in range(len(updates)):
-                    topic = self.topic(updates[index])
-                    # Check for user-provided serializers, otherwise use default
-                    value = updates[index] if self.producer_config.get('value_serializer') else self._default_serializer(updates[index])
-                    key = self.key if self.producer_config.get('key_serializer') else self._default_serializer(self.key)
-                    partition = self.partition(updates[index])
+                    message = updates[index]
+                    topic = self.topic(message)
+
+                    # Extract key - use symbol from dict or default to key
+                    if isinstance(message, dict):
+                        raw_key = message.get('symbol') or self.key
+                    else:
+                        raw_key = self.key
+
+                    key_serializer = self.producer_config.get('key_serializer')
+                    if key_serializer:
+                        key = raw_key
+                    else:
+                        key = self._default_serializer(raw_key)
+
+                    # Serialize value based on type
+                    value_serializer = self.producer_config.get('value_serializer')
+
+                    if isinstance(message, bytes):
+                        # Protobuf: already serialized
+                        value = message if not value_serializer else message
+                    else:
+                        # JSON: serialize dict to bytes
+                        value = message if value_serializer else self._default_serializer(message)
+
+                    partition = self.partition(message)
                     try:
                         send_future = await self.producer.send(topic, value, key, partition)
                         await send_future
@@ -109,17 +199,44 @@ class KafkaCallback(BackendQueue):
 
 
 class TradeKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'trades'
+    protobuf_data_type = 'trades'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TradeKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class FundingKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'funding'
+    protobuf_data_type = 'funding'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "FundingKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class BookKafka(KafkaCallback, BackendBookCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'book'
+    protobuf_data_type = 'orderbook'
 
     def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
+        warnings.warn(
+            "BookKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.snapshots_only = snapshots_only
         self.snapshot_interval = snapshot_interval
         self.snapshot_count = defaultdict(int)
@@ -127,32 +244,112 @@ class BookKafka(KafkaCallback, BackendBookCallback):
 
 
 class TickerKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'ticker'
+    protobuf_data_type = 'ticker'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TickerKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class OpenInterestKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'open_interest'
+    protobuf_data_type = 'open_interest'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "OpenInterestKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class LiquidationsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'liquidations'
+    protobuf_data_type = 'liquidation'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "LiquidationsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class CandlesKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'candles'
+    protobuf_data_type = 'candles'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "CandlesKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class OrderInfoKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'order_info'
+    protobuf_data_type = 'order_info'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "OrderInfoKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class TransactionsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'transactions'
+    protobuf_data_type = 'transactions'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "TransactionsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class BalancesKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'balances'
+    protobuf_data_type = 'balances'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "BalancesKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 class FillsKafka(KafkaCallback, BackendCallback):
+    """DEPRECATED: Use cryptofeed.kafka_callback.KafkaCallback instead."""
     default_key = 'fills'
+    protobuf_data_type = 'fills'
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "FillsKafka is deprecated. Use cryptofeed.kafka_callback.KafkaCallback instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)

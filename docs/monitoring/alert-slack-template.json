@@ -1,0 +1,195 @@
+{
+  "example_slack_webhook_config": {
+    "description": "Example Alertmanager configuration for Slack notifications",
+    "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+    "channel": "#kafka-alerts",
+    "message_template": {
+      "fallback": "{{ .AlertName }}: {{ .Labels.severity | title }} Alert for {{ .Labels.service }}",
+      "color_mapping": {
+        "critical": "danger",
+        "warning": "warning",
+        "info": "good"
+      },
+      "fields": {
+        "alert_name": "{{ .AlertName }}",
+        "severity": "{{ .Labels.severity | title }}",
+        "service": "{{ .Labels.service }}",
+        "component": "{{ .Labels.component }}",
+        "status": "{{ .Status }}",
+        "current_value": "{{ .Value }}",
+        "summary": "{{ .Annotations.summary }}",
+        "started": "{{ .StartsAt | date \"2006-01-02 15:04:05 MST\" }}"
+      }
+    }
+  },
+  "slack_webhook_payload_example": {
+    "description": "Example Slack webhook payload format",
+    "attachments": [
+      {
+        "fallback": "Kafka Producer Alert",
+        "color": "danger",
+        "title": "KafkaProducerErrorRateHigh",
+        "title_link": "https://grafana.local:3000/d/kafka-producer",
+        "fields": [
+          {
+            "title": "Severity",
+            "value": "CRITICAL",
+            "short": true
+          },
+          {
+            "title": "Service",
+            "value": "kafka-producer",
+            "short": true
+          },
+          {
+            "title": "Component",
+            "value": "producer",
+            "short": true
+          },
+          {
+            "title": "Alert Name",
+            "value": "KafkaProducerErrorRateHigh",
+            "short": true
+          },
+          {
+            "title": "Summary",
+            "value": "Kafka producer error rate > 1% for 5 minutes",
+            "short": false
+          },
+          {
+            "title": "Current Value",
+            "value": "2.5%",
+            "short": true
+          },
+          {
+            "title": "Threshold",
+            "value": ">1%",
+            "short": true
+          },
+          {
+            "title": "Started At",
+            "value": "2025-11-12 14:32:00 UTC",
+            "short": true
+          },
+          {
+            "title": "Status",
+            "value": "firing",
+            "short": true
+          },
+          {
+            "title": "Action Items",
+            "value": "1. Check producer logs: journalctl -u cryptofeed-kafka-producer -f\n2. Verify Kafka brokers: kafka-broker-api-versions.sh --bootstrap-server localhost:9092\n3. Check network connectivity\n4. Review error types: sum by (error_type) (rate(produce_errors_total[5m]))",
+            "short": false
+          },
+          {
+            "title": "Runbook",
+            "value": "<https://docs.internal/kafka/troubleshooting.md#producer-error-rate|View Troubleshooting Guide>",
+            "short": false
+          },
+          {
+            "title": "Dashboard",
+            "value": "<https://grafana.local:3000/d/kafka-producer|View Grafana Dashboard>",
+            "short": false
+          }
+        ],
+        "footer": "Prometheus Alertmanager",
+        "footer_icon": "https://prometheus.io/assets/favicons/favicon.ico",
+        "ts": 1699999999
+      }
+    ]
+  },
+  "slack_integration_instructions": {
+    "step_1_create_webhook": "1. Go to Slack workspace settings",
+    "step_2_select_app": "2. Navigate to Apps > Apps Management > Custom Integrations > Incoming Webhooks",
+    "step_3_create_webhook": "3. Click 'Create New' and select your channel (#kafka-alerts)",
+    "step_4_copy_url": "4. Copy the Webhook URL (looks like: https://hooks.slack.com/services/T00/B00/XXXX)",
+    "step_5_configure_alertmanager": "5. Add to alertmanager.yml configuration (see example below)"
+  },
+  "alertmanager_config_example": {
+    "description": "Example alertmanager.yml configuration for Slack",
+    "content": {
+      "global": {
+        "resolve_timeout": "5m",
+        "slack_api_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+      },
+      "route": {
+        "receiver": "cryptofeed-kafka-alerts",
+        "group_by": ["alertname", "cluster", "service"],
+        "group_wait": "10s",
+        "group_interval": "10s",
+        "repeat_interval": "4h"
+      },
+      "receivers": [
+        {
+          "name": "cryptofeed-kafka-alerts",
+          "slack_configs": [
+            {
+              "channel": "#kafka-alerts",
+              "title": "{{ .GroupLabels.alertname }}",
+              "text": "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}",
+              "send_resolved": true,
+              "color": "{{ if eq .Status \"firing\" }}danger{{ else }}good{{ end }}",
+              "username": "Prometheus Alert Bot",
+              "icon_emoji": ":warning:",
+              "actions": [
+                {
+                  "type": "button",
+                  "text": "View in Grafana",
+                  "url": "https://grafana.local:3000/d/kafka-producer"
+                },
+                {
+                  "type": "button",
+                  "text": "Runbook",
+                  "url": "https://docs.internal/kafka/troubleshooting.md"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "cryptofeed-critical-alerts",
+          "slack_configs": [
+            {
+              "channel": "#critical-alerts",
+              "title": "CRITICAL: {{ .GroupLabels.alertname }}",
+              "text": "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}",
+              "send_resolved": true,
+              "color": "danger"
+            }
+          ],
+          "pagerduty_configs": [
+            {
+              "service_key": "YOUR_PAGERDUTY_SERVICE_KEY",
+              "description": "{{ .GroupLabels.alertname }}: {{ .GroupLabels.severity }}",
+              "details": "{{ range .Alerts }}{{ .Annotations.description }}{{ end }}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "color_reference": {
+    "description": "Color meanings in Slack alerts",
+    "danger": "Red - Critical severity, requires immediate action",
+    "warning": "Yellow - Warning severity, should investigate within 30 minutes",
+    "good": "Green - Info severity, normal operation or resolved alerts"
+  },
+  "notification_routing": {
+    "description": "Alert routing based on severity",
+    "critical_alerts": {
+      "targets": ["#critical-alerts", "PagerDuty"],
+      "route_to": "On-call Kafka engineer",
+      "sla": "5 minute response"
+    },
+    "warning_alerts": {
+      "targets": ["#kafka-alerts", "Slack channel"],
+      "route_to": "Team notification",
+      "sla": "30 minute response"
+    },
+    "info_alerts": {
+      "targets": ["#kafka-alerts", "Dashboard only"],
+      "route_to": "Dashboard monitoring",
+      "sla": "No immediate action required"
+    }
+  }
+}

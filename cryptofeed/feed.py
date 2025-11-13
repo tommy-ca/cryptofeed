@@ -75,54 +75,88 @@ class Feed(Exchange):
         self.checksum_validation = checksum_validation
         self.requires_authentication = False
         self._feed_config = defaultdict(list)
-        self.http_conn = HTTPAsyncConn(self.id, http_proxy)
+        self.http_conn = HTTPAsyncConn(self.id, http_proxy, exchange_id=self.id)
         self.http_proxy = http_proxy
         self.start_delay = delay_start
         self.candle_interval = candle_interval
         self.candle_closed_only = candle_closed_only
         self._sequence_no = {}
 
-        if self.valid_candle_intervals != NotImplemented:
-            if candle_interval not in self.valid_candle_intervals:
-                raise ValueError(f"Candle interval must be one of {self.valid_candle_intervals}")
-
-        if self.candle_interval_map != NotImplemented:
-            self.normalize_candle_interval = {value: key for key, value in self.candle_interval_map.items()}
-
-        if subscription is not None and (symbols is not None or channels is not None):
-            raise ValueError("Use subscription, or channels and symbols, not both")
-
-        if subscription is not None:
-            for channel in subscription:
-                chan = self.std_channel_to_exchange(channel)
-                if self.is_authenticated_channel(channel):
-                    if not self.key_id or not self.key_secret:
-                        raise ValueError("Authenticated channel subscribed to, but no auth keys provided")
-                    self.requires_authentication = True
-                self.normalized_symbols.extend(subscription[channel])
-                self.subscription[chan].update([self.std_symbol_to_exchange_symbol(symbol) for symbol in subscription[channel]])
-                self._feed_config[channel].extend(self.normalized_symbols)
-
-        if symbols and channels:
-            if any(self.is_authenticated_channel(chan) for chan in channels):
-                if not self.key_id or not self.key_secret:
-                    raise ValueError("Authenticated channel subscribed to, but no auth keys provided")
-                self.requires_authentication = True
-
-            # if we dont have a subscription dict, we'll use symbols+channels and build one
-            [self._feed_config[channel].extend(symbols) for channel in channels]
-            self.normalized_symbols = symbols
-            self.normalized_channels = channels
-
-            symbols = [self.std_symbol_to_exchange_symbol(symbol) for symbol in symbols]
-            channels = list(set([self.std_channel_to_exchange(chan) for chan in channels]))
-            self.subscription = {chan: symbols for chan in channels}
+        self._configure_candle_intervals(candle_interval)
+        self._initialize_subscription(subscription, symbols, channels)
 
         self._feed_config = dict(self._feed_config)
         self._auth_token = None
 
         self._l3_book = {}
         self._l2_book = {}
+        self._initialize_callbacks(callbacks)
+
+    def _connect_rest(self):
+        """
+        Child classes should override this method to generate connection objects that
+        support their polled REST endpoints.
+        """
+        return []
+
+    def _configure_candle_intervals(self, candle_interval: str) -> None:
+        valid = getattr(self, "valid_candle_intervals", NotImplemented)
+        if valid is not NotImplemented and candle_interval not in valid:
+            raise ValueError(f"Candle interval must be one of {valid}")
+
+        cmap = getattr(self, "candle_interval_map", NotImplemented)
+        if cmap is not NotImplemented and cmap is not None:
+            self.normalize_candle_interval = {value: key for key, value in cmap.items()}
+        else:
+            # Default empty mapping to avoid attribute errors downstream
+            self.normalize_candle_interval = {}
+
+    def _initialize_subscription(self, subscription, symbols, channels) -> None:
+        if subscription is not None and (symbols is not None or channels is not None):
+            raise ValueError("Use subscription, or channels and symbols, not both")
+
+        if subscription is not None:
+            self._apply_subscription_dict(subscription)
+            return
+
+        if symbols and channels:
+            self._build_subscription_from_inputs(symbols, channels)
+
+    def _apply_subscription_dict(self, subscription) -> None:
+        for channel, symbol_list in subscription.items():
+            exchange_channel = self.std_channel_to_exchange(channel)
+            self._enforce_auth_for_channel(channel)
+            self.normalized_symbols.extend(symbol_list)
+            converted_symbols = [self.std_symbol_to_exchange_symbol(symbol) for symbol in symbol_list]
+            self.subscription[exchange_channel].update(converted_symbols)
+            self._feed_config[channel].extend(self.normalized_symbols)
+
+    def _build_subscription_from_inputs(self, symbols, channels) -> None:
+        self._ensure_auth_for_channels(channels)
+        for channel in channels:
+            self._feed_config[channel].extend(symbols)
+        self.normalized_symbols = symbols
+        self.normalized_channels = channels
+
+        converted_symbols = [self.std_symbol_to_exchange_symbol(symbol) for symbol in symbols]
+        exchange_channels = list({self.std_channel_to_exchange(chan) for chan in channels})
+        self.subscription = {chan: converted_symbols for chan in exchange_channels}
+
+    def _enforce_auth_for_channel(self, channel: str) -> None:
+        if self.is_authenticated_channel(channel):
+            self._require_auth_keys()
+            self.requires_authentication = True
+
+    def _ensure_auth_for_channels(self, channels) -> None:
+        if any(self.is_authenticated_channel(chan) for chan in channels):
+            self._require_auth_keys()
+            self.requires_authentication = True
+
+    def _require_auth_keys(self) -> None:
+        if not self.key_id or not self.key_secret:
+            raise ValueError("Authenticated channel subscribed to, but no auth keys provided")
+
+    def _initialize_callbacks(self, callbacks) -> None:
         self.callbacks = {FUNDING: Callback(None),
                           INDEX: Callback(None),
                           L2_BOOK: Callback(None),
@@ -146,13 +180,6 @@ class Feed(Exchange):
             if not isinstance(callback, list):
                 self.callbacks[key] = [callback]
 
-    def _connect_rest(self):
-        """
-        Child classes should override this method to generate connection objects that
-        support their polled REST endpoints.
-        """
-        return []
-
     def connect(self) -> List[Tuple[AsyncConnection, Callable[[None], None], Callable[[str, float], None]]]:
         """
         Generic websocket connection method for exchanges. Uses the websocket endpoints defined in the
@@ -174,11 +201,11 @@ class Feed(Exchange):
                         sub[channel] = []
                     sub[channel].append(pair)
                     if sum(map(len, sub.values())) == limit:
-                        ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=sub, **options), self.subscribe, self.message_handler, self.authenticate))
+                        ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=sub, exchange_id=self.id, **options), self.subscribe, self.message_handler, self.authenticate))
                         sub = {}
 
             if sum(map(len, sub.values())) > 0:
-                ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=sub, **options), self.subscribe, self.message_handler, self.authenticate))
+                ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=sub, exchange_id=self.id, **options), self.subscribe, self.message_handler, self.authenticate))
             return ret
 
         ret = self._connect_rest()
@@ -209,9 +236,9 @@ class Feed(Exchange):
             else:
                 if isinstance(addr, list):
                     for add in addr:
-                        ret.append((WSAsyncConn(add, self.id, authentication=auth, subscription=filtered_sub, **endpoint.options), self.subscribe, self.message_handler, self.authenticate))
+                        ret.append((WSAsyncConn(add, self.id, authentication=auth, subscription=filtered_sub, exchange_id=self.id, **endpoint.options), self.subscribe, self.message_handler, self.authenticate))
                 else:
-                    ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=filtered_sub, **endpoint.options), self.subscribe, self.message_handler, self.authenticate))
+                    ret.append((WSAsyncConn(addr, self.id, authentication=auth, subscription=filtered_sub, exchange_id=self.id, **endpoint.options), self.subscribe, self.message_handler, self.authenticate))
 
         return ret
 

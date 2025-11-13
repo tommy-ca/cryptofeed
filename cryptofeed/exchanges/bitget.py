@@ -12,7 +12,7 @@ from time import time
 from typing import Dict, List, Tuple, Union
 from collections import defaultdict
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
 from cryptofeed.defines import ASK, BALANCES, BID, BITGET, BUY, CANCELLED, CANDLES, FILLED, L2_BOOK, LONG, OPEN, ORDER_INFO, PARTIAL, PERPETUAL, POSITIONS, SELL, SHORT, SPOT, TICKER, TRADES

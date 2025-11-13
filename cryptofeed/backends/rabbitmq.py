@@ -8,7 +8,7 @@ import asyncio
 from collections import defaultdict
 
 import aio_pika
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback
 

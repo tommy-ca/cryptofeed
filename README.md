@@ -17,6 +17,8 @@ Handles multiple cryptocurrency exchange data feeds and returns normalized and s
 * [Blockchain.com](https://www.blockchain.com/)
 * [Bybit](https://www.bybit.com/)
 * [Binance](https://www.binance.com/en)
+### Actively maintained connectors
+
 * [Binance Delivery](https://binance-docs.github.io/apidocs/delivery/en/)
 * [Binance Futures](https://www.binance.com/en/futures)
 * [Binance US](https://www.binance.us/en)
@@ -29,15 +31,9 @@ Handles multiple cryptocurrency exchange data feeds and returns normalized and s
 * [Deribit](https://www.deribit.com/)
 * [dYdX](https://dydx.exchange/)
 * [FMFW.io](https://www.fmfw.io/)
-* [EXX](https://www.exx.com/)
 * [Gate.io](https://www.gate.io/)
 * [Gate.io Futures](https://www.gate.io/futures_center)
 * [Gemini](https://gemini.com/)
-* [HitBTC](https://hitbtc.com/)
-* [Huobi](https://www.hbg.com/)
-* [Huobi DM](https://www.huobi.com/en-us/markets/hb_dm/)
-* Huobi Swap (Coin-M and USDT-M)
-* [Independent Reserve](https://www.independentreserve.com/) 
 * [Kraken](https://www.kraken.com/)
 * [Kraken Futures](https://futures.kraken.com/)
 * [KuCoin](https://www.kucoin.com/)
@@ -48,6 +44,33 @@ Handles multiple cryptocurrency exchange data feeds and returns normalized and s
 * [ProBit](https://www.probit.com/)
 * [Upbit](https://sg.upbit.com/home)
 
+### Legacy / community-maintained connectors
+
+These connectors remain in the repository but are no longer part of the core regression matrix. Contributions are welcome, but new
+deployments should prefer the actively maintained list above. Additional community-maintained connectors are listed in docs/exchange.md.
+
+* [EXX](https://www.exx.com/)
+* [HitBTC](https://hitbtc.com/)
+* [Huobi](https://www.hbg.com/)
+* [Huobi DM](https://www.huobi.com/en-us/markets/hb_dm/)
+* Huobi Swap (Coin-M and USDT-M)
+* [Independent Reserve](https://www.independentreserve.com/)
+
+### Upcoming exchange integrations
+
+The roadmap prioritises modern derivatives venues with robust APIs:
+
+* Backpack – unified REST/WebSocket API (`api.backpack.exchange`) covering spot
+  and perpetual contracts, with account webhooks for order lifecycle events.
+* Hyperliquid – on-chain perpetual protocol with high-frequency book streams and
+  programmatic funding/vault data via `api.hyperliquid.xyz`.
+
+If you operate at one of these venues or would like to help with testing, please join the discussion in `docs/exchange.md`.
+
+
+### Generic exchange adapters
+
+Cryptofeed will expose a `CcxtFeed` that wraps ccxt (REST) and ccxt.pro (WebSocket) as a fallback for long-tail venues. See docs/exchange.md for the design sketch.
 
 ## Basic Usage
 
@@ -75,6 +98,34 @@ fh.run()
 ```
 
 Please see the [examples](https://github.com/bmoscon/cryptofeed/tree/master/examples) for more code samples and the [documentation](https://github.com/bmoscon/cryptofeed/blob/master/docs/README.md) for more information about the library usage.
+
+## E2E Testing
+
+Comprehensive end-to-end testing infrastructure with reproducible environments:
+
+**Quick Start**:
+```bash
+# Setup environment (uv-based, 10-100x faster than pip)
+./tests/e2e/setup_e2e_env.sh
+source .venv-e2e/bin/activate
+
+# Run tests
+pytest tests/unit/test_proxy_mvp.py -v                    # Smoke tests (52 tests)
+pytest tests/integration/test_live_*.py -v -m live_proxy  # Live tests (26 tests)
+```
+
+**Test Coverage**: 70/78 tests passing (89.7%)
+- Phase 1: Smoke tests (52/52 = 100%)
+- Phase 2: Live connectivity (7/8 = 87.5%)
+- Phase 2.5: Backpack enhanced (11/18 = 61%)
+
+**Features**:
+- ⚡ Fast reproducible setup (~25 seconds)
+- 🔒 Locked dependencies for consistency
+- 🌍 Proxy routing validation (HTTP + WebSocket)
+- ✅ Live exchange testing (Binance, Hyperliquid, Backpack)
+
+**Documentation**: See [docs/e2e/](docs/e2e/) for detailed guides
 
 
 For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).

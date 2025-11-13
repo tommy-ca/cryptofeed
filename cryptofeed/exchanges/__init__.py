@@ -1,11 +1,54 @@
-'''
+"""
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
-'''
-from cryptofeed.defines import *
-from cryptofeed.defines import EXX as EXX_str, FMFW as FMFW_str, OKX as OKX_str
+"""
+
+from cryptofeed.defines import (
+    ASCENDEX,
+    ASCENDEX_FUTURES,
+    BACKPACK,
+    BEQUANT,
+    BINANCE,
+    BINANCE_DELIVERY,
+    BINANCE_FUTURES,
+    BINANCE_TR,
+    BINANCE_US,
+    BITDOTCOM,
+    BITFINEX,
+    BITFLYER,
+    BITGET,
+    BITHUMB,
+    BITMEX,
+    BITSTAMP,
+    BLOCKCHAIN,
+    BYBIT,
+    COINBASE,
+    CRYPTODOTCOM,
+    DELTA,
+    DERIBIT,
+    DYDX,
+    EXX as EXX_const,
+    FMFW as FMFW_const,
+    GATEIO,
+    GATEIO_FUTURES,
+    GEMINI,
+    HITBTC,
+    HUOBI,
+    HUOBI_DM,
+    HUOBI_SWAP,
+    INDEPENDENT_RESERVE,
+    KRAKEN,
+    KRAKEN_FUTURES,
+    KUCOIN,
+    OKCOIN,
+    OKX as OKX_const,
+    PHEMEX,
+    POLONIEX,
+    PROBIT,
+    UPBIT,
+)
 from .bitdotcom import BitDotCom
 from .phemex import Phemex
 from .ascendex import AscendEX
@@ -47,6 +90,8 @@ from .okcoin import OKCoin
 from .poloniex import Poloniex
 from .probit import Probit
 from .upbit import Upbit
+from .backpack.feed import BackpackFeed
+from .shim_monitor import get_shim_usage as get_shim_usage
 
 # Maps string name to class name for use with config
 EXCHANGE_MAP = {
@@ -58,7 +103,7 @@ EXCHANGE_MAP = {
     BINANCE_US: BinanceUS,
     BINANCE_TR: BinanceTR,
     BINANCE: Binance,
-    FMFW_str: FMFW,
+    FMFW_const: FMFW,
     BITDOTCOM: BitDotCom,
     BITFINEX: Bitfinex,
     BITFLYER: Bitflyer,
@@ -73,7 +118,7 @@ EXCHANGE_MAP = {
     DERIBIT: Deribit,
     DELTA: Delta,
     DYDX: dYdX,
-    EXX_str: EXX,
+    EXX_const: EXX,
     GATEIO: Gateio,
     GATEIO_FUTURES: GateioFutures,
     GEMINI: Gemini,
@@ -86,9 +131,11 @@ EXCHANGE_MAP = {
     KRAKEN: Kraken,
     KUCOIN: KuCoin,
     OKCOIN: OKCoin,
-    OKX_str: OKX,
+    OKX_const: OKX,
     PHEMEX: Phemex,
     POLONIEX: Poloniex,
     PROBIT: Probit,
     UPBIT: Upbit,
 }
+
+EXCHANGE_MAP[BACKPACK] = BackpackFeed

@@ -7,7 +7,7 @@ associated with this software.
 from collections import defaultdict
 import logging
 
-from yapic import json
+from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback
 from cryptofeed.backends.http import HTTPCallback

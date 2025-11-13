@@ -1,0 +1,34 @@
+# Implementation Plan
+
+- [ ] 1. Decimal-safe schema regression pipeline
+  - Introduce DecimalLoader leveraging `cryptofeed.json_utils`
+  - Update `_compare_decimals` to operate on Decimal operands only
+  - Extend parity report schema with tolerance metadata
+  - _Requirements: 1_
+- [ ] 1.1 Harden fixture ingestion edge cases
+  - Add malformed-line diagnostics with line numbers
+  - Support `--strict` flag to continue on load errors
+  - _Requirements: 1_
+- [ ] 2. Unified dataclass factory coverage
+  - Build registry over `cryptofeed.types` exports with caching
+  - Replace lambda constructors in `schema_regression.py`
+  - Emit actionable warnings for missing factories
+  - _Requirements: 2_
+- [ ] 2.1 Backfill fixture set for uncovered event types
+  - Capture sample JSONL for order book, liquidation, balance, etc.
+  - Ensure regression passes once factories enabled
+  - _Requirements: 2_
+- [ ] 3. Automated protobuf converter synchronization
+  - Implement registry builder validating converter ↔ schema parity
+  - Replace `_CONVERTER_MAP`/`_SCHEMA_CLASS_MAP` with generated data
+  - Surface CI guard to prevent drift
+  - _Requirements: 3_
+- [ ] 3.1 Document regeneration workflow for converters
+  - Add developer docs outlining sync command and failure modes
+  - Reference new CI gate expectations
+  - _Requirements: 3_
+- [ ] 5. Verification and rollout
+  - Add unit/integration tests for loader, adapters, registry
+  - Benchmark regression runtime with Decimal path
+  - Update documentation and changelog entries
+  - _Requirements: 1, 2, 3_

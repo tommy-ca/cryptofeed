@@ -1,0 +1,32 @@
+version: 1
+workflows:
+  local:
+    tools:
+      ruff_backpack:
+        command:
+        - ruff
+        - check
+        - cryptofeed/exchanges/backpack
+      ruff_ccxt:
+        command:
+        - ruff
+        - check
+        - cryptofeed/exchanges/ccxt
+      ruff_proxy:
+        command:
+        - ruff
+        - check
+        - cryptofeed/proxy.py
+    steps:
+    - command:
+      - qlty
+      - smells
+      - cryptofeed/exchanges/backpack
+      - cryptofeed/exchanges/ccxt
+      - cryptofeed/proxy.py
+    - command:
+      - qlty
+      - metrics
+      - cryptofeed/exchanges/backpack
+      - cryptofeed/exchanges/ccxt
+      - cryptofeed/proxy.py
