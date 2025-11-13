@@ -273,20 +273,38 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 
 ## 📞 Contact Information
 
-**Engineering Lead**: [Name] - Slack #eng-leads
-**DevOps Lead**: [Name] - Slack #platform-ops
-**SRE Lead**: [Name] - Slack #sre
-**QA Lead**: [Name] - Slack #qa
+⚠️ **IMPORTANT**: Contact information must be filled in before Week 1 execution. See [Contact Registry] section below.
 
-**Emergency Escalation**:
+**Team Leads** (Update with internal contact registry):
+- **Engineering Lead**: [See contact registry] - Slack #eng-leads
+- **DevOps Lead**: [See contact registry] - Slack #platform-ops
+- **SRE Lead**: [See contact registry] - Slack #sre
+- **QA Lead**: [See contact registry] - Slack #qa
+
+**Emergency Escalation** (Fixed channels):
 - L1 (SRE): Slack #sre-oncall, PagerDuty
 - L2 (DevOps + Engineering): Slack #eng-oncall, PagerDuty
 - L3 (Engineering Lead): Slack #eng-leads, Email
 
-**Stakeholder Channels**:
+**Stakeholder Channels** (Fixed):
 - Data Engineering: #data-engineering
 - Platform Ops: #platform-ops
 - SRE: #sre
+
+### Contact Registry Reference
+
+| Role | Contact Method | Channel | External? |
+|------|----------------|---------|-----------|
+| Engineering Lead | Slack/Email | #eng-leads, email-registry | Internal |
+| DevOps Lead | Slack/Email | #platform-ops, email-registry | Internal |
+| SRE Lead | Slack/PagerDuty | #sre, PagerDuty | Internal |
+| QA Lead | Slack/Email | #qa, email-registry | Internal |
+
+**To Complete This Section**:
+1. Obtain actual names from internal contact registry
+2. Replace "[See contact registry]" with "Name (role)" format
+3. Verify Slack IDs are current before Week 1
+4. Test escalation paths in dry-run (use #test-escalation channel)
 
 ---
 
@@ -306,6 +324,7 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 - [ ] Team handoff materials reviewed
 - [ ] Communication plan finalized
 - [ ] Git workflow approved
+- [ ] **Contact information verified** (all team leads confirmed from contact registry)
 
 **Go/No-Go Decision**: [PENDING REVIEW]
 

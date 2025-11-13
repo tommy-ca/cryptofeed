@@ -218,12 +218,83 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 7. **Topic Partition Metrics**: Partition distribution
 8. **Alert History**: Recent alert firing
 
-### Dashboard URL
+### Dashboard URL & Authentication (REQUIRED)
 
+⚠️ **CRITICAL SECURITY**: All dashboards must be protected by authentication. Public/unauthenticated access is NOT ALLOWED.
+
+**Supported Authentication Methods**:
+1. **SSO (Recommended)**: SAML 2.0, OpenID Connect (Google, Okta, Keycloak)
+2. **OAuth 2.0**: GitHub, Google Workspace, Azure AD
+3. **Kerberos**: For corporate environments
+4. **LDAP**: For on-premises directories
+
+**Grafana Security Configuration**:
+```bash
+# Enable authentication (grafana.ini)
+auth.anonymous.enabled = false              # Disable anonymous access
+auth.proxy.enabled = true                   # Enable reverse proxy auth
+auth.proxy.header_name = X-Authenticated-User
+auth.proxy.header_property = username
+
+# Enable HTTPS/TLS
+[server]
+protocol = https
+cert_file = /etc/grafana/certs/cert.pem
+cert_key = /etc/grafana/certs/key.pem
+
+# Enforce strong passwords
+[security]
+password_validation_enabled = true
+password_validation_pattern = ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$
 ```
-Production: http://grafana.example.com/d/kafka-producer
-Staging: http://grafana-staging.example.com/d/kafka-producer
+
+**Environment Configuration**:
+```bash
+export GRAFANA_PROD_URL="https://grafana.internal/d/kafka-producer"
+export GRAFANA_STAGING_URL="https://grafana-staging.internal/d/kafka-producer"
+export GRAFANA_AUTH_TYPE="SSO"              # or "OAUTH2", "KERBEROS", "LDAP"
+export GRAFANA_SSO_URL="https://sso.company.com"
+export GRAFANA_REQUIRE_VPN="true"           # or firewall rule
 ```
+
+**Access Control**:
+
+| Role | Teams | Dashboard Access | Alerting | Export |
+|------|-------|------------------|----------|--------|
+| **Admin** | DevOps, Engineering | Full | Manage rules | ✅ |
+| **Editor** | SRE, QA | Create dashboards | View rules | ✅ |
+| **Viewer** | All teams | View only | None | ❌ |
+| **Guest** | None | Not permitted | Not permitted | ❌ |
+
+**IP Whitelisting (Additional Layer)**:
+```bash
+# Firewall rule (if VPN not available)
+# Allow only from corporate network or VPN IP range
+iptables -A INPUT -p tcp --dport 3000 \
+  -s 10.0.0.0/8 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3000 -j DROP
+```
+
+**Audit Logging**:
+```bash
+# Monitor dashboard access logs
+tail -f /var/log/grafana/grafana.log | grep "auth"
+
+# Alert on failed login attempts
+grep "Invalid authentication token" /var/log/grafana/grafana.log | wc -l
+```
+
+**Pre-Execution Checklist**:
+- [ ] SSO/OAuth provider configured (Okta, Keycloak, Google, Azure AD)
+- [ ] TLS/HTTPS enabled with valid certificates
+- [ ] Anonymous access disabled
+- [ ] IP whitelisting or VPN requirement configured
+- [ ] User roles assigned (Admin, Editor, Viewer)
+- [ ] Password policy enforced (12+ chars, complexity)
+- [ ] Audit logging enabled and tested
+- [ ] Dashboard access tested by each team (in staging)
+- [ ] Session timeout configured (15-30 minutes)
+- [ ] MFA enabled for admin accounts (if supported)
 
 ---
 

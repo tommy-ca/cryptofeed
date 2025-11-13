@@ -436,20 +436,25 @@ Overall Status: ✅ MIGRATION SUCCESSFUL
 
 ## Contact Information
 
-**Engineering Lead**: [Name] - Slack #eng-leads
-**DevOps Lead**: [Name] - Slack #platform-ops
-**SRE Lead**: [Name] - Slack #sre
-**QA Lead**: [Name] - Slack #qa
+⚠️ **IMPORTANT**: Must fill in actual contact information from internal contact registry before Week 1 execution.
 
-**Emergency Escalation**:
+**Team Leads** (Update from contact registry):
+- **Engineering Lead**: [See contact registry] - Slack #eng-leads
+- **DevOps Lead**: [See contact registry] - Slack #platform-ops
+- **SRE Lead**: [See contact registry] - Slack #sre
+- **QA Lead**: [See contact registry] - Slack #qa
+
+**Emergency Escalation** (Fixed channels):
 - L1 (SRE): Slack #sre-oncall, PagerDuty
 - L2 (DevOps + Engineering): Slack #eng-oncall, PagerDuty
 - L3 (Engineering Lead): Slack #eng-leads, Email
 
-**Stakeholder Channels**:
+**Stakeholder Channels** (Fixed):
 - Data Engineering: #data-engineering
 - Platform Ops: #platform-ops
 - SRE: #sre
+
+**Pre-Execution Requirement**: Verify contact information from internal registry and test escalation paths in #test-escalation channel
 
 ---
 

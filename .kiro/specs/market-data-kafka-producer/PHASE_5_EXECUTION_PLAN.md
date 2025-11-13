@@ -487,11 +487,16 @@ python scripts/kafka-topic-creation.py --config scripts/kafka-topic-config.yaml 
 # Provision topics (production)
 python scripts/kafka-topic-creation.py --config scripts/kafka-topic-config.yaml
 
-# Validate topics
-kafka-topics.sh --bootstrap-server localhost:9092 --list | grep cryptofeed
+# Validate topics (replace KAFKA_BOOTSTRAP_SERVERS with your environment)
+kafka-topics.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS --list | grep cryptofeed
 
 # Check topic configuration
-kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic cryptofeed.trades
+kafka-topics.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS --describe --topic cryptofeed.trades
+```
+
+⚠️ **SECURITY CONFIGURATION REQUIRED**: Set environment variables before execution:
+```bash
+export KAFKA_BOOTSTRAP_SERVERS="<your-kafka-brokers>"  # e.g., kafka1:9092,kafka2:9092,kafka3:9092
 ```
 
 #### Day 2: Deployment Verification (Tuesday)
@@ -519,6 +524,10 @@ kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic cryptofeed.
 
 **Validation Commands**:
 ```bash
+# Set environment variables
+export KAFKA_BOOTSTRAP_SERVERS="<your-kafka-brokers>"      # e.g., kafka1:9092,kafka2:9092
+export PRODUCER_METRICS_URL="<your-producer-metrics-url>"  # e.g., http://producer.internal:8000/metrics
+
 # Deploy to staging
 kubectl apply -f k8s/staging/kafka-producer.yaml
 
@@ -526,12 +535,17 @@ kubectl apply -f k8s/staging/kafka-producer.yaml
 kubectl rollout status deployment/kafka-producer -n staging
 
 # Validate messages
-kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+kafka-console-consumer.sh --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
   --topic cryptofeed.trades --from-beginning --max-messages 10
 
 # Check producer metrics
-curl http://localhost:8000/metrics | grep kafka_producer
+curl $PRODUCER_METRICS_URL | grep kafka_producer
 ```
+
+⚠️ **SECURITY NOTES**:
+- All internal hostnames must use private/internal addressing
+- Metrics endpoints should be protected by authentication
+- Consider enabling TLS for all connections
 
 #### Day 3: Consumer Preparation (Wednesday)
 
@@ -2072,11 +2086,13 @@ gh pr create --base main --head next \
 - Platform Ops: #platform-ops Slack channel
 - SRE: #sre Slack channel
 
-**Emergency Contacts**:
-- Engineering Lead: [Name] ([email])
-- Architect: [Name] ([email])
-- DevOps Lead: [Name] ([email])
-- SRE Lead: [Name] ([email])
+**Emergency Contacts** (Update from internal contact registry):
+- Engineering Lead: [See contact registry] (email: see registry)
+- Architect: [See contact registry] (email: see registry)
+- DevOps Lead: [See contact registry] (email: see registry)
+- SRE Lead: [See contact registry] (email: see registry)
+
+⚠️ **IMPORTANT**: Must update all contacts from internal contact registry before Week 1 execution. Test escalation in #test-escalation channel.
 
 ---
 
