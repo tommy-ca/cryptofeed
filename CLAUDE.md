@@ -78,6 +78,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Dependencies**: CCXT generic and Backpack specs (in progress)
   - **Next Step**: Review and approve design before proceeding
 
+- `cryptofeed-quixstreams-source`: Initialized (Nov 14, 2025) - CryptofeedSource for QuixStreams streaming framework
+  - **Status**: Specification initialized, requirements generation pending
+  - **Purpose**: Seamless integration of Cryptofeed's Kafka producer with QuixStreams, enabling real-time market data analytics
+  - **Data Types**: Consumes all 14 protobuf message types (trade, ticker, orderbook, etc.)
+  - **Dependencies**: market-data-kafka-producer (COMPLETE), protobuf-callback-serialization (COMPLETE), normalized-data-schema-crypto (COMPLETE)
+  - **Timeline**: 4 weeks to production-ready (Phase 1: Core, Phase 2: Error handling, Phase 3: Monitoring, Phase 4: Production)
+  - **Next Step**: Generate requirements using `/kiro:spec-requirements cryptofeed-quixstreams-source`
+
 ---
 
 ## Architecture: Ingestion Layer
@@ -102,16 +110,16 @@ Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics a
                                           │ (Protobuf msgs)  │
                                           └────────┬─────────┘
                                                    │
-                ┌──────────────┬──────────────────┼──────────────┬──────────────┐
-                ▼              ▼                  ▼              ▼              ▼
-          ┌──────────┐   ┌──────────┐      ┌──────────┐   ┌──────────┐   ┌──────────┐
-          │ Flink    │   │ Spark    │      │ DuckDB   │   │ Custom   │   │ Iceberg  │
-          │ → Iceberg│   │ → Parquet│      │ Consumer │   │ Consumer │   │ Direct   │
-          └──────────┘   └──────────┘      └──────────┘   └──────────┘   └──────────┘
+                ┌─────────────┬──────────────────┬──────────────┬──────────────┬──────────────┐
+                ▼             ▼                  ▼              ▼              ▼              ▼
+          ┌──────────┐ ┌──────────┐      ┌──────────┐   ┌──────────┐   ┌──────────┐ ┌──────────┐
+          │ Flink    │ │QuixStreams│     │ DuckDB   │   │ Custom   │   │ Iceberg  │ │ Spark    │
+          │ → Iceberg│ │CryptofeedSrc    │ Consumer │   │ Consumer │   │ Direct   │ │ → Parquet│
+          └──────────┘ └──────────┘      └──────────┘   └──────────┘   └──────────┘ └──────────┘
 
           Consumer Responsibility (OUT-OF-SCOPE):
           - Read Kafka topics
-          - Deserialize protobuf
+          - Deserialize protobuf (CryptofeedSource handles for QuixStreams)
           - Implement storage (Iceberg, Parquet, DuckDB)
           - Implement analytics (aggregations, queries)
           - Implement retention policies
@@ -129,11 +137,12 @@ Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics a
 **Key Principle**: Cryptofeed stops at Kafka. Consumers handle everything downstream.
 
 ### ⏸️ Paused/Disabled Specifications
-- `quixstreams-integration`: Disabled (Oct 31, 2025) - Stream processing delegated to consumers
-  - **Status**: Archived, stream processing is not part of ingestion layer scope
+- `quixstreams-integration`: Replaced by `cryptofeed-quixstreams-source` (Nov 14, 2025)
+  - **Original Status**: Disabled (Oct 31, 2025) - Stream processing delegated to consumers
   - **Rationale**: Consumers can implement QuixStreams, Flink, Spark independently
-  - **Dependencies**: Can leverage protobuf schemas from `protobuf-callback-serialization`
-  - **Future**: If needed, implement as reference examples in consumer integration guide
+  - **Evolution**: Reconsidered as consumer integration pattern - now initializing as `cryptofeed-quixstreams-source` in Planning Phase
+  - **New Approach**: CryptofeedSource handles protobuf deserialization within consumer layer, not ingestion layer
+  - **Dependencies**: Leverages protobuf schemas from `protobuf-callback-serialization` and market data from `market-data-kafka-producer`
 
 - `cryptofeed-lakehouse-architecture`: Disabled (user request) - Data lakehouse architecture with real-time ingestion and analytics
   - **Status**: Can be reactivated anytime, all phases (requirements, design, tasks) prepared and approved
