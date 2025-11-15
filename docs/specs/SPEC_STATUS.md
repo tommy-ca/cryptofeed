@@ -399,16 +399,16 @@ python -m pytest tests/unit/kafka/test_phase2_error_handling.py::TestExactlyOnce
 ### 7. 📋 CryptofeedSource for QuixStreams
 
 **Spec Name**: `cryptofeed-quixstreams-source`
-**Phase**: Initialized
-**Status**: Planning Phase - Requirements Pending
+**Phase**: Tasks Generated
+**Status**: Ready for Implementation (Artifacts Approved)
 **Created**: November 14, 2025
-**Updated**: November 14, 2025
+**Updated**: November 15, 2025
 
 #### Status Summary
-- **Requirements**: ❌ Not generated
-- **Design**: ❌ Not generated
-- **Tasks**: ❌ Not generated
-- **Ready for Implementation**: ❌ NO
+- **Requirements**: ✅ Generated & approved (83 EARS criteria across 10 functional areas, 2025-11-14)
+- **Design**: ✅ Generated & approved (7-component architecture with circuit breaker, DLQ, RocksDB option)
+- **Tasks**: ✅ Generated & approved (16 tasks / 42 subtasks over 4 phases)
+- **Ready for Implementation**: ✅ YES — artifacts refreshed via `/kiro:spec-*` on Nov 15 after manual review
 
 #### Purpose
 Seamless integration of Cryptofeed's Kafka producer with QuixStreams streaming framework. Enables real-time market data analytics and aggregations by consuming protobuf-serialized messages from cryptofeed.trade, cryptofeed.orderbook, cryptofeed.ticker, and 11 other data type topics. Provides a QuixStreams-compatible Source class with comprehensive error handling (DLQ), state management, monitoring, and exactly-once semantics.
@@ -446,14 +446,16 @@ QuixStreams Application (analytics, aggregations)
 - Metadata: [`.kiro/specs/cryptofeed-quixstreams-source/spec.json`](../../.kiro/specs/cryptofeed-quixstreams-source/spec.json)
 
 #### Next Steps
-1. **Generate requirements** using `/kiro:spec-requirements cryptofeed-quixstreams-source`
-2. **Review and approve** requirements document
-3. **Generate technical design** using `/kiro:spec-design cryptofeed-quixstreams-source`
-4. **Generate implementation tasks** using `/kiro:spec-tasks cryptofeed-quixstreams-source`
-5. **Begin Phase 1 implementation** (core deserialization + Kafka consumer)
+1. **Kick off Phase 1 implementation** – tasks 1-5 cover QuixStreams Source lifecycle, Kafka adapter, deserializers, config loader, and baseline integration tests.
+2. **Prepare Phase 2 readiness** – line up DLQ topic, circuit-breaker telemetry, and retry configuration so Tasks 6-8 can start immediately after Phase 1 testing passes.
+3. **Align dependencies** – confirm Kafka topic/header schema from `market-data-kafka-producer` and protobuf objects from `protobuf-callback-serialization`/`normalized-data-schema-crypto` remain stable; capture any schema-version changes in Task 13.3 migration guide.
+4. **Stand up observability scaffolding** – reserve Prometheus/health endpoints and RocksDB storage (if enabled) ahead of Phase 3 to avoid infra blockers.
+5. **Document DLQ replay + schema migration expectations** – ensure Task 13.3 output (DLQ reprocessor + migration guide) has clear owners before production cutover.
 
 #### Notes
 Specification bridges Cryptofeed's ingestion layer (market-data-kafka-producer, COMPLETE) with QuixStreams stream processing ecosystem. Design leverages completed specs for protobuf handling and data normalization. Expected timeline: 4 weeks to production-ready implementation.
+
+- Nov 15, 2025: Requirements/design/tasks refreshed to clarify schema_version fallback behavior, add schema_version metric labels, and include optional RocksDB state-store implementation tasks ahead of Phase 1 kickoff.
 
 ---
 
