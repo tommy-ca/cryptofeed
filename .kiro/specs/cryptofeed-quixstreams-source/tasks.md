@@ -55,6 +55,15 @@ Establish the foundation with QuixStreams Source integration, Kafka consumer man
   - Log partition assignment events with partition details
   - _Requirements: 1.9, 2.3, 2.4, 2.9_
 
+- [ ] 1.5 Implement state manager and optional RocksDB store
+  - Build StateManager to track offsets per topic/partition and expose get_last_committed_offset()
+  - Implement dual-trigger commit logic (message_count OR elapsed seconds) with configurable thresholds
+  - Initialize RocksDB only when state_store_path is provided; operate in in-memory mode otherwise
+  - Provide read/write/flush APIs with partition key-prefixing for isolation
+  - Raise StateStoreException on RocksDB write/read failures and surface errors to shutdown logic
+  - Ensure state flush occurs during rebalance and shutdown paths
+  - _Requirements: 2.5, 5.1-5.14_
+
 ---
 
 - [ ] 2. Implement Kafka consumer integration layer
@@ -104,13 +113,13 @@ Establish the foundation with QuixStreams Source integration, Kafka consumer man
   - _Requirements: 3.1, 3.2_
 
 - [ ] 3.2 Implement message header extraction and metadata enrichment
-  - Extract required headers: exchange, symbol, data_type, schema_version
+  - Extract headers: exchange, symbol, data_type, schema_version (fallback to latest when header missing)
   - Validate header presence and format (UTF-8 strings)
   - Decode header bytes to UTF-8 strings with fallback to latin-1
   - Handle truncated headers gracefully with warning logs
   - Add operational metadata to deserialized message (_kafka_partition, _kafka_offset, _consumed_at)
   - Preserve timestamps in float seconds format throughout pipeline
-  - Enrich message with schema version for tracking compatibility
+  - Enrich message with schema version for tracking compatibility, annotating assumed values when defaults applied
   - _Requirements: 3.2, 3.9, 9.1, 9.2, 9.3_
 
 - [ ] 3.3 Implement data validation per type (Trade, OrderBook, Candle, Ticker)
@@ -352,11 +361,11 @@ Implement comprehensive Prometheus metrics, structured JSON logging, and health 
 - [ ] 9. Implement Prometheus metrics collection
 
 - [ ] 9.1 Build metrics counters and histograms
-  - Implement messages_consumed_total counter (labels: topic, partition, data_type, exchange)
-  - Implement messages_produced_total counter (labels: topic, partition, data_type, exchange)
-  - Implement messages_latency_seconds histogram (buckets: 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0)
-  - Implement errors_total counter (labels: error_type, topic, severity)
-  - Implement dlq_messages_total counter (labels: reason)
+  - Implement messages_consumed_total counter (labels: topic, partition, data_type, exchange, schema_version)
+  - Implement messages_produced_total counter (labels: topic, partition, data_type, exchange, schema_version)
+  - Implement messages_latency_seconds histogram (buckets: 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0) with labels: data_type, schema_version
+  - Implement errors_total counter (labels: error_type, topic, schema_version, severity)
+  - Implement dlq_messages_total counter (labels: reason, schema_version)
   - Record metrics synchronously at point of occurrence
   - Ensure metric recording overhead <100 microseconds per operation
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
@@ -434,6 +443,7 @@ Implement comprehensive Prometheus metrics, structured JSON logging, and health 
   - Verify messages_latency_seconds histogram recording with correct buckets
   - Verify errors_total counter incremented with correct labels
   - Verify dlq_messages_total counter incremented for DLQ writes
+  - Verify schema_version label populated on all message-level counters/histograms
   - Verify consumer_lag_offsets gauge updated per partition
   - Verify circuit_breaker_state gauge reflects state transitions
   - Verify Prometheus /metrics endpoint returns valid text format
@@ -771,4 +781,3 @@ Implement schema version compatibility, comprehensive production testing, deploy
 3. Verify effort estimates are realistic
 4. Approve tasks (set `approvals.tasks.approved: true`)
 5. Begin Phase 1 implementation
-
