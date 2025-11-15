@@ -1,7 +1,7 @@
 # Cryptofeed Specifications Status Report
 
-**Generated**: October 26, 2025
-**Current Branch**: feature/normalized-data-schema-crypto
+**Generated**: November 15, 2025
+**Current Branch**: next
 **Report Scope**: All active and inactive specifications
 
 ---
@@ -12,7 +12,8 @@
 |--------|-------|---------|
 | ✅ **Completed** | 4 | proxy-system-complete, normalized-data-schema-crypto, market-data-kafka-producer, protobuf-callback-serialization |
 | 🚧 **In Progress** | 2 | ccxt-generic-pro-exchange, backpack-exchange-integration |
-| 📋 **Planning Phase** | 2 | unified-exchange-feed-architecture (design not approved), cryptofeed-quixstreams-source (initialized) |
+| 🟢 **Implementation Ready** | 1 | cryptofeed-quixstreams-source (requirements/design/tasks approved) |
+| 📋 **Planning Phase** | 1 | unified-exchange-feed-architecture (design not approved) |
 | ⏸️ **Disabled** | 3 | cryptofeed-lakehouse-architecture, proxy-pool-system, external-proxy-service |
 | **Total** | **11** | |
 
