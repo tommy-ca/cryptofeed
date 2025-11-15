@@ -534,7 +534,7 @@ class ProtobufDeserializer:
     - Preconditions:
       * message_bytes is valid protobuf-encoded data
       * data_type matches one of 14 supported types
-      * headers contain required keys: exchange, symbol, data_type
+      * headers contain required keys: exchange, symbol, data_type (schema_version optional and defaults to latest when absent)
 
     - Postconditions:
       * Deserialized object contains all protobuf fields
@@ -1017,6 +1017,11 @@ class StateManager:
         pass
 ```
 
+**Optional Activation Rules**:
+- RocksDB support is disabled by default; `state_store_path` in configuration triggers `open_state_store()` during `configure()`.
+- When disabled, `write_state`/`read_state` become no-ops that skip filesystem access, ensuring stateless deployments avoid unnecessary I/O.
+- When enabled, StateManager verifies the directory exists (or creates it), prefixes keys with partition identifiers, and surfaces `StateStoreException` immediately if RocksDB operations fail so shutdown/rebalance handlers can respond deterministically.
+
 ---
 
 ### 3.6 MetricsCollector
@@ -1031,11 +1036,11 @@ class StateManager:
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `cryptofeed_quixstreams_messages_consumed_total` | Counter | topic, partition, data_type, exchange | Messages consumed from Kafka |
-| `cryptofeed_quixstreams_messages_produced_total` | Counter | topic, partition, data_type, exchange | Messages emitted to QuixStreams |
-| `cryptofeed_quixstreams_messages_latency_seconds` | Histogram | topic, data_type | End-to-end latency (Kafka consume to emit) |
-| `cryptofeed_quixstreams_errors_total` | Counter | error_type, topic, severity | Error count by type |
-| `cryptofeed_quixstreams_dlq_messages_total` | Counter | reason | Messages routed to DLQ |
+| `cryptofeed_quixstreams_messages_consumed_total` | Counter | topic, partition, data_type, exchange, schema_version | Messages consumed from Kafka |
+| `cryptofeed_quixstreams_messages_produced_total` | Counter | topic, partition, data_type, exchange, schema_version | Messages emitted to QuixStreams |
+| `cryptofeed_quixstreams_messages_latency_seconds` | Histogram | data_type, schema_version | End-to-end latency (Kafka consume to emit) |
+| `cryptofeed_quixstreams_errors_total` | Counter | error_type, topic, schema_version, severity | Error count by type |
+| `cryptofeed_quixstreams_dlq_messages_total` | Counter | reason, schema_version | Messages routed to DLQ |
 | `cryptofeed_quixstreams_consumer_lag_offsets` | Gauge | topic, partition | Lag in offsets (high_watermark - current) |
 | `cryptofeed_quixstreams_circuit_breaker_state` | Gauge | state_name | Circuit breaker state (0=CLOSED, 1=HALF_OPEN, 2=OPEN) |
 | `cryptofeed_quixstreams_kafka_broker_connectivity_status` | Gauge | broker | Broker connectivity (0=down, 1=up) |
@@ -1044,6 +1049,8 @@ class StateManager:
 
 **Histogram Buckets** (latency_seconds):
 - 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0 seconds
+
+Schema-version labels are constrained to the supported compatibility window plus the sentinel value `assumed_latest` (when fallback logic applies) to satisfy Requirement 8.11 without exploding Prometheus cardinality.
 
 **Contract Definition**:
 

@@ -196,6 +196,8 @@ CryptofeedSource integrates Cryptofeed's Kafka producer with the QuixStreams str
 
 13. WHEN CryptofeedSource shuts down THEN CryptofeedSource SHALL flush pending offsets, close state store handles, and persist final state to durable storage.
 
+14. IF state_store_path is not provided in configuration THEN CryptofeedSource SHALL skip RocksDB initialization entirely and operate in stateless mode without attempting to touch the filesystem.
+
 ---
 
 ## Requirement 6: Monitoring and Observability
@@ -204,15 +206,15 @@ CryptofeedSource integrates Cryptofeed's Kafka producer with the QuixStreams str
 
 ### Acceptance Criteria
 
-1. WHEN CryptofeedSource processes a message THEN CryptofeedSource SHALL increment a counter metric messages_consumed_total with labels: topic, partition, data_type, exchange.
+1. WHEN CryptofeedSource processes a message THEN CryptofeedSource SHALL increment a counter metric messages_consumed_total with labels: topic, partition, data_type, exchange, schema_version.
 
-2. WHEN CryptofeedSource successfully emits a message to the pipeline THEN CryptofeedSource SHALL increment messages_produced_total counter with identical labels.
+2. WHEN CryptofeedSource successfully emits a message to the pipeline THEN CryptofeedSource SHALL increment messages_produced_total counter with identical labels (including schema_version).
 
 3. WHEN an error occurs during message processing THEN CryptofeedSource SHALL increment errors_total counter with labels: error_type (e.g., "deserialization", "validation", "broker_error"), topic, severity (warning, error).
 
 4. WHEN a message is written to DLQ THEN CryptofeedSource SHALL increment dlq_messages_total counter with labels: reason (e.g., "parse_error", "validation_error", "size_exceeded").
 
-5. WHEN a message is consumed from Kafka and emitted to the pipeline THEN CryptofeedSource SHALL measure end-to-end latency (kafka_timestamp to emit time) and record in messages_latency_seconds histogram with buckets: 0.01, 0.1, 0.5, 1.0, 5.0 seconds.
+5. WHEN a message is consumed from Kafka and emitted to the pipeline THEN CryptofeedSource SHALL measure end-to-end latency (kafka_timestamp to emit time) and record in messages_latency_seconds histogram with buckets: 0.01, 0.1, 0.5, 1.0, 5.0 seconds and labels: data_type, schema_version.
 
 6. WHEN offset commit succeeds THEN CryptofeedSource SHALL record the committed offset and last_committed_offset metric with labels: topic, partition.
 
@@ -233,6 +235,8 @@ CryptofeedSource integrates Cryptofeed's Kafka producer with the QuixStreams str
 14. WHEN a health check request is received (GET /health) THEN CryptofeedSource SHALL return HTTP 200 with status: {"status": "healthy", "kafka_connected": bool, "circuit_breaker_state": string, "messages_processed": int}.
 
 15. IF Kafka broker is unreachable AND circuit breaker is OPEN THEN CryptofeedSource health check SHALL return HTTP 503 with status: {"status": "unhealthy", "reason": "kafka_unavailable"}.
+
+16. WHERE metrics leverage message metadata THEN CryptofeedSource SHALL propagate schema_version labels across all counters and histograms described above to satisfy Requirement 8.11.
 
 ---
 
@@ -308,17 +312,19 @@ CryptofeedSource integrates Cryptofeed's Kafka producer with the QuixStreams str
 
 ### Acceptance Criteria
 
-1. WHEN a Kafka message is consumed THEN CryptofeedSource SHALL extract and validate all expected headers: exchange, symbol, data_type, schema_version.
+1. WHEN a Kafka message is consumed THEN CryptofeedSource SHALL extract and validate all expected headers: exchange, symbol, data_type, schema_version, defaulting schema_version per Requirement 8.9 when absent.
 
 2. IF a required header (exchange, symbol, data_type) is missing THEN CryptofeedSource SHALL emit a validation error, log the missing header name, and route the message to DLQ.
 
-3. WHEN all headers are present AND valid THEN CryptofeedSource SHALL populate the deserialized message object attributes: msg.exchange, msg.symbol, msg.data_type, msg.schema_version.
+3. WHEN all headers are present AND valid (or schema_version defaults applied) THEN CryptofeedSource SHALL populate the deserialized message object attributes: msg.exchange, msg.symbol, msg.data_type, msg.schema_version.
 
 4. IF header value encoding is UTF-8 bytes THEN CryptofeedSource SHALL decode to string automatically with fallback to latin-1 if UTF-8 decode fails.
 
 5. WHEN a header value exceeds maximum length (default: 1000 chars) THEN CryptofeedSource SHALL truncate with warning log and append "[truncated]" suffix.
 
 6. WHERE partition strategy is "symbol-based" THEN CryptofeedSource SHALL validate that symbol header is present and consistent with the partition assignment strategy.
+
+7. WHEN schema_version is missing THEN CryptofeedSource SHALL log a warning, assume the latest supported schema (Requirement 8.9), and annotate emitted metadata with schema_version="assumed_latest" for downstream visibility.
 
 ---
 
