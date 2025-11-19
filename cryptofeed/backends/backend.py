@@ -126,6 +126,11 @@ class BackendCallback(ABC):
         self.numeric_type = numeric_type
         self.none_to = none_to
 
+    @abstractmethod
+    async def write(self, data):
+        """Write data to the backend. Must be implemented by subclasses."""
+        pass
+
     def set_serialization_format(self, format_name: str | None) -> None:
         """Persist an explicit serialization format override for this callback."""
 
