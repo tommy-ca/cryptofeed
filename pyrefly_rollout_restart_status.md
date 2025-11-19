@@ -11,8 +11,9 @@
 - **Enabled Types**: unbound-name, unsupported-operation, missing-attribute, bad-argument-type
 - **Error Count**: 718 (59 unsupported-operation + 37 unbound-name + 416 missing-attribute + 206 bad-argument-type)
 - **Branch**: pyrefly-rollout-restart-20251119
-- **Latest Commit**: 5c19b850
+- **Latest Commit**: 0165d9ab
 - **Generated Code**: Excluded from type checking (gen/**/*.py)
+- **Kiro Spec**: Created (.kiro/specs/pyrefly-type-error-reduction/)
 
 ## Progress Tracking
 - [x] Phase 0.1: Fix unsupported-operation errors (59 remaining, 11 fixed)
@@ -37,6 +38,7 @@
 - ✅ Enabled missing-attribute & bad-argument-type checks (675 new errors)
 - ✅ Fixed 57 missing-attribute errors (473 → 416, 12% reduction)
 - ✅ Configured pyrefly to exclude generated code (gen/**/*.py)
+- ✅ Created comprehensive kiro spec (.kiro/specs/pyrefly-type-error-reduction/)
 - ✅ Total errors now: 718 (down from ~920+ baseline, 22% reduction)
 
 ## Error Categories (Priority Order)
