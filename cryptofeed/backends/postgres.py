@@ -29,6 +29,9 @@ from cryptofeed.defines import (
 
 
 class PostgresCallback(BackendQueue):
+    # Default table - subclasses should override
+    default_table = "unknown"
+
     def __init__(
         self,
         host="127.0.0.1",
