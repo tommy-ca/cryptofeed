@@ -25,18 +25,27 @@ skip_gitignore = true
 lines_after_imports = 2
 ensure_newline_before_comments = true
 
-# Error code configuration - Phase 0: Foundation (Clean Restart from Master)
+# Pyrefly configuration - Exclude generated code
+[tool.pyrefly]
+# Exclude generated protobuf and schema files from type checking
+project_excludes = [
+    "gen/**/*.py",        # Generated protobuf Python files
+    "gen/**/*.json",      # Generated JSON schema files
+]
+
+# Error code configuration - Phase 0.3: Extended Foundation
 [tool.pyrefly.errors]
-# Phase 0: Enable only highest priority safety checks
-# Focus on runtime crash prevention first
+# Phase 0.3: Enable critical runtime safety checks
+# Focus on most common crash causes
 unbound-name = true          # Prevents NameError crashes
 unsupported-operation = true # Prevents TypeError crashes
+missing-attribute = true     # Prevents AttributeError crashes (252 errors)
+bad-argument-type = true     # Prevents function call errors (185 errors)
 
 # Explicitly disable all other types for controlled rollout
 annotation-mismatch = false
 assert-type = false
 bad-argument-count = false
-bad-argument-type = false
 bad-assignment = false
 bad-class-definition = false
 bad-context-manager = false
@@ -75,7 +84,6 @@ invalid-type-var = false
 invalid-type-var-tuple = false
 invalid-yield = false
 missing-argument = false
-missing-attribute = false
 missing-import = false
 missing-module-attribute = false
 missing-source = false

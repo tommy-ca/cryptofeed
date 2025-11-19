@@ -9,9 +9,10 @@
 ## Current Status
 - **Phase**: 0.3 (Extended Foundation - Missing Attributes) ✅ IN PROGRESS
 - **Enabled Types**: unbound-name, unsupported-operation, missing-attribute, bad-argument-type
-- **Error Count**: 733 (59 unsupported-operation + 37 unbound-name + 429 missing-attribute + 208 bad-argument-type)
+- **Error Count**: 729 (59 unsupported-operation + 37 unbound-name + 429 missing-attribute + 204 bad-argument-type)
 - **Branch**: pyrefly-rollout-restart-20251119
 - **Latest Commit**: 93e49fed
+- **Generated Code**: Excluded from type checking (gen/**/*.py)
 
 ## Progress Tracking
 - [x] Phase 0.1: Fix unsupported-operation errors (59 remaining, 11 fixed)
@@ -35,7 +36,8 @@
 - ✅ Fixed 10 unbound-name errors (47 → 37, 21% reduction)
 - ✅ Enabled missing-attribute & bad-argument-type checks (675 new errors)
 - ✅ Fixed 46 missing-attribute errors (473 → 429, 9% reduction)
-- ✅ Total errors now: 733 (down from ~920+ baseline, 20% reduction)
+- ✅ Configured pyrefly to exclude generated code (gen/**/*.py)
+- ✅ Total errors now: 729 (down from ~920+ baseline, 21% reduction)
 
 ## Error Categories (Priority Order)
 1. unsupported-operation (70) - TypeError prevention
