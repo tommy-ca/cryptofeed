@@ -138,6 +138,7 @@ class PostgresCallback(BackendQueue):
 
     async def write_batch(self, updates: list):
         await self._connect()
+        assert self.conn is not None
         args_str = ",".join([self.format(u) for u in updates])
 
         async with self.conn.transaction():
