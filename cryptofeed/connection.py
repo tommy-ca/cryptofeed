@@ -304,7 +304,7 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.post(
+            async with self.conn.post(  # type: ignore[attr-defined]
                 address,
                 data=msg,
                 headers=header,
@@ -337,7 +337,7 @@ class HTTPAsyncConn(AsyncConnection):
             await self._open()
 
         while True:
-            async with self.conn.delete(
+            async with self.conn.delete(  # type: ignore[attr-defined]
                 address,
                 headers=header,
                 **self._request_proxy_kwargs,
