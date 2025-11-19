@@ -7,10 +7,11 @@
 - **Baseline Errors**: 117 (70 unsupported-operation + 47 unbound-name)
 
 ## Current Status
-- **Phase**: 0 (Foundation)
+- **Phase**: 0 (Foundation) ✅ BASELINE COMPLETE
 - **Enabled Types**: unbound-name, unsupported-operation
-- **Error Count**: 117
+- **Error Count**: 117 (70 unsupported-operation + 47 unbound-name)
 - **Branch**: pyrefly-rollout-restart-20251119
+- **Commit**: 6f660c6d
 
 ## Progress Tracking
 - [ ] Phase 0.1: Fix unsupported-operation errors (70 remaining)
@@ -21,6 +22,13 @@
 - [ ] Phase 3: Function contracts (bad-argument-type, bad-function-definition)
 - [ ] Phase 4: Inheritance (bad-override, bad-param-name-override)
 - [ ] Phase 5: Advanced types (no-matching-overload, etc.)
+
+## Completed Actions
+- ✅ Reset 58 Python files to master state
+- ✅ Created backup branch: backup-fix-gha-failures-20251119
+- ✅ Configured Phase 0 baseline with controlled error types
+- ✅ Verified error count: 117 (down from ~920+)
+- ✅ Committed baseline with atomic commit
 
 ## Error Categories (Priority Order)
 1. unsupported-operation (70) - TypeError prevention
