@@ -47,6 +47,9 @@ class UDPProtocol:
 
 
 class SocketCallback(BackendQueue):
+    # Default key - subclasses should override
+    default_key = "unknown"
+
     def __init__(
         self,
         addr: str,
