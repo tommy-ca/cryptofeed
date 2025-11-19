@@ -15,6 +15,9 @@ LOG = logging.getLogger("feedhandler")
 
 
 class QuestCallback(SocketCallback):
+    # Default key - subclasses should override
+    default_key = "unknown"
+
     def __init__(self, host="127.0.0.1", port=9009, key=None, **kwargs):
         super().__init__(f"tcp://{host}", port=port, **kwargs)
         self.key = key if key else self.default_key
