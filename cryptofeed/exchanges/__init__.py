@@ -5,6 +5,8 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 """
 
+from typing import Any, Dict
+
 from cryptofeed.defines import (
     ASCENDEX,
     ASCENDEX_FUTURES,
@@ -94,7 +96,7 @@ from .backpack.feed import BackpackFeed
 from .shim_monitor import get_shim_usage as get_shim_usage
 
 # Maps string name to class name for use with config
-EXCHANGE_MAP = {
+EXCHANGE_MAP: Dict[str, Any] = {
     ASCENDEX: AscendEX,
     ASCENDEX_FUTURES: AscendEXFutures,
     BEQUANT: Bequant,
