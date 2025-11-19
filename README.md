@@ -125,7 +125,7 @@ pytest tests/integration/test_live_*.py -v -m live_proxy  # Live tests (26 tests
 - 🌍 Proxy routing validation (HTTP + WebSocket)
 - ✅ Live exchange testing (Binance, Hyperliquid, Backpack)
 
-**Documentation**: See [docs/e2e/](docs/e2e/) for detailed guides
+**Documentation**: See [docs/deliverables/](docs/deliverables/) for detailed guides
 
 
 For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
