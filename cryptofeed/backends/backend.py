@@ -11,6 +11,7 @@ from asyncio.queues import Queue
 from multiprocessing import Pipe, Process
 from contextlib import asynccontextmanager
 from typing import Union, cast
+from abc import ABC, abstractmethod
 
 from cryptofeed.backends.protobuf_helpers import (
     serialize_to_protobuf,
@@ -74,19 +75,20 @@ class BackendQueue:
             else:
                 yield [msg]
         else:
-            current_depth = self.queue.qsize()
+            queue = cast(Queue, self.queue)
+            current_depth = queue.qsize()
             if current_depth == 0:
-                update = await self.queue.get()
+                update = await queue.get()
                 if update == SHUTDOWN_SENTINEL:
                     yield []
                 else:
                     yield [update]
-                self.queue.task_done()
+                queue.task_done()
             else:
                 ret = []
                 count = 0
                 while current_depth > count:
-                    update = await self.queue.get()
+                    update = await queue.get()
                     count += 1
                     if update == SHUTDOWN_SENTINEL:
                         self.running = False
@@ -96,10 +98,10 @@ class BackendQueue:
                 yield ret
 
                 for _ in range(count):
-                    self.queue.task_done()
+                    queue.task_done()
 
 
-class BackendCallback:
+class BackendCallback(ABC):
     """
     Base class for backend callbacks with pluggable serialization support.
 
@@ -118,6 +120,11 @@ class BackendCallback:
     _explicit_serialization_format: str | None = None
     _serialization_log_state: tuple[str, str] | None = None
     _serialization_locked: bool = False
+
+    def __init__(self, numeric_type=float, none_to=None):
+        """Initialize backend callback with serialization parameters."""
+        self.numeric_type = numeric_type
+        self.none_to = none_to
 
     def set_serialization_format(self, format_name: str | None) -> None:
         """Persist an explicit serialization format override for this callback."""
@@ -221,6 +228,19 @@ class BackendCallback:
 
 
 class BackendBookCallback(BackendCallback):
+    def __init__(
+        self,
+        snapshots_only=False,
+        snapshot_interval=1000,
+        numeric_type=float,
+        none_to=None,
+    ):
+        """Initialize book callback with snapshot parameters."""
+        super().__init__(numeric_type=numeric_type, none_to=none_to)
+        self.snapshots_only = snapshots_only
+        self.snapshot_interval = snapshot_interval
+        self.snapshot_count = {}
+
     async def _write_snapshot(self, book, receipt_timestamp: float):
         data = book.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
         del data["delta"]
