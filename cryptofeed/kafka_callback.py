@@ -62,8 +62,7 @@ class KafkaTopicConfig(BaseModel):
         """Validate topic strategy is supported."""
         if v not in {"consolidated", "per_symbol"}:
             raise ValueError(
-                f"Invalid topic strategy: {v}. "
-                f"Must be 'consolidated' or 'per_symbol'"
+                f"Invalid topic strategy: {v}. Must be 'consolidated' or 'per_symbol'"
             )
         return v
 
@@ -214,9 +213,7 @@ class KafkaProducerConfig(BaseModel):
         """Validate compression_type is supported."""
         valid = {"none", "gzip", "snappy", "lz4", "zstd"}
         if v not in valid:
-            raise ValueError(
-                f"compression_type must be one of {valid}, got {v}"
-            )
+            raise ValueError(f"compression_type must be one of {valid}, got {v}")
         return v
 
 
@@ -256,12 +253,10 @@ class KafkaConfig(BaseModel):
 
     bootstrap_servers: list[str] = Field(description="Kafka broker addresses")
     topic: KafkaTopicConfig = Field(
-        default_factory=KafkaTopicConfig,
-        description="Topic configuration"
+        default_factory=KafkaTopicConfig, description="Topic configuration"
     )
     partition: KafkaPartitionConfig = Field(
-        default_factory=KafkaPartitionConfig,
-        description="Partition configuration"
+        default_factory=KafkaPartitionConfig, description="Partition configuration"
     )
     acks: str = Field(default="all", description="Delivery guarantee")
     idempotence: bool = Field(default=True, description="Enable idempotence")
@@ -333,7 +328,7 @@ class KafkaConfig(BaseModel):
         if not yaml_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
 
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
 
         if config_dict is None:
@@ -349,8 +344,9 @@ class TopicStrategy(Enum):
         CONSOLIDATED: Single topic per data type, aggregates all exchanges and symbols
         PER_SYMBOL: One topic per exchange-symbol pair (legacy support, higher topic count)
     """
-    CONSOLIDATED = 'consolidated'
-    PER_SYMBOL = 'per_symbol'
+
+    CONSOLIDATED = "consolidated"
+    PER_SYMBOL = "per_symbol"
 
 
 class TopicManager:
@@ -390,12 +386,23 @@ class TopicManager:
     # Supported data types (normalized to singular form for topic naming)
     # These match the protobuf schema message types and topic naming conventions
     SUPPORTED_DATA_TYPES = {
-        'trade', 'orderbook', 'ticker', 'candle', 'funding',
-        'liquidation', 'index', 'openinterest', 'fill', 'balance',
-        'position', 'margin', 'order', 'transaction'
+        "trade",
+        "orderbook",
+        "ticker",
+        "candle",
+        "funding",
+        "liquidation",
+        "index",
+        "openinterest",
+        "fill",
+        "balance",
+        "position",
+        "margin",
+        "order",
+        "transaction",
     }
 
-    STRATEGIES = {'consolidated', 'per_symbol'}
+    STRATEGIES = {"consolidated", "per_symbol"}
 
     @staticmethod
     def validate_strategy(strategy: str) -> None:
@@ -424,10 +431,9 @@ class TopicManager:
             ValueError: If data type is not supported
         """
         if data_type not in TopicManager.SUPPORTED_DATA_TYPES:
-            sorted_types = ', '.join(sorted(TopicManager.SUPPORTED_DATA_TYPES))
+            sorted_types = ", ".join(sorted(TopicManager.SUPPORTED_DATA_TYPES))
             raise ValueError(
-                f"Unsupported data type: {data_type}. "
-                f"Supported types: {sorted_types}"
+                f"Unsupported data type: {data_type}. Supported types: {sorted_types}"
             )
 
     @staticmethod
@@ -443,7 +449,7 @@ class TopicManager:
         Returns:
             Normalized symbol in lowercase with hyphens
         """
-        return str(symbol).lower().replace('_', '-')
+        return str(symbol).lower().replace("_", "-")
 
     @staticmethod
     def _normalize_exchange(exchange: str) -> str:
@@ -464,8 +470,8 @@ class TopicManager:
         data_type: str,
         symbol: str,
         exchange: str,
-        strategy: str = 'consolidated',
-        prefix: Optional[str] = None
+        strategy: str = "consolidated",
+        prefix: Optional[str] = None,
     ) -> str:
         """Generate topic name based on strategy.
 
@@ -514,28 +520,30 @@ class TopicManager:
         TopicManager.validate_data_type(data_type)
 
         # Validate required parameters for per_symbol strategy
-        if strategy == 'per_symbol':
+        if strategy == "per_symbol":
             if symbol is None or not symbol:
                 raise ValueError("symbol is required for per_symbol strategy")
             if exchange is None or not exchange:
                 raise ValueError("exchange is required for per_symbol strategy")
 
         # Generate base topic
-        if strategy == 'consolidated':
+        if strategy == "consolidated":
             # Consolidated: cryptofeed.{data_type}
-            base_topic = f'cryptofeed.{data_type}'
-        elif strategy == 'per_symbol':
+            base_topic = f"cryptofeed.{data_type}"
+        elif strategy == "per_symbol":
             # Per-symbol: cryptofeed.{data_type}.{exchange}.{symbol}
             normalized_symbol = TopicManager._normalize_symbol(symbol)
             normalized_exchange = TopicManager._normalize_exchange(exchange)
-            base_topic = f'cryptofeed.{data_type}.{normalized_exchange}.{normalized_symbol}'
+            base_topic = (
+                f"cryptofeed.{data_type}.{normalized_exchange}.{normalized_symbol}"
+            )
         else:
             # Should not reach here due to validate_strategy, but include for completeness
             raise ValueError(f"Unknown strategy: {strategy}")
 
         # Add prefix if provided and non-empty
         if prefix is not None and prefix.strip():
-            return f'{prefix.strip()}.{base_topic}'
+            return f"{prefix.strip()}.{base_topic}"
 
         return base_topic
 
@@ -547,21 +555,21 @@ _STOP_SENTINEL = object()
 # Method names follow BackendCallback conventions (may be plural or have underscores)
 # Topic names are singular and normalized for TopicManager validation
 _SUPPORTED_METHODS: Dict[str, str] = {
-    "trade": "trade",                   # method: trade → topic: trade
-    "orderbook": "orderbook",           # method: orderbook → topic: orderbook
-    "ticker": "ticker",                 # method: ticker → topic: ticker
-    "candle": "candle",                 # method: candle → topic: candle
-    "liquidation": "liquidation",       # method: liquidation → topic: liquidation
-    "funding": "funding",               # method: funding → topic: funding
-    "open_interest": "openinterest",    # method: open_interest → topic: openinterest (no underscore)
-    "order_info": "order",              # method: order_info → topic: order
-    "balances": "balance",              # method: balances (plural) → topic: balance (singular)
-    "transactions": "transaction",      # method: transactions (plural) → topic: transaction (singular)
-    "fills": "fill",                    # method: fills (plural) → topic: fill (singular)
-    "index": "index",                   # method: index → topic: index
-    "indices": "index",                 # method: indices (plural) → topic: index (singular)
-    "position": "position",             # method: position → topic: position
-    "positions": "position",            # method: positions (plural) → topic: position (singular)
+    "trade": "trade",  # method: trade → topic: trade
+    "orderbook": "orderbook",  # method: orderbook → topic: orderbook
+    "ticker": "ticker",  # method: ticker → topic: ticker
+    "candle": "candle",  # method: candle → topic: candle
+    "liquidation": "liquidation",  # method: liquidation → topic: liquidation
+    "funding": "funding",  # method: funding → topic: funding
+    "open_interest": "openinterest",  # method: open_interest → topic: openinterest (no underscore)
+    "order_info": "order",  # method: order_info → topic: order
+    "balances": "balance",  # method: balances (plural) → topic: balance (singular)
+    "transactions": "transaction",  # method: transactions (plural) → topic: transaction (singular)
+    "fills": "fill",  # method: fills (plural) → topic: fill (singular)
+    "index": "index",  # method: index → topic: index
+    "indices": "index",  # method: indices (plural) → topic: index (singular)
+    "position": "position",  # method: position → topic: position
+    "positions": "position",  # method: positions (plural) → topic: position (singular)
 }
 
 
@@ -573,6 +581,9 @@ class _QueuedMessage:
 
 
 class KafkaCallback(BackendCallback):
+    # KafkaCallback doesn't use default_key (uses topic-based routing)
+    default_key = "unknown"
+
     """Backend callback that routes normalized messages to Kafka.
 
     Supports two initialization modes:
@@ -623,7 +634,9 @@ class KafkaCallback(BackendCallback):
             # Backward compatible: direct parameters
             self.bootstrap_servers = list(bootstrap_servers)
             self.acks = acks
-            self.enable_idempotence = enable_idempotence if enable_idempotence is not None else True
+            self.enable_idempotence = (
+                enable_idempotence if enable_idempotence is not None else True
+            )
             # Create default configs for backward compatibility
             self.topic_config = KafkaTopicConfig()
             self.partition_config = KafkaPartitionConfig()
@@ -648,7 +661,9 @@ class KafkaCallback(BackendCallback):
         if serialization_format is not None:
             self.set_serialization_format(serialization_format)
 
-        self._queue: asyncio.Queue[_QueuedMessage | object] = asyncio.Queue(maxsize=queue_maxsize)
+        self._queue: asyncio.Queue[_QueuedMessage | object] = asyncio.Queue(
+            maxsize=queue_maxsize
+        )
 
         # Instantiate topic manager with config strategy (Task 4.3)
         self._topic_manager = TopicManager()
@@ -667,11 +682,7 @@ class KafkaCallback(BackendCallback):
             self._partition_key_cache = None
 
         # Instantiate header enricher (Task 4.3)
-        self._header_enricher = HeaderEnricher(
-            content_type="application/x-protobuf"
-            if serialization_format == "protobuf"
-            else "application/json"
-        )
+        self._header_enricher = HeaderEnricher()
 
         self._producer = KafkaProducer(
             self.bootstrap_servers,
@@ -686,6 +697,10 @@ class KafkaCallback(BackendCallback):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._writer_task: asyncio.Task | None = None
         self._running: bool = False
+
+    async def write(self, data):
+        """Write data to Kafka via queue (implements BackendCallback abstract method)."""
+        await self._queue.put(data)
 
     # ------------------------------------------------------------------
     # Lifecycle helpers
@@ -722,7 +737,9 @@ class KafkaCallback(BackendCallback):
     def queue_size(self) -> int:
         return self._queue.qsize()
 
-    def _queue_message(self, data_type: str, obj: Any, receipt_timestamp: Optional[float] = None) -> bool:
+    def _queue_message(
+        self, data_type: str, obj: Any, receipt_timestamp: Optional[float] = None
+    ) -> bool:
         """Queue a message for processing with backpressure protection.
 
         Args:
@@ -738,7 +755,9 @@ class KafkaCallback(BackendCallback):
         - Drop message to prevent blocking upstream data ingestion
         - Emit metrics for monitoring and alerting
         """
-        message = _QueuedMessage(data_type=data_type, obj=obj, receipt_timestamp=receipt_timestamp)
+        message = _QueuedMessage(
+            data_type=data_type, obj=obj, receipt_timestamp=receipt_timestamp
+        )
 
         # Extract metadata for error logging
         exchange = getattr(obj, "exchange", "unknown")
@@ -749,14 +768,17 @@ class KafkaCallback(BackendCallback):
         except asyncio.QueueFull:
             LOG.error(
                 "KafkaCallback queue is full; dropping %s message from %s/%s (queue size: %d)",
-                data_type, exchange, symbol, self._queue.maxsize,
+                data_type,
+                exchange,
+                symbol,
+                self._queue.maxsize,
                 extra={
                     "exchange": exchange,
                     "symbol": symbol,
                     "data_type": data_type,
                     "queue_size": self._queue.maxsize,
                     "error_type": "queue_full",
-                }
+                },
             )
             return False
         return True
@@ -775,10 +797,14 @@ class KafkaCallback(BackendCallback):
         setattr(self, name, _handler)
         return _handler
 
-    async def _handle_message(self, data_type: str, obj: Any, receipt_timestamp: float) -> None:
+    async def _handle_message(
+        self, data_type: str, obj: Any, receipt_timestamp: float
+    ) -> None:
         queued = self._queue_message(data_type, obj, receipt_timestamp)
         if not queued:
-            LOG.warning("KafkaCallback: dropped %s message due to full queue", data_type)
+            LOG.warning(
+                "KafkaCallback: dropped %s message due to full queue", data_type
+            )
 
     # ------------------------------------------------------------------
     # Serialization + Kafka writer loop
@@ -806,7 +832,7 @@ class KafkaCallback(BackendCallback):
                 symbol=symbol,
                 exchange=exchange,
                 strategy=self._topic_strategy,
-                prefix=custom_prefix
+                prefix=custom_prefix,
             )
         except Exception:
             # Fallback to old behavior for backward compatibility
@@ -855,7 +881,11 @@ class KafkaCallback(BackendCallback):
 
     def _serialize_payload(self, obj: Any, receipt_timestamp: Optional[float]):
         """Serialize message payload using configured format."""
-        timestamp = receipt_timestamp if receipt_timestamp is not None else getattr(obj, "timestamp", None)
+        timestamp = (
+            receipt_timestamp
+            if receipt_timestamp is not None
+            else getattr(obj, "timestamp", None)
+        )
         if self.serialization_format == "protobuf":
             from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
 
@@ -900,10 +930,7 @@ class KafkaCallback(BackendCallback):
                 LOG.error(
                     "KafkaCallback: Failed to mark task as done: %s",
                     e,
-                    extra={
-                        "error_type": "task_done_error",
-                        "error": str(e)
-                    }
+                    extra={"error_type": "task_done_error", "error": str(e)},
                 )
 
     async def _drain_batch(self) -> None:
@@ -978,18 +1005,23 @@ class KafkaCallback(BackendCallback):
 
             # Step 1: Serialize payload
             try:
-                payload, base_headers = self._serialize_payload(message.obj, message.receipt_timestamp)
+                payload, base_headers = self._serialize_payload(
+                    message.obj, message.receipt_timestamp
+                )
             except Exception as e:
                 LOG.error(
                     "KafkaCallback: Serialization failed for %s message from %s/%s: %s",
-                    data_type, exchange, symbol, e,
+                    data_type,
+                    exchange,
+                    symbol,
+                    e,
                     extra={
                         "exchange": exchange,
                         "symbol": symbol,
                         "data_type": data_type,
                         "error_type": "serialization_error",
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
                 return  # Skip this message, continue processing queue
 
@@ -999,14 +1031,17 @@ class KafkaCallback(BackendCallback):
             except Exception as e:
                 LOG.error(
                     "KafkaCallback: Topic resolution failed for %s message from %s/%s: %s",
-                    data_type, exchange, symbol, e,
+                    data_type,
+                    exchange,
+                    symbol,
+                    e,
                     extra={
                         "exchange": exchange,
                         "symbol": symbol,
                         "data_type": data_type,
                         "error_type": "topic_resolution_error",
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
                 return  # Skip this message, continue processing queue
 
@@ -1016,53 +1051,62 @@ class KafkaCallback(BackendCallback):
             except Exception as e:
                 LOG.warning(
                     "KafkaCallback: Partition key generation failed for %s/%s, using None: %s",
-                    exchange, symbol, e,
+                    exchange,
+                    symbol,
+                    e,
                     extra={
                         "exchange": exchange,
                         "symbol": symbol,
                         "data_type": data_type,
                         "error_type": "partition_key_error",
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
                 key = None  # Fall back to None (round-robin partition assignment)
 
             # Step 4: Build enriched headers using HeaderEnricher
             try:
                 enriched_headers = self._header_enricher.build(
-                    message=message.obj,
-                    data_type=data_type
+                    message=message.obj, data_type=data_type
                 )
             except Exception as e:
                 LOG.warning(
                     "KafkaCallback: Header enrichment failed for %s/%s, using base headers: %s",
-                    exchange, symbol, e,
+                    exchange,
+                    symbol,
+                    e,
                     extra={
                         "exchange": exchange,
                         "symbol": symbol,
                         "data_type": data_type,
                         "error_type": "header_enrichment_error",
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
                 enriched_headers = base_headers  # Fallback to base headers
 
             # Step 5: Produce to Kafka
             try:
-                self._producer.produce(topic, payload, key=key, headers=enriched_headers)
+                self._producer.produce(
+                    topic, payload, key=key, headers=enriched_headers
+                )
                 self._producer.poll(0.0)
             except Exception as e:
                 LOG.error(
                     "KafkaCallback: Kafka produce failed for %s message from %s/%s on topic %s: %s",
-                    data_type, exchange, symbol, topic, e,
+                    data_type,
+                    exchange,
+                    symbol,
+                    topic,
+                    e,
                     extra={
                         "exchange": exchange,
                         "symbol": symbol,
                         "data_type": data_type,
                         "topic": topic,
                         "error_type": "kafka_produce_error",
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
                 # Note: Producer retries are configured in KafkaProducer settings
                 # We continue processing to avoid blocking the queue on transient errors
@@ -1071,10 +1115,7 @@ class KafkaCallback(BackendCallback):
             LOG.error(
                 "KafkaCallback: Unexpected error in _process_message: %s",
                 e,
-                extra={
-                    "error_type": "unexpected_error",
-                    "error": str(e)
-                }
+                extra={"error_type": "unexpected_error", "error": str(e)},
             )
 
     async def _writer(self) -> None:
@@ -1354,7 +1395,9 @@ class MessageHeaders:
     """
 
     @staticmethod
-    def build(message: Any, data_type: str, content_type: str) -> list[tuple[bytes, bytes]]:
+    def build(
+        message: Any, data_type: str, content_type: str
+    ) -> list[tuple[bytes, bytes]]:
         """Build mandatory headers from message metadata.
 
         Extracts exchange and symbol from message object and normalizes them
@@ -1641,6 +1684,7 @@ class HeaderEnricher:
 
         return mandatory + optional
 
+
 # ============================================================================
 # Health Check Models and Implementation (Task 17.3)
 # ============================================================================
@@ -1648,6 +1692,7 @@ class HeaderEnricher:
 
 class HealthStatus(str, Enum):
     """Health check status levels."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -1669,6 +1714,7 @@ class HealthCheckResponse:
         memory_bytes: Memory usage in bytes
         uptime_seconds: Producer uptime in seconds
     """
+
     status: str
     kafka_connected: bool
     buffer_health: float
