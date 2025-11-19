@@ -9,15 +9,15 @@
 ## Current Status
 - **Phase**: 0.3 (Extended Foundation - Missing Attributes) ✅ IN PROGRESS
 - **Enabled Types**: unbound-name, unsupported-operation, missing-attribute, bad-argument-type
-- **Error Count**: 737 (59 unsupported-operation + 37 unbound-name + 433 missing-attribute + 208 bad-argument-type)
+- **Error Count**: 735 (59 unsupported-operation + 37 unbound-name + 431 missing-attribute + 208 bad-argument-type)
 - **Branch**: pyrefly-rollout-restart-20251119
-- **Latest Commit**: 66969c42
+- **Latest Commit**: b5540ff1
 
 ## Progress Tracking
 - [x] Phase 0.1: Fix unsupported-operation errors (59 remaining, 11 fixed)
 - [x] Phase 0.2: Fix unbound-name errors (37 remaining, 10 fixed)
 - [x] Phase 0.3: Enable missing-attribute & bad-argument-type (675 errors)
-- [x] Phase 0.3: Fix missing-attribute errors (433 remaining, 42 fixed)
+- [x] Phase 0.3: Fix missing-attribute errors (431 remaining, 44 fixed)
 - [ ] Phase 0.3: Fix bad-argument-type errors (207 remaining, 0 fixed)
 - [ ] Phase 1: Type safety core (bad-assignment, bad-return)
 - [ ] Phase 2: Data access safety (not-iterable)
@@ -34,8 +34,8 @@
 - ✅ Fixed 11 unsupported-operation errors (70 → 59, 16% reduction)
 - ✅ Fixed 10 unbound-name errors (47 → 37, 21% reduction)
 - ✅ Enabled missing-attribute & bad-argument-type checks (675 new errors)
-- ✅ Fixed 42 missing-attribute errors (473 → 433, 8% reduction)
-- ✅ Total errors now: 737 (down from ~920+ baseline, 20% reduction)
+- ✅ Fixed 44 missing-attribute errors (473 → 431, 8% reduction)
+- ✅ Total errors now: 735 (down from ~920+ baseline, 20% reduction)
 
 ## Error Categories (Priority Order)
 1. unsupported-operation (70) - TypeError prevention
