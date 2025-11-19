@@ -7,14 +7,14 @@
 - **Baseline Errors**: 117 (70 unsupported-operation + 47 unbound-name)
 
 ## Current Status
-- **Phase**: 0 (Foundation) ✅ BASELINE COMPLETE
+- **Phase**: 0.1 (Foundation - Unsupported Operations) ✅ IN PROGRESS
 - **Enabled Types**: unbound-name, unsupported-operation
-- **Error Count**: 117 (70 unsupported-operation + 47 unbound-name)
+- **Error Count**: 106 (59 unsupported-operation + 47 unbound-name)
 - **Branch**: pyrefly-rollout-restart-20251119
-- **Commit**: 6f660c6d
+- **Latest Commit**: 7015b768
 
 ## Progress Tracking
-- [ ] Phase 0.1: Fix unsupported-operation errors (70 remaining)
+- [x] Phase 0.1: Fix unsupported-operation errors (59 remaining, 11 fixed)
 - [ ] Phase 0.2: Fix unbound-name errors (47 remaining)
 - [ ] Phase 0.3: Enable next priority types
 - [ ] Phase 1: Type safety core (bad-assignment, bad-return)
@@ -27,8 +27,10 @@
 - ✅ Reset 58 Python files to master state
 - ✅ Created backup branch: backup-fix-gha-failures-20251119
 - ✅ Configured Phase 0 baseline with controlled error types
-- ✅ Verified error count: 117 (down from ~920+)
+- ✅ Verified error count: 117 (vs ~920+ with all types enabled)
 - ✅ Committed baseline with atomic commit
+- ✅ Fixed 11 unsupported-operation errors (70 → 59)
+- ✅ Total Phase 0 errors reduced: 117 → 106 (9% reduction)
 
 ## Error Categories (Priority Order)
 1. unsupported-operation (70) - TypeError prevention
