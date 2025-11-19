@@ -7,15 +7,15 @@
 - **Baseline Errors**: 117 (70 unsupported-operation + 47 unbound-name)
 
 ## Current Status
-- **Phase**: 0.1 (Foundation - Unsupported Operations) ✅ IN PROGRESS
+- **Phase**: 0.2 (Foundation - Unbound Names) ✅ COMPLETED
 - **Enabled Types**: unbound-name, unsupported-operation
-- **Error Count**: 106 (59 unsupported-operation + 47 unbound-name)
+- **Error Count**: 96 (59 unsupported-operation + 37 unbound-name)
 - **Branch**: pyrefly-rollout-restart-20251119
-- **Latest Commit**: 7015b768
+- **Latest Commit**: 7dad6762
 
 ## Progress Tracking
 - [x] Phase 0.1: Fix unsupported-operation errors (59 remaining, 11 fixed)
-- [ ] Phase 0.2: Fix unbound-name errors (47 remaining)
+- [x] Phase 0.2: Fix unbound-name errors (37 remaining, 10 fixed)
 - [ ] Phase 0.3: Enable next priority types
 - [ ] Phase 1: Type safety core (bad-assignment, bad-return)
 - [ ] Phase 2: Data access safety (missing-attribute, not-iterable)
@@ -29,8 +29,10 @@
 - ✅ Configured Phase 0 baseline with controlled error types
 - ✅ Verified error count: 117 (vs ~920+ with all types enabled)
 - ✅ Committed baseline with atomic commit
-- ✅ Fixed 11 unsupported-operation errors (70 → 59)
-- ✅ Total Phase 0 errors reduced: 117 → 106 (9% reduction)
+- ✅ Fixed 11 unsupported-operation errors (70 → 59, 16% reduction)
+- ✅ Fixed 10 unbound-name errors (47 → 37, 21% reduction)
+- ✅ Total Phase 0 errors reduced: 117 → 96 (18% reduction)
+- ✅ Phase 0.2 completed - ready for Phase 0.3 or Phase 1
 
 ## Error Categories (Priority Order)
 1. unsupported-operation (70) - TypeError prevention
