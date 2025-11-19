@@ -387,7 +387,7 @@ class HTTPPoll(HTTPAsyncConn):
                 LOG.error("%s: connection closed in read()", self.id)
                 raise ConnectionClosed
 
-            async with self.conn.get(
+            async with self.conn.get(  # type: ignore[attr-defined]
                 address,
                 headers=header,
                 **self._request_proxy_kwargs,
@@ -487,7 +487,7 @@ class WSAsyncConn(AsyncConnection):
 
     @property
     def is_open(self) -> bool:
-        return self.conn and not self.conn.state == State.CLOSED
+        return self.conn and not self.conn.state == State.CLOSED  # type: ignore[attr-defined]
 
     async def _open(self):
         if self.is_open:
