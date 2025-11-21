@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2";
+option java_package = "build.buf.cryptofeed.normalized.v2";
+
+message Trade {
+  enum Side {
+    SIDE_UNSPECIFIED = 0;
+    SIDE_BUY = 1;
+    SIDE_SELL = 2;
+  }
+
+  // Preserve backward compatibility field map from v1:
+  // 1=exchange, 2=symbol, 3=side, 4=trade_id, 5=price, 6=amount,
+  // 7=timestamp, 8=raw_id (v1) / sequence_number (v2), 9=trade_type (v1)
+  // Field 9 is no longer used in v2 — reserve to prevent reuse.
+  reserved 9;
+
+  string exchange = 1;
+  string symbol = 2;
+  Side side = 3;
+  string trade_id = 4;
+  double price = 5;  // switch to bytes+scale if precision > 1e-9
+  double amount = 6; // switch to bytes+scale if precision > 1e-9
+  google.protobuf.Timestamp timestamp = 7;
+  uint64 sequence_number = 8;
+
+  // Decimal fidelity (REQ-011): if price/amount use bytes, add message-level scale=15
+  optional int32 scale = 15;
+}

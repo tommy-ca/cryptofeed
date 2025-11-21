@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2";
+option java_package = "build.buf.cryptofeed.normalized.v2";
+
+message PriceLevelV2 {
+  double price = 1;   // switch to bytes+scale at book level if precision demands
+  double quantity = 2;
+}
+
+message OrderBook {
+  string exchange = 1;
+  string symbol = 2;
+  repeated PriceLevelV2 bids = 3; // sorted descending by price
+  repeated PriceLevelV2 asks = 4; // sorted ascending by price
+  google.protobuf.Timestamp timestamp = 5;
+  uint64 sequence_number = 6;
+  string checksum = 7;
+
+  // Decimal fidelity (REQ-011): if price/quantity use bytes, add message-level scale=15
+  optional int32 scale = 15;
+}
+
