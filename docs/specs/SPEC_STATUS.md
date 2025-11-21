@@ -1,7 +1,7 @@
 # Cryptofeed Specifications Status Report
 
-**Generated**: November 15, 2025
-**Current Branch**: next
+**Generated**: October 26, 2025
+**Current Branch**: feature/normalized-data-schema-crypto
 **Report Scope**: All active and inactive specifications
 
 ---
@@ -10,12 +10,11 @@
 
 | Status | Count | Details |
 |--------|-------|---------|
-| ✅ **Completed** | 4 | proxy-system-complete, normalized-data-schema-crypto, market-data-kafka-producer, protobuf-callback-serialization |
+| ✅ **Completed** | 3 | proxy-system-complete, normalized-data-schema-crypto, market-data-kafka-producer |
 | 🚧 **In Progress** | 2 | ccxt-generic-pro-exchange, backpack-exchange-integration |
-| 🟢 **Implementation Ready** | 1 | cryptofeed-quixstreams-source (requirements/design/tasks approved) |
-| 📋 **Planning Phase** | 1 | unified-exchange-feed-architecture (design not approved) |
+| 📋 **Planning Phase** | 2 | unified-exchange-feed-architecture (design not approved), shift-left-streaming-lakehouse (initialized) |
 | ⏸️ **Disabled** | 3 | cryptofeed-lakehouse-architecture, proxy-pool-system, external-proxy-service |
-| **Total** | **11** | |
+| **Total** | **10** | |
 
 ---
 
@@ -397,70 +396,7 @@ python -m pytest tests/unit/kafka/test_phase2_error_handling.py::TestExactlyOnce
 
 ---
 
-### 7. 📋 CryptofeedSource for QuixStreams
-
-**Spec Name**: `cryptofeed-quixstreams-source`
-**Phase**: Tasks Generated
-**Status**: Ready for Implementation (Artifacts Approved)
-**Created**: November 14, 2025
-**Updated**: November 15, 2025
-
-#### Status Summary
-- **Requirements**: ✅ Generated & approved (83 EARS criteria across 10 functional areas, 2025-11-14)
-- **Design**: ✅ Generated & approved (7-component architecture with circuit breaker, DLQ, RocksDB option)
-- **Tasks**: ✅ Generated & approved (16 tasks / 42 subtasks over 4 phases)
-- **Ready for Implementation**: ✅ YES — artifacts refreshed via `/kiro:spec-*` on Nov 15 after manual review
-
-#### Purpose
-Seamless integration of Cryptofeed's Kafka producer with QuixStreams streaming framework. Enables real-time market data analytics and aggregations by consuming protobuf-serialized messages from cryptofeed.trade, cryptofeed.orderbook, cryptofeed.ticker, and 11 other data type topics. Provides a QuixStreams-compatible Source class with comprehensive error handling (DLQ), state management, monitoring, and exactly-once semantics.
-
-#### Key Features (Planned)
-- **Phase 1**: Core deserialization and Kafka consumer integration (Week 1)
-- **Phase 2**: Error handling, DLQ, integration tests (Week 2)
-- **Phase 3**: Schema version compatibility, monitoring, observability (Week 3)
-- **Phase 4**: Production deployment, configuration management, hardening (Week 4)
-
-#### Dependencies
-| Dependency | Spec Name | Status | Impact |
-|------------|-----------|--------|--------|
-| Kafka Producer | market-data-kafka-producer | ✅ COMPLETE | Provides protobuf messages to consume |
-| Protobuf Serialization | protobuf-callback-serialization | ✅ COMPLETE | Enables deserialization |
-| Data Schemas | normalized-data-schema-crypto | ✅ COMPLETE | Defines message structures |
-
-#### Data Types Supported (14 Total)
-Trade, Ticker, OrderBook, Candle, Funding, Liquidation, OpenInterest, IndexPrice, Balance, Position, Fill, OrderInfo, Order, Transaction
-
-#### Integration Points
-```
-Cryptofeed Producer (market-data-kafka-producer)
-    ↓
-Kafka Topics (protobuf messages)
-    ↓
-CryptofeedSource (QuixStreams)
-    ↓
-QuixStreams Application (analytics, aggregations)
-```
-
-#### Documentation Location
-- Specification: [`.kiro/specs/cryptofeed-quixstreams-source/`](../../.kiro/specs/cryptofeed-quixstreams-source/)
-- Requirements: [`.kiro/specs/cryptofeed-quixstreams-source/requirements.md`](../../.kiro/specs/cryptofeed-quixstreams-source/requirements.md)
-- Metadata: [`.kiro/specs/cryptofeed-quixstreams-source/spec.json`](../../.kiro/specs/cryptofeed-quixstreams-source/spec.json)
-
-#### Next Steps
-1. **Kick off Phase 1 implementation** – tasks 1-5 cover QuixStreams Source lifecycle, Kafka adapter, deserializers, config loader, and baseline integration tests.
-2. **Prepare Phase 2 readiness** – line up DLQ topic, circuit-breaker telemetry, and retry configuration so Tasks 6-8 can start immediately after Phase 1 testing passes.
-3. **Align dependencies** – confirm Kafka topic/header schema from `market-data-kafka-producer` and protobuf objects from `protobuf-callback-serialization`/`normalized-data-schema-crypto` remain stable; capture any schema-version changes in Task 13.3 migration guide.
-4. **Stand up observability scaffolding** – reserve Prometheus/health endpoints and RocksDB storage (if enabled) ahead of Phase 3 to avoid infra blockers.
-5. **Document DLQ replay + schema migration expectations** – ensure Task 13.3 output (DLQ reprocessor + migration guide) has clear owners before production cutover.
-
-#### Notes
-Specification bridges Cryptofeed's ingestion layer (market-data-kafka-producer, COMPLETE) with QuixStreams stream processing ecosystem. Design leverages completed specs for protobuf handling and data normalization. Expected timeline: 4 weeks to production-ready implementation.
-
-- Nov 15, 2025: Requirements/design/tasks refreshed to clarify schema_version fallback behavior, add schema_version metric labels, and include optional RocksDB state-store implementation tasks ahead of Phase 1 kickoff.
-
----
-
-### 8. ⏸️ Cryptofeed Lakehouse Architecture
+### 7. ⏸️ Cryptofeed Lakehouse Architecture
 
 **Spec Name**: `cryptofeed-lakehouse-architecture`
 **Phase**: Disabled
@@ -487,7 +423,7 @@ Contact user if reactivation is desired. All specification artifacts are preserv
 
 ---
 
-### 9. ⏸️ Proxy Pool System
+### 8. ⏸️ Proxy Pool System
 
 **Spec Name**: `proxy-pool-system`
 **Phase**: Disabled
@@ -516,7 +452,7 @@ Enhancement to proxy-system-complete for proxy pool management and rotation.
 
 ---
 
-### 10. ⏸️ External Proxy Service
+### 9. ⏸️ External Proxy Service
 
 **Spec Name**: `external-proxy-service`
 **Phase**: Disabled
@@ -554,6 +490,39 @@ Transform embedded proxy management into service-oriented architecture with exte
 
 ---
 
+### 10. 🚧 Shift Left Streaming Lakehouse Integration
+
+**Spec Name**: `shift-left-streaming-lakehouse`
+**Phase**: Active Development
+**Status**: Ready for Implementation
+**Created**: November 20, 2025
+**Updated**: November 20, 2025
+
+#### Status Summary
+- **Requirements**: ✅ Complete
+- **Design**: ✅ Complete
+- **Tasks**: ✅ Complete
+- **Status**: 🚧 Ready for Implementation
+
+#### Purpose
+Implement Confluent Schema Registry integration in KafkaCallback (Contract), create v2 Protobuf schemas with native double/bytes types (Compute), and align message headers/keys for Flink/Iceberg compatibility (Context). Unblocks the Flink -> Iceberg pattern.
+
+#### Dependencies
+- market-data-kafka-producer (Required)
+- normalized-data-schema-crypto (Required)
+
+#### Documentation Location
+- Spec JSON: [`.kiro/specs/shift-left-streaming-lakehouse/spec.json`](../../.kiro/specs/shift-left-streaming-lakehouse/spec.json)
+- Requirements: [`.kiro/specs/shift-left-streaming-lakehouse/requirements.md`](../../.kiro/specs/shift-left-streaming-lakehouse/requirements.md)
+- Design: [`.kiro/specs/shift-left-streaming-lakehouse/design.md`](../../.kiro/specs/shift-left-streaming-lakehouse/design.md)
+- Tasks: [`.kiro/specs/shift-left-streaming-lakehouse/tasks.md`](../../.kiro/specs/shift-left-streaming-lakehouse/tasks.md)
+
+#### Next Steps
+1. **Execute Implementation Tasks**: Start with Task 1.1 (Schema definitions)
+
+
+---
+
 ## Specification Dependencies & Relationships
 
 ```
@@ -570,14 +539,7 @@ backpack-exchange-integration (🚧 IN PROGRESS)
 
 normalized-data-schema-crypto (✅ COMPLETE - READY TO MERGE)
  ├─ tardis-node alignment (⏳ EXTERNAL DEPENDENCY)
- ├─ DBN alignment (⏳ EXTERNAL DEPENDENCY)
- └─ cryptofeed-quixstreams-source (📋 PLANNING)
-
-protobuf-callback-serialization (✅ COMPLETE)
- └─ cryptofeed-quixstreams-source (📋 PLANNING)
-
-market-data-kafka-producer (✅ COMPLETE)
- └─ cryptofeed-quixstreams-source (📋 PLANNING)
+ └─ DBN alignment (⏳ EXTERNAL DEPENDENCY)
 
 cryptofeed-lakehouse-architecture (⏸️ DISABLED)
  └─ (could leverage normalized-data-schema-crypto once merged)
@@ -590,18 +552,17 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 ### ✅ Ready to Merge (1)
 - **normalized-data-schema-crypto**: Merge to main, then publish v0.1.0 to Buf registry
 
-### ✅ Completed, No Action Needed (3)
+### ✅ Completed, No Action Needed (2)
 - **proxy-system-complete**: All tests passing, documentation complete
 - **market-data-kafka-producer**: Implementation complete, 493+ tests passing, ready for merge to main (Phase 4 deferred post-merge)
-- **protobuf-callback-serialization**: Backend-only binary serialization, 144+ tests passing, production ready
 
-### 🚧 Active Development (2)
+### 🚧 Active Development (3)
 - **ccxt-generic-pro-exchange**: Begin TDD implementation, target completion before Backpack
 - **backpack-exchange-integration**: Begin native implementation, coordinate with CCXT generic
+- **shift-left-streaming-lakehouse**: Ready for implementation (Tasks generated)
 
-### 📋 Awaiting Approval/Requirements (2)
+### 📋 Planning Phase (1)
 - **unified-exchange-feed-architecture**: Needs design review and approval before task generation
-- **cryptofeed-quixstreams-source**: Initialized, awaiting requirements generation
 
 ### ⏸️ Paused/Disabled (3)
 - **proxy-pool-system**: Awaiting external roadmap clarification
@@ -618,8 +579,7 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 3. **Merge market-data-kafka-producer** to main branch (implementation complete, 493+ tests passing)
 4. **Create Phase 4 post-merge GitHub issue** (performance, monitoring, consumer guides)
 5. **Approve unified-exchange-feed-architecture design** to unblock task generation
-6. **Update CLAUDE.md** to reflect new specs and completion status
-7. **Generate requirements for cryptofeed-quixstreams-source** using `/kiro:spec-requirements cryptofeed-quixstreams-source`
+6. **Update CLAUDE.md** to reflect market-data-kafka-producer completion and Phase 4 deferral
 
 ### 🟡 High Priority (Next 2 Weeks)
 1. **Execute Phase 4 post-merge work** (performance benchmarking, Prometheus metrics, consumer guides, migration tooling)
@@ -627,6 +587,7 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 3. **Set up integration testing** for both specs (Binance US sandbox for CCXT, Backpack testnet for native)
 4. **Clarify proxy roadmap** to determine priority of pool-system and external-service specs
 5. **Document consolidation decision** for CCXT vs Native approach for future exchanges
+6. **Generate requirements** for shift-left-streaming-lakehouse specification
 
 ### 🟢 Medium Priority (Next Month)
 1. **Evaluate unified architecture** once CCXT generic and Backpack reach MVP status

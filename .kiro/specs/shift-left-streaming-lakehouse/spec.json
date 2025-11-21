@@ -1,0 +1,33 @@
+{
+  "name": "shift-left-streaming-lakehouse",
+  "version": "0.0.1",
+  "status": "planning",
+  "created": "2025-11-20",
+  "updated": "2025-11-20",
+  "description": "Implement Confluent Schema Registry integration in KafkaCallback (Contract), create v2 Protobuf schemas with native double/bytes types (Compute), and align message headers/keys for Flink/Iceberg compatibility (Context). Unblocks the Flink -> Iceberg pattern.",
+  "scope": "ingestion_layer",
+  "phases": {
+    "requirements": {
+      "status": "pending",
+      "completed": null,
+      "file": "requirements.md"
+    },
+    "design": {
+      "status": "pending",
+      "completed": null,
+      "file": "design.md"
+    },
+    "tasks": {
+      "status": "pending",
+      "completed": null,
+      "file": "tasks.md"
+    }
+  },
+  "dependencies": {
+    "required": [
+      "market-data-kafka-producer",
+      "normalized-data-schema-crypto"
+    ]
+  },
+  "tags": ["kafka", "schema-registry", "protobuf", "flink", "iceberg", "lakehouse"]
+}
