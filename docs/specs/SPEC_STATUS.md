@@ -11,8 +11,8 @@
 | Status | Count | Details |
 |--------|-------|---------|
 | ✅ **Completed** | 3 | proxy-system-complete, normalized-data-schema-crypto, market-data-kafka-producer |
-| 🚧 **In Progress** | 2 | ccxt-generic-pro-exchange, backpack-exchange-integration |
-| 📋 **Planning Phase** | 2 | unified-exchange-feed-architecture (design not approved), shift-left-streaming-lakehouse (initialized) |
+| 🚧 **In Progress** | 3 | ccxt-generic-pro-exchange, backpack-exchange-integration, shift-left-streaming-lakehouse |
+| 📋 **Planning Phase** | 1 | unified-exchange-feed-architecture (design not approved) |
 | ⏸️ **Disabled** | 3 | cryptofeed-lakehouse-architecture, proxy-pool-system, external-proxy-service |
 | **Total** | **10** | |
 
@@ -493,16 +493,16 @@ Transform embedded proxy management into service-oriented architecture with exte
 ### 10. 🚧 Shift Left Streaming Lakehouse Integration
 
 **Spec Name**: `shift-left-streaming-lakehouse`
-**Phase**: Active Development
-**Status**: Ready for Implementation
+**Phase**: Implementation In Progress
+**Status**: v2 schemas + registry path delivered; validation underway
 **Created**: November 20, 2025
-**Updated**: November 20, 2025
+**Updated**: November 21, 2025
 
 #### Status Summary
 - **Requirements**: ✅ Complete
 - **Design**: ✅ Complete
-- **Tasks**: ✅ Complete
-- **Status**: 🚧 Ready for Implementation
+- **Tasks**: ✅ Complete (Tasks 1‑6 marked)
+- **Implementation**: 🚧 In Progress (v2 protos, helpers, registry path merged; E2E tests added)
 
 #### Purpose
 Implement Confluent Schema Registry integration in KafkaCallback (Contract), create v2 Protobuf schemas with native double/bytes types (Compute), and align message headers/keys for Flink/Iceberg compatibility (Context). Unblocks the Flink -> Iceberg pattern.
@@ -518,7 +518,9 @@ Implement Confluent Schema Registry integration in KafkaCallback (Contract), cre
 - Tasks: [`.kiro/specs/shift-left-streaming-lakehouse/tasks.md`](../../.kiro/specs/shift-left-streaming-lakehouse/tasks.md)
 
 #### Next Steps
-1. **Execute Implementation Tasks**: Start with Task 1.1 (Schema definitions)
+1. Monitor integration test coverage and run full Kafka/backends suite.
+2. Coordinate consumer validation (Flink/Iceberg) against v2 topics.
+3. Prepare rollout/migration notes and confirm registry credentials paths.
 
 
 ---
