@@ -1,9 +1,10 @@
-'''
+"""
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
-'''
+"""
+
 import logging
 
 import aiohttp
@@ -11,7 +12,7 @@ import aiohttp
 from cryptofeed.backends.backend import BackendQueue
 
 
-LOG = logging.getLogger('feedhandler')
+LOG = logging.getLogger("feedhandler")
 
 
 class HTTPCallback(BackendQueue):
@@ -24,6 +25,7 @@ class HTTPCallback(BackendQueue):
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()
 
+        assert self.session is not None
         async with self.session.post(self.addr, data=data, headers=headers) as resp:
             if resp.status >= 400:
                 error = await resp.text()

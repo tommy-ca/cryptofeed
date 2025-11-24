@@ -313,6 +313,7 @@ class BackpackWsConnection(AsyncConnection):
     async def read(self):
         if self.session is None:
             await self._open()
+        assert self.session is not None
         while True:
             message = await self.session.read()
             yield message
@@ -320,6 +321,7 @@ class BackpackWsConnection(AsyncConnection):
     async def write(self, msg: str):
         if self.session is None:
             await self._open()
+        assert self.session is not None
         await self.session.send(json.loads(msg))
 
     async def close(self):

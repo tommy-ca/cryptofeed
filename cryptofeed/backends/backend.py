@@ -1,35 +1,40 @@
-'''
+"""
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
-'''
+"""
+
 import asyncio
 import logging
 from asyncio.queues import Queue
 from multiprocessing import Pipe, Process
 from contextlib import asynccontextmanager
+from typing import Union, cast
+from abc import ABC, abstractmethod
 
 from cryptofeed.backends.protobuf_helpers import (
     serialize_to_protobuf,
 )
 
 
-LOG = logging.getLogger('feedhandler')
+LOG = logging.getLogger("feedhandler")
 
-SHUTDOWN_SENTINEL = 'STOP'
+SHUTDOWN_SENTINEL = "STOP"
 
 
 class BackendQueue:
     def start(self, loop: asyncio.AbstractEventLoop, multiprocess=False):
-        if hasattr(self, 'started') and self.started:
+        if hasattr(self, "started") and self.started:
             # prevent a backend callback from starting more than 1 writer and creating more than 1 queue
             return
         self.multiprocess = multiprocess
         if self.multiprocess:
             self.queue = Pipe(duplex=False)
-            self.worker = Process(target=BackendQueue.worker, args=(self.writer,), daemon=True)
-            self.worker.start()
+            self.worker = Process(
+                target=BackendQueue.worker, args=(self.writer,), daemon=True
+            )
+            cast(Process, self.worker).start()
         else:
             self.queue = Queue()
             self.worker = loop.create_task(self.writer())
@@ -38,9 +43,9 @@ class BackendQueue:
     async def stop(self):
         if self.multiprocess:
             self.queue[1].send(SHUTDOWN_SENTINEL)
-            self.worker.join()
+            cast(Process, self.worker).join()
         else:
-            await self.queue.put(SHUTDOWN_SENTINEL)
+            await cast(Queue, self.queue).put(SHUTDOWN_SENTINEL)
         self.running = False
 
     @staticmethod
@@ -58,7 +63,7 @@ class BackendQueue:
         if self.multiprocess:
             self.queue[1].send(data)
         else:
-            await self.queue.put(data)
+            await cast(Queue, self.queue).put(data)
 
     @asynccontextmanager
     async def read_queue(self) -> list:
@@ -70,19 +75,20 @@ class BackendQueue:
             else:
                 yield [msg]
         else:
-            current_depth = self.queue.qsize()
+            queue = cast(Queue, self.queue)
+            current_depth = queue.qsize()
             if current_depth == 0:
-                update = await self.queue.get()
+                update = await queue.get()
                 if update == SHUTDOWN_SENTINEL:
                     yield []
                 else:
                     yield [update]
-                self.queue.task_done()
+                queue.task_done()
             else:
                 ret = []
                 count = 0
                 while current_depth > count:
-                    update = await self.queue.get()
+                    update = await queue.get()
                     count += 1
                     if update == SHUTDOWN_SENTINEL:
                         self.running = False
@@ -92,10 +98,10 @@ class BackendQueue:
                 yield ret
 
                 for _ in range(count):
-                    self.queue.task_done()
+                    queue.task_done()
 
 
-class BackendCallback:
+class BackendCallback(ABC):
     """
     Base class for backend callbacks with pluggable serialization support.
 
@@ -115,10 +121,20 @@ class BackendCallback:
     _serialization_log_state: tuple[str, str] | None = None
     _serialization_locked: bool = False
 
+    def __init__(self, numeric_type=float, none_to=None):
+        """Initialize backend callback with serialization parameters."""
+        self.numeric_type = numeric_type
+        self.none_to = none_to
+
+    @abstractmethod
+    async def write(self, data):
+        """Write data to the backend. Must be implemented by subclasses."""
+        pass
+
     def set_serialization_format(self, format_name: str | None) -> None:
         """Persist an explicit serialization format override for this callback."""
 
-        if getattr(self, '_serialization_locked', False):
+        if getattr(self, "_serialization_locked", False):
             if format_name is None and self._explicit_serialization_format is None:
                 return
             if format_name is not None:
@@ -139,7 +155,7 @@ class BackendCallback:
     def _validate_format(format_name: str) -> str:
         """Validate and normalize serialization format."""
         normalized = format_name.lower().strip()
-        if normalized not in ('json', 'protobuf'):
+        if normalized not in ("json", "protobuf"):
             raise ValueError(
                 f"Invalid serialization format '{format_name}'. "
                 f"Valid formats: json, protobuf"
@@ -151,8 +167,10 @@ class BackendCallback:
         """Get serialization format from environment variable."""
         import os
 
-        env_value = os.environ.get('CRYPTOFEED_SERIALIZATION_FORMAT')
-        deprecated_value = os.environ.get('CRYPTOFEED_CALLBACK_FORMAT') if env_value is None else None
+        env_value = os.environ.get("CRYPTOFEED_SERIALIZATION_FORMAT")
+        deprecated_value = (
+            os.environ.get("CRYPTOFEED_CALLBACK_FORMAT") if env_value is None else None
+        )
 
         if env_value:
             return BackendCallback._validate_format(env_value)
@@ -168,22 +186,22 @@ class BackendCallback:
     def serialization_format(self) -> str:
         """Active serialization format after applying env overrides."""
 
-        preferred = getattr(self, '_explicit_serialization_format', None)
+        preferred = getattr(self, "_explicit_serialization_format", None)
 
         env_value = self._get_format_from_env()
         if env_value is not None:
             resolved = env_value
-            source = 'env'
+            source = "env"
         elif preferred is not None:
             resolved = preferred
-            source = 'explicit'
+            source = "explicit"
         else:
-            resolved = 'json'
-            source = 'default'
+            resolved = "json"
+            source = "default"
 
-        if getattr(self, '_serialization_log_state', None) != (source, resolved):
+        if getattr(self, "_serialization_log_state", None) != (source, resolved):
             LOG.info(
-                '%s: serialization_format=%s (source=%s)',
+                "%s: serialization_format=%s (source=%s)",
                 self.__class__.__name__,
                 resolved,
                 source,
@@ -196,15 +214,15 @@ class BackendCallback:
         """Normalize data objects into dictionaries for JSON/backward paths."""
 
         data = dtype.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
-        if not getattr(dtype, 'timestamp', None):
-            data['timestamp'] = receipt_timestamp
-        data['receipt_timestamp'] = receipt_timestamp
+        if not getattr(dtype, "timestamp", None):
+            data["timestamp"] = receipt_timestamp
+        data["receipt_timestamp"] = receipt_timestamp
         return data
 
     async def __call__(self, dtype, receipt_timestamp: float):
         """Default implementation: emit JSON-compatible dictionaries or protobuf."""
 
-        if self.serialization_format == 'protobuf':
+        if self.serialization_format == "protobuf":
             # Protobuf serialization: use consolidated helpers from backends
             payload = serialize_to_protobuf(dtype)
         else:
@@ -215,28 +233,48 @@ class BackendCallback:
 
 
 class BackendBookCallback(BackendCallback):
+    def __init__(
+        self,
+        snapshots_only=False,
+        snapshot_interval=1000,
+        numeric_type=float,
+        none_to=None,
+    ):
+        """Initialize book callback with snapshot parameters."""
+        super().__init__(numeric_type=numeric_type, none_to=none_to)
+        self.snapshots_only = snapshots_only
+        self.snapshot_interval = snapshot_interval
+        self.snapshot_count = {}
+
     async def _write_snapshot(self, book, receipt_timestamp: float):
         data = book.to_dict(numeric_type=self.numeric_type, none_to=self.none_to)
-        del data['delta']
+        del data["delta"]
         if not book.timestamp:
-            data['timestamp'] = receipt_timestamp
-        data['receipt_timestamp'] = receipt_timestamp
+            data["timestamp"] = receipt_timestamp
+        data["receipt_timestamp"] = receipt_timestamp
         await self.write(data)
 
     async def __call__(self, book, receipt_timestamp: float):
         if self.snapshots_only:
             await self._write_snapshot(book, receipt_timestamp)
         else:
-            data = book.to_dict(delta=book.delta is not None, numeric_type=self.numeric_type, none_to=self.none_to)
+            data = book.to_dict(
+                delta=book.delta is not None,
+                numeric_type=self.numeric_type,
+                none_to=self.none_to,
+            )
             if not book.timestamp:
-                data['timestamp'] = receipt_timestamp
-            data['receipt_timestamp'] = receipt_timestamp
+                data["timestamp"] = receipt_timestamp
+            data["receipt_timestamp"] = receipt_timestamp
 
             if book.delta is None:
-                del data['delta']
+                del data["delta"]
             else:
                 self.snapshot_count[book.symbol] += 1
             await self.write(data)
-            if self.snapshot_interval <= self.snapshot_count[book.symbol] and book.delta:
+            if (
+                self.snapshot_interval <= self.snapshot_count[book.symbol]
+                and book.delta
+            ):
                 await self._write_snapshot(book, receipt_timestamp)
                 self.snapshot_count[book.symbol] = 0

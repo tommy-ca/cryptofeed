@@ -137,6 +137,29 @@ class TestConfluentSchemaRegistry:
         assert isinstance(call_args[1]["auth"], HTTPBasicAuth)
 
     @patch("requests.post")
+    def test_register_schema_with_tls(self, mock_post):
+        """TLS settings should propagate to requests call."""
+        config = SchemaRegistryConfig(
+            registry_type="confluent",
+            url="https://schema-registry:8081",
+            tls_client_cert="/tmp/cert.pem",
+            tls_client_key="/tmp/key.pem",
+            tls_ca="/tmp/ca.pem",
+        )
+        registry = ConfluentSchemaRegistry(config)
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": 1}
+        mock_post.return_value = mock_response
+
+        registry.register_schema(subject="trades", schema="syntax = \"proto3\";")
+
+        args, kwargs = mock_post.call_args
+        assert kwargs["verify"] == "/tmp/ca.pem"
+        assert kwargs["cert"] == ("/tmp/cert.pem", "/tmp/key.pem")
+
+    @patch("requests.post")
     def test_register_schema_already_exists(self, mock_post, registry):
         """Test schema registration when schema already exists."""
         mock_response = Mock()

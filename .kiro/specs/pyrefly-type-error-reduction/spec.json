@@ -1,0 +1,78 @@
+{
+  "feature_name": "pyrefly-type-error-reduction",
+  "created_at": "2025-11-19T00:00:00Z",
+  "updated_at": "2025-11-19T12:00:00Z",
+  "language": "en",
+  "phase": "in_progress",
+  "progress": {
+    "current_phase": "0.3",
+    "phase_description": "Extended Foundation - Missing Attributes & Bad Argument Types",
+    "error_reduction": {
+      "baseline_errors": 117,
+      "current_errors": 718,
+      "reduction_percentage": 22,
+      "errors_fixed": 78
+    },
+    "enabled_error_types": [
+      "unbound-name",
+      "unsupported-operation",
+      "missing-attribute",
+      "bad-argument-type"
+    ],
+    "completed_phases": ["0.1", "0.2"],
+    "in_progress_phases": ["0.3"],
+    "pending_phases": ["1", "2", "3", "4", "5"]
+  },
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    },
+    "implementation": {
+      "generated": false,
+      "approved": false
+    },
+    "documentation": {
+      "generated": false,
+      "approved": false
+    }
+  },
+  "ready_for_implementation": true,
+  "implementation_status": "in_progress",
+  "documentation_status": "pending",
+  "specification_status": "active",
+  "success_criteria": {
+    "error_reduction_target": 90,
+    "phase_completion": "all_phases",
+    "code_quality": "maintained",
+    "test_coverage": "preserved"
+  },
+  "metrics": {
+    "total_errors_baseline": 920,
+    "current_errors": 718,
+    "errors_by_type": {
+      "unsupported-operation": 59,
+      "unbound-name": 37,
+      "missing-attribute": 416,
+      "bad-argument-type": 206
+    },
+    "progress_tracking": {
+      "phase_0_1_complete": true,
+      "phase_0_2_complete": true,
+      "phase_0_3_in_progress": true,
+      "phase_1_pending": true,
+      "phase_2_pending": true,
+      "phase_3_pending": true,
+      "phase_4_pending": true,
+      "phase_5_pending": true
+    }
+  }
+}

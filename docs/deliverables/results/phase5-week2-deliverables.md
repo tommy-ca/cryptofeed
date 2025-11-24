@@ -401,9 +401,9 @@ Tests:
   └── test_monitoring_dashboard_setup.py
 
 Summary Documents:
-/home/tommyk/projects/quant/data-sources/crypto-data/cryptofeed/
-  ├── PHASE_5_WEEK2_EXECUTION_SUMMARY.md
-  └── PHASE_5_WEEK2_DELIVERABLES.md
+docs/deliverables/results/
+  ├── phase5-week2-execution-summary.md
+  └── phase5-week2-deliverables.md
 ```
 
 ---
