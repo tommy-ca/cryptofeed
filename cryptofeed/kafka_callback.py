@@ -975,8 +975,13 @@ class KafkaCallback(BackendCallback):
             headers = [("content-type", b"application/json")]
         return payload, headers
 
-    def _schema_definition_for_data_type(self, data_type: str) -> str:
-        """Load .proto schema text for the given data_type (v2)."""
+    def _schema_definition_for_data_type(self, data_type: str) -> str | None:
+        """Load .proto schema text for the given data_type (v2), if available.
+
+        Returns None when the data type has no v2 schema. This allows the
+        caller to skip registry production while still producing the legacy
+        payload instead of dropping the message.
+        """
 
         filename_map = {
             "trade": "trade.proto",
@@ -991,7 +996,7 @@ class KafkaCallback(BackendCallback):
         }
         filename = filename_map.get(data_type)
         if not filename:
-            raise ValueError(f"Unsupported data_type for schema registry: {data_type}")
+            return None
 
         proto_path = (
             Path(__file__).resolve().parents[1]
@@ -1202,15 +1207,23 @@ class KafkaCallback(BackendCallback):
             produced = False
 
             # Step 4a: Schema Registry (v2) production
+            schema_definition = None
+            if use_registry:
+                schema_definition = self._schema_definition_for_data_type(data_type)
+                if schema_definition is None:
+                    LOG.debug(
+                        "KafkaCallback: skipping registry for unsupported data_type=%s",
+                        data_type,
+                    )
+                    use_registry = False
+
             if use_registry:
                 try:
                     from cryptofeed.backends.protobuf_helpers_v2 import (
                         serialize_to_protobuf_v2,
                     )
 
-                    payload_v2 = serialize_to_protobuf_v2(
-                        message.obj
-                    )
+                    payload_v2 = serialize_to_protobuf_v2(message.obj)
                 except Exception as e:
                     LOG.error(
                         "KafkaCallback: v2 serialization failed for %s message from %s/%s: %s",
@@ -1227,13 +1240,14 @@ class KafkaCallback(BackendCallback):
                         },
                     )
                 else:
-                    topic_v2 = f"{topic}.{self._registry_topic_suffix}" if self._registry_topic_suffix else topic
+                    topic_v2 = (
+                        f"{topic}.{self._registry_topic_suffix}"
+                        if self._registry_topic_suffix
+                        else topic
+                    )
                     subject = self._registry_subject(topic_v2)
 
                     try:
-                        schema_definition = self._schema_definition_for_data_type(
-                            data_type
-                        )
                         schema_id = await self._resolve_schema_id(
                             subject, schema_definition
                         )
@@ -1253,17 +1267,51 @@ class KafkaCallback(BackendCallback):
                             },
                         )
                         if self._registry_failure_policy == "buffer":
-                            await self._queue.put(message)
-                        else:
+                            try:
+                                self._queue.put_nowait(message)
+                            except asyncio.QueueFull:
+                                LOG.error(
+                                    "KafkaCallback: registry buffer queue full; dropping %s/%s (%s)",
+                                    exchange,
+                                    symbol,
+                                    data_type,
+                                    extra={
+                                        "exchange": exchange,
+                                        "symbol": symbol,
+                                        "data_type": data_type,
+                                        "error_type": "schema_registry_buffer_full",
+                                    },
+                                )
                             return
+                        return
                     else:
                         # Build headers for v2
                         try:
                             headers_v2 = self._header_enricher_v2.build(
                                 message=message.obj, data_type=data_type
                             )
-                        except Exception:
-                            headers_v2 = base_headers
+                        except Exception as e:
+                            LOG.warning(
+                                "KafkaCallback: v2 header enrichment failed for %s/%s, using minimal v2 headers: %s",
+                                exchange,
+                                symbol,
+                                e,
+                                extra={
+                                    "exchange": exchange,
+                                    "symbol": symbol,
+                                    "data_type": data_type,
+                                    "error_type": "header_enrichment_error_v2",
+                                    "error": str(e),
+                                },
+                            )
+                            headers_v2 = MessageHeaders.build(
+                                message=message.obj,
+                                data_type=data_type,
+                                content_type="application/vnd.confluent.protobuf",
+                            )
+                            headers_v2 += OptionalHeaders.build(
+                                schema_version=self._schema_version_v2
+                            )
 
                         try:
                             framed_payload = self._schema_registry.embed_schema_id_in_message(

@@ -80,6 +80,21 @@ class _FakeRegistry:
         return str(schema_id).encode()
 
 
+class _FlakyRegistry(_FakeRegistry):
+    """Schema registry stub that fails once, then recovers."""
+
+    def __init__(self):
+        super().__init__()
+        self._fail_once = True
+
+    def register_schema(self, subject: str, schema: str, schema_type: str):
+        self.register_calls.append((subject, schema_type))
+        if self._fail_once:
+            self._fail_once = False
+            raise RuntimeError("registry down")
+        return 7
+
+
 @pytest.mark.asyncio
 async def test_kafka_callback_schema_registry_dual_production(monkeypatch):
     """Ensure v2 + v1 production works with Schema Registry enabled."""
@@ -145,3 +160,132 @@ async def test_kafka_callback_schema_registry_dual_production(monkeypatch):
 
     # Producer poll invoked to flush delivery callbacks
     assert callback._producer._producer.poll_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_schema_registry_skips_unmapped_types(monkeypatch):
+    """Unmapped data types should skip registry and still produce legacy payload."""
+
+    tracking_registry = _FakeRegistry()
+    monkeypatch.setattr(
+        kafka_module.SchemaRegistry, "create", lambda config: tracking_registry
+    )
+
+    callback = KafkaCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=_producer_factory(_StubProducer),
+        serialization_format="protobuf",
+        schema_registry_config={
+            "registry_type": "confluent",
+            "url": "https://schema-registry:8081",
+        },
+    )
+
+    trade = Trade(
+        exchange="coinbase",
+        symbol="BTC-USD",
+        side="buy",
+        amount=Decimal("0.1"),
+        price=Decimal("100"),
+        timestamp=1.0,
+        id="skip-1",
+    )
+
+    assert callback._queue_message("funding", trade) is True
+
+    await callback._drain_once()
+
+    produced = callback._producer._producer.messages
+    assert len(produced) == 1  # legacy only
+    assert tracking_registry.register_calls == []
+
+
+@pytest.mark.asyncio
+async def test_schema_registry_buffer_policy_requeues_without_duplicates(monkeypatch):
+    """Buffer policy requeues once and avoids duplicate legacy production."""
+
+    flaky_registry = _FlakyRegistry()
+    monkeypatch.setattr(
+        kafka_module.SchemaRegistry, "create", lambda config: flaky_registry
+    )
+
+    callback = KafkaCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=_producer_factory(_StubProducer),
+        serialization_format="protobuf",
+        schema_registry_config={
+            "registry_type": "confluent",
+            "url": "https://schema-registry:8081",
+        },
+        registry_failure_policy="buffer",
+        queue_maxsize=1,
+    )
+
+    trade = Trade(
+        exchange="coinbase",
+        symbol="BTC-USD",
+        side="buy",
+        amount=Decimal("0.25"),
+        price=Decimal("68000.10"),
+        timestamp=1700000000.123,
+        id="t-buffer",
+    )
+
+    assert callback._queue_message("trade", trade)
+
+    # First drain: registry fails, message requeued, nothing produced
+    await callback._drain_once()
+    assert callback._producer._producer.messages == []
+    assert callback._queue.qsize() == 1
+
+    # Second drain: registry succeeds, exactly one v2 message produced
+    await callback._drain_once()
+    produced = callback._producer._producer.messages
+    assert len(produced) == 1
+    assert produced[0].topic.endswith(".v2")
+
+
+@pytest.mark.asyncio
+async def test_v2_header_fallback_sets_correct_schema_version(monkeypatch):
+    """When v2 header enricher fails, fallback headers must still be v2."""
+
+    fake_registry = _FakeRegistry()
+    monkeypatch.setattr(
+        kafka_module.SchemaRegistry, "create", lambda config: fake_registry
+    )
+
+    callback = KafkaCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=_producer_factory(_StubProducer),
+        serialization_format="protobuf",
+        schema_registry_config={
+            "registry_type": "confluent",
+            "url": "https://schema-registry:8081",
+        },
+    )
+
+    class _BrokenEnricher:
+        def build(self, *args, **kwargs):
+            raise RuntimeError("boom")
+
+    callback._header_enricher_v2 = _BrokenEnricher()
+
+    trade = Trade(
+        exchange="kraken",
+        symbol="ETH-USD",
+        side="sell",
+        amount=Decimal("1.0"),
+        price=Decimal("2000"),
+        timestamp=2.0,
+        id="hdr-1",
+    )
+
+    assert callback._queue_message("trade", trade)
+    await callback._drain_once()
+
+    produced = callback._producer._producer.messages
+    assert len(produced) == 1
+    headers = {k: v for k, v in produced[0].headers}
+    assert headers[b"content-type"] == b"application/vnd.confluent.protobuf"
+    assert headers[b"schema_version"] == b"v2"
+    assert headers[b"schema_id"] == b"42"
