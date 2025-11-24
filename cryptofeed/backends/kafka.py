@@ -1,36 +1,16 @@
 '''
-Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
+Legacy Kafka backend maintained for JSON-only deployments.
 
-Please see the LICENSE file for the terms and conditions
-associated with this software.
+This module remains supported for environments that rely on the historical
+`BackendQueue` + `aiokafka` implementation. It preserves the original per-symbol
+topic strategy and JSON serialization behavior while newer deployments should
+prefer the refactored callbacks in `cryptofeed.backends.kafka`.
 
-DEPRECATION NOTICE:
-This module (cryptofeed.backends.kafka) is deprecated as of market-data-kafka-producer spec.
-Please migrate to the unified KafkaCallback implementation in cryptofeed.kafka_callback.
+Recommended path for new work:
+    from cryptofeed.backends.kafka import KafkaCallback, KafkaProtobufCallback
 
-The legacy implementation bypasses:
-- TopicManager (consolidated topic strategy)
-- HeaderEnricher (structured message headers)
-- Partitioner (configurable partition strategies)
-- Enhanced error handling and backpressure protection
-
-Migration Guide:
-    # OLD (deprecated):
-    from cryptofeed.backends.kafka import TradeKafka, BookKafka
-
-    # NEW (recommended):
-    from cryptofeed.kafka_callback import KafkaCallback
-    from cryptofeed.kafka_callback import KafkaConfig
-
-    # Example:
-    config = KafkaConfig(
-        bootstrap_servers=['kafka:9092'],
-        topic={'strategy': 'consolidated'},
-        partition={'strategy': 'composite'}
-    )
-    callback = KafkaCallback(kafka_config=config, serialization_format='protobuf')
-
-This legacy module will be removed in a future release.
+This module stays focused on backward compatibility—no new functionality will be
+added here, but existing behavior will continue to work.
 '''
 from collections import defaultdict
 import asyncio
@@ -45,16 +25,6 @@ from cryptofeed.json_utils import json
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
 
 LOG = logging.getLogger('feedhandler')
-
-# Issue deprecation warning when module is imported
-warnings.warn(
-    "cryptofeed.backends.kafka is deprecated. "
-    "Please migrate to cryptofeed.kafka_callback.KafkaCallback for TopicManager, "
-    "HeaderEnricher, and enhanced error handling. "
-    "See module docstring for migration guide.",
-    DeprecationWarning,
-    stacklevel=2
-)
 
 
 class KafkaCallback(BackendQueue):
