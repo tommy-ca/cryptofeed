@@ -25,6 +25,87 @@ skip_gitignore = true
 lines_after_imports = 2
 ensure_newline_before_comments = true
 
+# Pyrefly configuration - Exclude generated code
+[tool.pyrefly]
+# Exclude generated protobuf and schema files from type checking
+project_excludes = [
+    "gen/**/*.py",        # Generated protobuf Python files
+    "gen/**/*.json",      # Generated JSON schema files
+]
+
+# Error code configuration - Phase 0.3: Extended Foundation
+[tool.pyrefly.errors]
+# Phase 0.3: Enable critical runtime safety checks
+# Focus on most common crash causes
+unbound-name = true          # Prevents NameError crashes
+unsupported-operation = true # Prevents TypeError crashes
+missing-attribute = true     # Prevents AttributeError crashes (252 errors)
+bad-argument-type = true     # Prevents function call errors (185 errors)
+
+# Explicitly disable all other types for controlled rollout
+annotation-mismatch = false
+assert-type = false
+bad-argument-count = false
+bad-assignment = false
+bad-class-definition = false
+bad-context-manager = false
+bad-function-definition = false
+bad-index = false
+bad-instantiation = false
+bad-keyword-argument = false
+bad-match = false
+bad-override = false
+bad-param-name-override = false
+bad-return = false
+bad-specialization = false
+bad-typed-dict = false
+bad-typed-dict-key = false
+bad-unpacking = false
+deprecated = false
+implicit-abstract-class = false
+implicit-any = false
+implicit-import = false
+implicitly-defined-attribute = false
+inconsistent-inheritance = false
+inconsistent-overload = false
+internal-error = false
+invalid-annotation = false
+invalid-argument = false
+invalid-decorator = false
+invalid-inheritance = false
+invalid-literal = false
+invalid-overload = false
+invalid-param-spec = false
+invalid-self-type = false
+invalid-super-call = false
+invalid-syntax = false
+invalid-type-alias = false
+invalid-type-var = false
+invalid-type-var-tuple = false
+invalid-yield = false
+missing-argument = false
+missing-import = false
+missing-module-attribute = false
+missing-source = false
+no-access = false
+no-matching-overload = false
+not-a-type = false
+not-async = false
+not-callable = false
+not-iterable = false
+parse-error = false
+protocol-implicitly-defined-attribute = false
+read-only = false
+redundant-cast = false
+redundant-condition = false
+reveal-type = false
+unknown-name = false
+unexpected-keyword = false
+unexpected-positional-argument = false
+unsupported = false
+unsupported-delete = false
+unused-coroutine = false
+
 
 [build-system]
 requires = ["setuptools", "wheel", "Cython"]

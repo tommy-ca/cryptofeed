@@ -99,6 +99,19 @@ fh.run()
 
 Please see the [examples](https://github.com/bmoscon/cryptofeed/tree/master/examples) for more code samples and the [documentation](https://github.com/bmoscon/cryptofeed/blob/master/docs/README.md) for more information about the library usage.
 
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Getting Started](docs/core/)** - Configuration, data types, callbacks, and quickstart guides
+- **[Kafka Integration](docs/kafka/)** - High-performance Kafka producer for market data
+- **[Proxy Support](docs/proxy/)** - HTTP/SOCKS proxy configuration and routing
+- **[Consumer Integration](docs/consumers/)** - Building downstream consumers for Kafka topics
+- **[Architecture](docs/architecture/)** - System design, patterns, and normalization
+- **[Specifications](docs/specs/)** - Feature specifications and implementation status
+
+See [`docs/README.md`](docs/README.md) for complete documentation navigation and table of contents.
+
 ## E2E Testing
 
 Comprehensive end-to-end testing infrastructure with reproducible environments:
@@ -125,7 +138,7 @@ pytest tests/integration/test_live_*.py -v -m live_proxy  # Live tests (26 tests
 - 🌍 Proxy routing validation (HTTP + WebSocket)
 - ✅ Live exchange testing (Binance, Hyperliquid, Backpack)
 
-**Documentation**: See [docs/e2e/](docs/e2e/) for detailed guides
+**Documentation**: See [docs/deliverables/](docs/deliverables/) for detailed guides
 
 
 For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).

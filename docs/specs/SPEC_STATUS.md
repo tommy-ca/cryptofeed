@@ -11,10 +11,10 @@
 | Status | Count | Details |
 |--------|-------|---------|
 | ✅ **Completed** | 3 | proxy-system-complete, normalized-data-schema-crypto, market-data-kafka-producer |
-| 🚧 **In Progress** | 2 | ccxt-generic-pro-exchange, backpack-exchange-integration |
+| 🚧 **In Progress** | 3 | ccxt-generic-pro-exchange, backpack-exchange-integration, shift-left-streaming-lakehouse |
 | 📋 **Planning Phase** | 1 | unified-exchange-feed-architecture (design not approved) |
 | ⏸️ **Disabled** | 3 | cryptofeed-lakehouse-architecture, proxy-pool-system, external-proxy-service |
-| **Total** | **9** | |
+| **Total** | **10** | |
 
 ---
 
@@ -490,6 +490,41 @@ Transform embedded proxy management into service-oriented architecture with exte
 
 ---
 
+### 10. 🚧 Shift Left Streaming Lakehouse Integration
+
+**Spec Name**: `shift-left-streaming-lakehouse`
+**Phase**: Implementation In Progress
+**Status**: v2 schemas + registry path delivered; validation underway
+**Created**: November 20, 2025
+**Updated**: November 21, 2025
+
+#### Status Summary
+- **Requirements**: ✅ Complete
+- **Design**: ✅ Complete
+- **Tasks**: ✅ Complete (Tasks 1‑6 marked)
+- **Implementation**: 🚧 In Progress (v2 protos, helpers, registry path merged; E2E tests added)
+
+#### Purpose
+Implement Confluent Schema Registry integration in KafkaCallback (Contract), create v2 Protobuf schemas with native double/bytes types (Compute), and align message headers/keys for Flink/Iceberg compatibility (Context). Unblocks the Flink -> Iceberg pattern.
+
+#### Dependencies
+- market-data-kafka-producer (Required)
+- normalized-data-schema-crypto (Required)
+
+#### Documentation Location
+- Spec JSON: [`.kiro/specs/shift-left-streaming-lakehouse/spec.json`](../../.kiro/specs/shift-left-streaming-lakehouse/spec.json)
+- Requirements: [`.kiro/specs/shift-left-streaming-lakehouse/requirements.md`](../../.kiro/specs/shift-left-streaming-lakehouse/requirements.md)
+- Design: [`.kiro/specs/shift-left-streaming-lakehouse/design.md`](../../.kiro/specs/shift-left-streaming-lakehouse/design.md)
+- Tasks: [`.kiro/specs/shift-left-streaming-lakehouse/tasks.md`](../../.kiro/specs/shift-left-streaming-lakehouse/tasks.md)
+
+#### Next Steps
+1. Monitor integration test coverage and run full Kafka/backends suite.
+2. Coordinate consumer validation (Flink/Iceberg) against v2 topics.
+3. Prepare rollout/migration notes and confirm registry credentials paths.
+
+
+---
+
 ## Specification Dependencies & Relationships
 
 ```
@@ -523,11 +558,12 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 - **proxy-system-complete**: All tests passing, documentation complete
 - **market-data-kafka-producer**: Implementation complete, 493+ tests passing, ready for merge to main (Phase 4 deferred post-merge)
 
-### 🚧 Active Development (2)
+### 🚧 Active Development (3)
 - **ccxt-generic-pro-exchange**: Begin TDD implementation, target completion before Backpack
 - **backpack-exchange-integration**: Begin native implementation, coordinate with CCXT generic
+- **shift-left-streaming-lakehouse**: Ready for implementation (Tasks generated)
 
-### 📋 Awaiting Approval (1)
+### 📋 Planning Phase (1)
 - **unified-exchange-feed-architecture**: Needs design review and approval before task generation
 
 ### ⏸️ Paused/Disabled (3)
@@ -553,6 +589,7 @@ cryptofeed-lakehouse-architecture (⏸️ DISABLED)
 3. **Set up integration testing** for both specs (Binance US sandbox for CCXT, Backpack testnet for native)
 4. **Clarify proxy roadmap** to determine priority of pool-system and external-service specs
 5. **Document consolidation decision** for CCXT vs Native approach for future exchanges
+6. **Generate requirements** for shift-left-streaming-lakehouse specification
 
 ### 🟢 Medium Priority (Next Month)
 1. **Evaluate unified architecture** once CCXT generic and Backpack reach MVP status

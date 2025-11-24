@@ -1,4 +1,4 @@
-'''
+"""
 Copyright (C) 2017-2025 Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
@@ -6,16 +6,42 @@ associated with this software.
 
 Book backends are intentionally left out here - Arctic cannot handle high throughput
 data like book data. Arctic is best used for writing large datasets in batches.
-'''
+"""
+
 import arctic
 import pandas as pd
+from abc import ABC, abstractmethod
 
 from cryptofeed.backends.backend import BackendCallback
-from cryptofeed.defines import BALANCES, CANDLES, FILLS, FUNDING, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES, LIQUIDATIONS, TRANSACTIONS
+from cryptofeed.defines import (
+    BALANCES,
+    CANDLES,
+    FILLS,
+    FUNDING,
+    OPEN_INTEREST,
+    ORDER_INFO,
+    TICKER,
+    TRADES,
+    LIQUIDATIONS,
+    TRANSACTIONS,
+)
 
 
 class ArcticCallback:
-    def __init__(self, library, host='127.0.0.1', key=None, none_to=None, numeric_type=float, quota=0, ssl=False, **kwargs):
+    # Default key - subclasses should override
+    default_key = "unknown"
+
+    def __init__(
+        self,
+        library,
+        host="127.0.0.1",
+        key=None,
+        none_to=None,
+        numeric_type=float,
+        quota=0,
+        ssl=False,
+        **kwargs,
+    ):
         """
         library: str
             arctic library. Will be created if does not exist.
@@ -33,7 +59,7 @@ class ArcticCallback:
         """
         con = arctic.Arctic(host, ssl=ssl)
         if library not in con.list_libraries():
-            lib_type = kwargs.get('lib_type', arctic.VERSION_STORE)
+            lib_type = kwargs.get("lib_type", arctic.VERSION_STORE)
             con.initialize_library(library, lib_type=lib_type)
         con.set_quota(library, quota)
         self.lib = con[library]
@@ -43,12 +69,12 @@ class ArcticCallback:
 
     async def write(self, data):
         df = pd.DataFrame({key: [value] for key, value in data.items()})
-        df['date'] = pd.to_datetime(df.timestamp, unit='s')
-        df['receipt_timestamp'] = pd.to_datetime(df.receipt_timestamp, unit='s')
-        df.set_index(['date'], inplace=True)
-        if 'type' in df and df.type.isna().any():
-            df.drop(columns=['type'], inplace=True)
-        df.drop(columns=['timestamp'], inplace=True)
+        df["date"] = pd.to_datetime(df.timestamp, unit="s")
+        df["receipt_timestamp"] = pd.to_datetime(df.receipt_timestamp, unit="s")
+        df.set_index(["date"], inplace=True)
+        if "type" in df and df.type.isna().any():
+            df.drop(columns=["type"], inplace=True)
+        df.drop(columns=["timestamp"], inplace=True)
         self.lib.append(self.key, df, upsert=True)
 
 

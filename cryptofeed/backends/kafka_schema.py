@@ -15,6 +15,7 @@ import json
 import logging
 import struct
 from abc import ABC, abstractmethod
+import threading
 from enum import Enum
 from functools import lru_cache
 from typing import Dict, Optional, Any, Tuple
@@ -92,6 +93,22 @@ class SchemaRegistryConfig(BaseModel):
     compatibility_mode: CompatibilityMode = Field(
         default=CompatibilityMode.BACKWARD,
         description="Schema compatibility mode",
+    )
+    tls_client_cert: Optional[str] = Field(
+        default=None,
+        description="Path to client certificate for mTLS",
+    )
+    tls_client_key: Optional[str] = Field(
+        default=None,
+        description="Path to client private key for mTLS",
+    )
+    tls_ca: Optional[str] = Field(
+        default=None,
+        description="CA bundle path for TLS verification",
+    )
+    verify: bool = Field(
+        default=True,
+        description="Verify TLS certificates (set False for local dev only)",
     )
     cache_size: int = Field(default=1000, description="Schema cache size")
     cache_ttl_seconds: int = Field(
@@ -354,6 +371,12 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             self._auth = HTTPBasicAuth(config.username, config.password)
         # Schema cache: {schema_id: schema_dict}
         self._schema_cache: Dict[int, Dict[str, Any]] = {}
+        self._cache_lock = threading.RLock()
+        self._verify = config.tls_ca if config.tls_ca else config.verify
+        if config.tls_client_cert and config.tls_client_key:
+            self._cert = (config.tls_client_cert, config.tls_client_key)
+        else:
+            self._cert = None
 
     def register_schema(
         self,
@@ -386,6 +409,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
+                verify=self._verify,
+                cert=self._cert,
                 timeout=30,
             )
 
@@ -439,9 +464,11 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             SchemaNotFoundError: If schema not found
         """
         # Check cache first
-        if schema_id in self._schema_cache:
+        with self._cache_lock:
+            cached = self._schema_cache.get(schema_id)
+        if cached is not None:
             self.logger.debug(f"Retrieved cached schema for schema_id={schema_id}")
-            return self._schema_cache[schema_id]
+            return cached
 
         url = urljoin(self.config.url, f"/schemas/ids/{schema_id}")
 
@@ -449,13 +476,16 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             response = requests.get(
                 url,
                 auth=self._auth,
+                verify=self._verify,
+                cert=self._cert,
                 timeout=30,
             )
 
             if response.status_code == 200:
                 data = response.json()
                 # Cache the schema
-                self._schema_cache[schema_id] = data
+                with self._cache_lock:
+                    self._schema_cache[schema_id] = data
                 self.logger.debug(f"Retrieved schema for schema_id={schema_id}")
                 return data
 
@@ -492,6 +522,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             response = requests.get(
                 url,
                 auth=self._auth,
+                verify=self._verify,
+                cert=self._cert,
                 timeout=30,
             )
 
@@ -542,6 +574,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
+                verify=self._verify,
+                cert=self._cert,
                 timeout=30,
             )
 
@@ -582,6 +616,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
+                verify=self._verify,
+                cert=self._cert,
                 timeout=30,
             )
 

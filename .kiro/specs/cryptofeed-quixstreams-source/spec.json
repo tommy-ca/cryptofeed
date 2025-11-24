@@ -1,0 +1,70 @@
+{
+  "feature_name": "cryptofeed-quixstreams-source",
+  "created_at": "2025-11-14T16:15:23Z",
+  "updated_at": "2025-11-15T22:13:15Z",
+  "language": "en",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "generated_at": "2025-11-15T22:07:15Z",
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "generated_at": "2025-11-15T22:10:15Z",
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "generated_at": "2025-11-15T22:13:15Z",
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true,
+  "requirements_summary": {
+    "total_criteria": 83,
+    "functional_areas": 10,
+    "ears_patterns": {
+      "when_then": 57,
+      "if_then": 18,
+      "while_the": 4,
+      "where_the": 4
+    },
+    "validation": {
+      "ears_compliant": true,
+      "all_testable": true,
+      "no_ambiguity": true
+    }
+  },
+  "design_summary": {
+    "components": 7,
+    "component_names": [
+      "CryptofeedSource",
+      "KafkaConsumerAdapter",
+      "ProtobufDeserializer",
+      "ErrorHandler",
+      "StateManager",
+      "MetricsCollector",
+      "ConfigManager"
+    ],
+    "data_types_supported": 14,
+    "error_categories": [
+      "Transient (broker errors)",
+      "Parse errors (protobuf decoding)",
+      "Validation errors (data constraints)",
+      "Unrecoverable errors"
+    ],
+    "key_patterns": [
+      "Circuit breaker (3-state: CLOSED/HALF_OPEN/OPEN)",
+      "Exponential backoff with configurable base delay",
+      "Dual-trigger offset commits (message count + time)",
+      "Dead Letter Queue routing for errors",
+      "Optional RocksDB state store"
+    ],
+    "metrics_count": 10,
+    "design_document_lines": 2100,
+    "architecture_diagrams": 4,
+    "discovery_type": "full"
+  }
+}

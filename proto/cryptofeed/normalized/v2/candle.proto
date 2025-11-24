@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2";
+option java_package = "build.buf.cryptofeed.normalized.v2";
+
+message Candle {
+  string exchange = 1;
+  string symbol = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+  string interval = 5;
+  uint64 trades = 6;
+  double open = 7;   // switch to bytes+scale if precision-critical
+  double close = 8;  // switch to bytes+scale if precision-critical
+  double high = 9;   // switch to bytes+scale if precision-critical
+  double low = 10;   // switch to bytes+scale if precision-critical
+  double volume = 11; // switch to bytes+scale if precision-critical
+  bool closed = 12;
+  google.protobuf.Timestamp timestamp = 13; // close/end time
+  uint64 sequence_number = 14;
+
+  // Decimal fidelity (REQ-011): if numeric fields switch to bytes, use message-level scale=15
+  optional int32 scale = 15;
+}
+

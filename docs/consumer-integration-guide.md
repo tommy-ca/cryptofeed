@@ -4,6 +4,9 @@
 
 Cryptofeed produces protobuf-serialized market data to Kafka topics. This guide shows how downstream consumers integrate these topics with storage backends (Apache Iceberg, DuckDB, Parquet) and analytics engines (Flink, Spark).
 
+- **v1 (legacy)**: Protobuf with string-encoded decimals, topics like `cryptofeed.trades`.
+- **v2 (schema-registry)**: Native numeric types, Confluent Wire Format, topics like `cryptofeed.trades.v2` with subject `{topic}-value`.
+
 ## Architecture
 
 ```
@@ -15,14 +18,16 @@ Cryptofeed (Ingestion) → Kafka Topics → Consumer (Storage + Analytics)
 
 ## Topic Schema
 
-Topics follow naming convention: `cryptofeed.{data_type}.{exchange}.{symbol}`
+Topics (consolidated mode) follow naming convention: `cryptofeed.{data_type}` with optional `.v2` suffix when Schema Registry mode is enabled. Per-symbol strategy still prefixes exchange/symbol for backwards compatibility.
 
 Examples:
-- `cryptofeed.trades.coinbase.btc-usd`
-- `cryptofeed.l2_book.binance.eth-usdt`
-- `cryptofeed.ticker.kraken.sol-usd`
+- `cryptofeed.trades` (v1, JSON/protobuf)
+- `cryptofeed.trades.v2` (v2, Confluent wire format + Schema Registry)
+- `cryptofeed.orderbook` / `cryptofeed.orderbook.v2`
 
-Message format: Protobuf (schemas from `cryptofeed.normalized.v1`)
+Message format:
+- v1: Protobuf schemas in `cryptofeed.normalized.v1`
+- v2: Protobuf schemas in `cryptofeed.normalized.v2` (native doubles, `google.protobuf.Timestamp`)
 
 ## Integration Patterns
 
@@ -79,6 +84,28 @@ t_env.execute_sql("""
     INSERT INTO iceberg.default.trades
     SELECT * FROM trades_source
 """)
+```
+
+### Pattern 1b: Flink → Iceberg (Schema Registry, v2)
+
+Use the Confluent wire format with Schema Registry subjects named `{topic}-value`.
+
+```sql
+CREATE TABLE trades_v2_source (
+    exchange STRING,
+    symbol STRING,
+    side STRING,
+    price DOUBLE,
+    amount DOUBLE,
+    trade_id STRING,
+    sequence_number BIGINT
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'cryptofeed.trades.v2',
+    'properties.bootstrap.servers' = 'kafka:9092',
+    'format' = 'protobuf-confluent',
+    'protobuf-confluent.schema-registry.url' = 'https://schema-registry:8081'
+);
 ```
 
 **Benefits**:

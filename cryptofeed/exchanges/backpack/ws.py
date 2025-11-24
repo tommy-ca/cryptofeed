@@ -1,4 +1,5 @@
 """Backpack WebSocket session abstraction leveraging cryptofeed WSAsyncConn."""
+
 from __future__ import annotations
 
 import asyncio
@@ -52,7 +53,9 @@ class BackpackWsSession:
 
         self._metrics = deps.metrics
         factory = deps.conn_factory or (
-            lambda: WSAsyncConn(self._config.ws_endpoint, "backpack", exchange_id=config.exchange_id)
+            lambda: WSAsyncConn(
+                self._config.ws_endpoint, "backpack", exchange_id=config.exchange_id
+            )
         )
         self._conn = factory()
 
@@ -79,7 +82,9 @@ class BackpackWsSession:
         deps: Optional[BackpackWsDependencies], legacy_kwargs: dict
     ) -> BackpackWsDependencies:
         if deps is not None and legacy_kwargs:
-            raise ValueError("Provide either dependencies or legacy keyword arguments, not both.")
+            raise ValueError(
+                "Provide either dependencies or legacy keyword arguments, not both."
+            )
 
         if deps is not None:
             return deps
@@ -191,10 +196,15 @@ class BackpackWsSession:
         self._last_auth_timestamp_us = None
 
     async def _send_auth(self) -> None:
+        assert self._auth_helper is not None
         try:
             timestamp = self._auth_helper._current_timestamp_us()
-            headers = self._auth_helper.build_headers(method="GET", path="/ws/auth", timestamp_us=timestamp)
-        except Exception as exc:  # pragma: no cover - defensive, metrics capture auth failures
+            headers = self._auth_helper.build_headers(
+                method="GET", path="/ws/auth", timestamp_us=timestamp
+            )
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - defensive, metrics capture auth failures
             raise BackpackAuthError(str(exc)) from exc
 
         payload = {
