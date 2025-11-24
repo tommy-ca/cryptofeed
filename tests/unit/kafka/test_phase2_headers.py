@@ -338,6 +338,13 @@ class TestTaskEightTwoOptionalHeaders:
         header_dict = dict(headers)
         assert header_dict[b'schema_version'] == b'v2'
         assert header_dict[b'producer_version'] == b'0.2.0'
+        assert b'cf.serialization_format' in header_dict
+
+    def test_serialization_format_header_present(self):
+        """Optional headers should include cf.serialization_format."""
+        headers = OptionalHeaders.build(serialization_format='protobuf')
+        header_dict = dict(headers)
+        assert header_dict[b'cf.serialization_format'] == b'protobuf'
 
 
 # ============================================================================
@@ -371,6 +378,7 @@ class TestHeaderEnrichment:
         assert b'schema_version' in header_dict
         assert b'producer_version' in header_dict
         assert b'timestamp_generated' in header_dict
+        assert b'cf.serialization_format' in header_dict
 
     def test_enricher_returns_list_of_tuples(self):
         """HeaderEnricher should return list of tuples."""
