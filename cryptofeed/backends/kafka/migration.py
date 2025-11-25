@@ -1,0 +1,172 @@
+"""
+Configuration migration utilities for Kafka backend.
+
+Provides translation from legacy (Phase 0/1) Kafka configuration
+structures to the modern Phase 2 `KafkaConfig` model used by
+`cryptofeed.backends.kafka.callback`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
+
+from .callback import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
+
+
+# ---- Data classes ---------------------------------------------------------
+
+
+@dataclass
+class MigrationResult:
+    """Result of a legacy-to-modern configuration translation."""
+
+    modern_config: KafkaConfig
+    unmapped_options: Dict[str, Any]
+    warnings: List[str]
+
+
+# ---- Core translation helpers --------------------------------------------
+
+
+LEGACY_KEY_MAP = {
+    "bootstrap_servers": "bootstrap_servers",
+    "acks": "acks",
+    "idempotence": "idempotence",
+    "retries": "retries",
+    "retry_backoff_ms": "retry_backoff_ms",
+    "batch_size": "batch_size",
+    "linger_ms": "linger_ms",
+    "compression_type": "compression_type",
+    # Topic / partition specific legacy keys
+    "topic_prefix": ("topic", "prefix"),
+    "topic_strategy": ("topic", "strategy"),
+    "partitions_per_topic": ("topic", "partitions_per_topic"),
+    "replication_factor": ("topic", "replication_factor"),
+    "partition_strategy": ("partition", "strategy"),
+}
+
+# Legacy defaults chosen to mirror historic behavior (per-symbol topics).
+LEGACY_DEFAULT_TOPIC = KafkaTopicConfig(strategy="per_symbol")
+LEGACY_DEFAULT_PARTITION = KafkaPartitionConfig(strategy="composite")
+
+
+def translate_legacy_config(legacy_config: Dict[str, Any]) -> MigrationResult:
+    """
+    Translate a legacy Kafka configuration dictionary into a modern KafkaConfig.
+
+    Args:
+        legacy_config: Dictionary containing legacy configuration keys.
+
+    Returns:
+        MigrationResult with modern KafkaConfig and any unmapped legacy options.
+
+    Raises:
+        ValueError: If required fields (bootstrap_servers) are missing or invalid.
+    """
+    if not isinstance(legacy_config, dict):
+        raise ValueError("legacy_config must be a dictionary")
+
+    if "bootstrap_servers" not in legacy_config:
+        raise ValueError("legacy_config missing required key 'bootstrap_servers'")
+
+    # Initialize target sections with legacy-friendly defaults
+    topic_kwargs = LEGACY_DEFAULT_TOPIC.model_dump()
+    partition_kwargs = LEGACY_DEFAULT_PARTITION.model_dump()
+    producer_kwargs: Dict[str, Any] = {}
+    unmapped: Dict[str, Any] = {}
+    warnings: List[str] = []
+
+    for key, value in legacy_config.items():
+        if key not in LEGACY_KEY_MAP:
+            unmapped[key] = value
+            continue
+
+        target = LEGACY_KEY_MAP[key]
+        # bootstrap_servers handled explicitly when constructing KafkaConfig
+        if target == "bootstrap_servers":
+            continue
+        if isinstance(target, tuple):
+            section, section_key = target
+            if section == "topic":
+                topic_kwargs[section_key] = value
+            elif section == "partition":
+                # Normalize strategy to lower-case for compatibility
+                if isinstance(value, str):
+                    value = value.lower()
+                partition_kwargs[section_key] = value
+        else:
+            producer_kwargs[target] = value
+
+    # Build modern KafkaConfig
+    modern = KafkaConfig(
+        bootstrap_servers=legacy_config["bootstrap_servers"],
+        topic=KafkaTopicConfig(**topic_kwargs),
+        partition=KafkaPartitionConfig(**partition_kwargs),
+        **producer_kwargs,
+    )
+
+    # Emit warning when unmapped options exist
+    if unmapped:
+        warnings.append(
+            f"Unmapped legacy options: {', '.join(sorted(unmapped.keys()))}"
+        )
+
+    return MigrationResult(
+        modern_config=modern,
+        unmapped_options=unmapped,
+        warnings=warnings,
+    )
+
+
+def detect_legacy_config(config: Dict[str, Any]) -> bool:
+    """
+    Heuristically detect whether a config dictionary is using the legacy format.
+
+    Returns True when it contains legacy-only keys like topic_prefix/partition_strategy.
+    """
+    legacy_keys = {"topic_prefix", "partition_strategy", "topic_strategy"}
+    return any(key in config for key in legacy_keys)
+
+
+def diff_configs(modern_a: KafkaConfig, modern_b: KafkaConfig) -> List[Tuple[str, Any, Any]]:
+    """
+    Compare two KafkaConfig instances and list differences.
+
+    Useful for functional equivalence checks between translated and expected configs.
+    """
+    diffs: List[Tuple[str, Any, Any]] = []
+
+    def _simple(attr: str):
+        a_val = getattr(modern_a, attr)
+        b_val = getattr(modern_b, attr)
+        if a_val != b_val:
+            diffs.append((attr, a_val, b_val))
+
+    for attr in [
+        "bootstrap_servers",
+        "acks",
+        "idempotence",
+        "retries",
+        "retry_backoff_ms",
+        "batch_size",
+        "linger_ms",
+        "compression_type",
+    ]:
+        _simple(attr)
+
+    # Topic and partition comparisons
+    if modern_a.topic != modern_b.topic:
+        diffs.append(("topic", modern_a.topic, modern_b.topic))
+    if modern_a.partition != modern_b.partition:
+        diffs.append(("partition", modern_a.partition, modern_b.partition))
+
+    return diffs
+
+
+__all__ = [
+    "MigrationResult",
+    "translate_legacy_config",
+    "detect_legacy_config",
+    "diff_configs",
+]
