@@ -122,6 +122,8 @@ async def start_periodic_health_checks(
     on_result: Callable[[KafkaHealthStatus], Any] | None = None,
     *,
     max_runs: int | None = None,
+    alert_fn: Callable[[KafkaHealthStatus], Any] | None = None,
+    alert_threshold_ms: float = 500.0,
 ) -> asyncio.Task:
     """
     Start a periodic health loop that executes check_fn every interval_sec.
@@ -139,6 +141,8 @@ async def start_periodic_health_checks(
             status = check_fn()
             if on_result:
                 on_result(status)
+            if alert_fn and (not status.ok or status.latency_ms > alert_threshold_ms):
+                alert_fn(status)
             runs += 1
             await asyncio.sleep(interval_sec)
 
