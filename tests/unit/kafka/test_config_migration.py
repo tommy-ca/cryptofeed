@@ -8,6 +8,7 @@ from cryptofeed.backends.kafka.migration import (
     translate_legacy_config,
     detect_legacy_config,
     diff_configs,
+    validate_migration,
 )
 from cryptofeed.backends.kafka.callback import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
 
@@ -69,6 +70,44 @@ def test_translate_unmapped_keys_are_reported():
     assert result.warnings  # should include notice
 
 
+def test_validate_migration_equivalence_matches():
+    legacy = {
+        "bootstrap_servers": ["kafka:9092"],
+        "acks": "all",
+        "topic_prefix": "cryptofeed",
+        "partition_strategy": "composite",
+    }
+    translated = translate_legacy_config(legacy).modern_config
+    report = validate_migration(legacy, translated)
+    assert report.is_equivalent is True
+    assert report.differences == []
+    assert report.unmapped_options == {}
+
+
+def test_validate_migration_detects_differences():
+    legacy = {
+        "bootstrap_servers": ["kafka:9092"],
+        "acks": "1",
+        "topic_prefix": "legacy",
+    }
+    translated = translate_legacy_config(legacy).modern_config
+    modified = translated.model_copy(update={"acks": "all"})
+
+    report = validate_migration(legacy, modified)
+    assert report.is_equivalent is False
+    assert any(diff[0] == "acks" for diff in report.differences)
+    assert report.unmapped_options == {}
+
+
+def test_validate_migration_flags_unmapped():
+    legacy = {"bootstrap_servers": ["kafka:9092"], "mystery": 42}
+    translated = translate_legacy_config(legacy).modern_config
+    report = validate_migration(legacy, translated)
+    assert report.is_equivalent is True  # still equivalent
+    assert report.unmapped_options == {"mystery": 42}
+    assert report.warnings
+
+
 def test_translate_requires_bootstrap_servers():
     with pytest.raises(ValueError):
         translate_legacy_config({})
@@ -87,4 +126,3 @@ def test_diff_configs_reports_changes():
     )
     diffs = diff_configs(modern_a, modern_b)
     assert ("topic", modern_a.topic, modern_b.topic) in diffs
-
