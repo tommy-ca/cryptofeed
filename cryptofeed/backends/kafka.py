@@ -1,16 +1,14 @@
 '''
-Legacy Kafka backend maintained for JSON-only deployments.
+Legacy Kafka backend (MAINTAINED, JSON-only).
 
-This module remains supported for environments that rely on the historical
-`BackendQueue` + `aiokafka` implementation. It preserves the original per-symbol
-topic strategy and JSON serialization behavior while newer deployments should
-prefer the refactored callbacks in `cryptofeed.backends.kafka`.
+This module keeps the original `BackendQueue` + `aiokafka` behavior for
+deployments that haven't migrated to the new Kafka callbacks. It does **not**
+emit deprecation warnings on import; the contract is stability and API
+compatibility, not new features. New work should use:
 
-Recommended path for new work:
     from cryptofeed.backends.kafka import KafkaCallback, KafkaProtobufCallback
 
-This module stays focused on backward compatibility—no new functionality will be
-added here, but existing behavior will continue to work.
+Behavior remains frozen aside from critical fixes.
 '''
 from collections import defaultdict
 import asyncio
