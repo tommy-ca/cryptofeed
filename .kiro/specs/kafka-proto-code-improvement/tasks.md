@@ -3,7 +3,7 @@
 ## Phase 1 – Reorganization & Isolation
 
 - [ ] 1. Stabilize legacy Kafka backend status
-- [ ] 1.1 Remove deprecation behavior and restate maintenance contract
+- [x] 1.1 Remove deprecation behavior and restate maintenance contract
   - Strip `warnings.warn` paths so importing `cryptofeed.backends.kafka` no longer emits runtime noise while keeping aiokafka defaults untouched.
   - Refresh module docstring and logging to document the backend as MAINTAINED and JSON-only.
   - _Requirements: 1.1, 1.2_
@@ -29,7 +29,7 @@
   - Convert `cryptofeed/backends/protobuf_helpers.py` and `cryptofeed/proto_bindings/__init__.py` into thin re-export modules with DeprecationWarnings pointing to the new package.
   - Update internal imports across the repository (tests, converters, callbacks) to use the colocated module paths.
   - _Requirements: 2.5, 6.1_
-- [ ] 2.5 Verify protobuf serialization remains stable
+- [x] 2.5 Verify protobuf serialization remains stable
   - Run targeted serialization tests for all fourteen data types to ensure byte outputs remain identical after the refactor.
   - Add validation-focused tests that fail when required fields are absent or enums carry unsupported values.
   - _Requirements: 2.4_
@@ -93,7 +93,7 @@
   - Create lightweight tests that import each shimmed module and verify they emit a single DeprecationWarning while exposing the expected API surface.
   - Guard against accidental removal of shims before downstream consumers transition.
   - _Requirements: 6.1_
-- [ ] 6.3 Expand performance and load checks
+- [x] 6.3 Expand performance and load checks
   - Run the existing high-throughput benchmarks against the refactored callbacks to confirm batch drain throughput and latency remain within prior thresholds.
   - Profile protobuf serialization throughput after the module split to ensure no regressions versus the 2.1µs baseline.
   - _Requirements: 2.4, 3.3, 4.3_
