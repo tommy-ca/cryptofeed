@@ -370,6 +370,13 @@ mypy cryptofeed/
 ruff check cryptofeed/
 ruff format cryptofeed/
 
+# Scoped formatting (only changed files)
+./tools/format-utils.sh format-staged    # Format only staged changes
+./tools/format-utils.sh format-unstaged  # Format only unstaged changes
+./tools/format-utils.sh format-all       # Format all changes
+./tools/format-utils.sh dry-run-unstaged # Preview what would be formatted
+python tools/format-changed.py --unstaged  # Direct script usage
+
 # Install development dependencies
 pip install -e ".[dev]"
 ```
