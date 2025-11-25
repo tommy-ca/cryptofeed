@@ -7,7 +7,6 @@ from __future__ import annotations
 import warnings
 
 from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf, get_converter
-from cryptofeed.backends.protobuf import converters
 from cryptofeed.backends.protobuf.serialization import (  # noqa: F401
     _CONVERTER_MAP,
     _SCHEMA_CLASS_MAP,
