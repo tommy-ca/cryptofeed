@@ -696,7 +696,11 @@ class KafkaCallback(KafkaBackendBase):
             # Step 5: Produce to Kafka
             try:
                 produce_start = time.perf_counter() if metrics else None
-                self._producer.produce(topic, payload, key=key, headers=enriched_headers)
+                normalized_headers = [
+                    ((name.decode("utf-8") if isinstance(name, bytes) else str(name)), value)
+                    for name, value in enriched_headers
+                ]
+                self._producer.produce(topic, payload, key=key, headers=normalized_headers)
                 self._producer.poll(0.0)
                 if metrics and produce_start is not None:
                     metrics.record_produce_latency(

@@ -62,6 +62,7 @@ def redpanda(request):
 
     try:
         _wait_for_port("localhost", 19092, timeout=30)
+        time.sleep(3)
     except Exception as exc:  # pragma: no cover - env-specific
         subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "logs"])
         subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True)
@@ -90,6 +91,8 @@ async def _produce_trade(bootstrap: str, trade: Trade) -> None:
     cb._topic_strategy = "per_symbol"
     message = KafkaQueuedMessage(data_type="trade", obj=trade, receipt_timestamp=time.time())
     await cb._process_message(message)
+    # ensure message leaves client buffer
+    cb._producer.flush(2)
 
 
 def _consume_one(bootstrap: str, topic: str, timeout_s: float = 10.0) -> _ConsumedRecord:
@@ -113,7 +116,10 @@ def _consume_one(bootstrap: str, topic: str, timeout_s: float = 10.0) -> _Consum
     if msg is None or msg.error():
         raise AssertionError("No message consumed from Kafka")
 
-    header_dict = {k: v for k, v in msg.headers() or []}
+    def _b(k):
+        return k if isinstance(k, bytes) else str(k).encode()
+
+    header_dict = {_b(k): v for k, v in msg.headers() or []}
     return _ConsumedRecord(
         value=msg.value(), headers=header_dict, topic=msg.topic(), key=msg.key()
     )
