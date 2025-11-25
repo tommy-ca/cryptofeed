@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  redpanda:
+    image: docker.redpanda.com/redpanda/redpanda:v23.3.11
+    command:
+      - redpanda
+      - start
+      - --smp
+      - '1'
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - '0'
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092,PLAINTEXT_HOST://localhost:19092
+    ports:
+      - '19092:19092'
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--api-urls", "localhost:9644"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
