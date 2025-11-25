@@ -16,3 +16,17 @@ repos:
         types: [python]
         files: >-
           ^(cryptofeed/(connection\.py|proxy\.py|exchanges/native/ws\.py|exchanges/backpack/feed\.py))$
+      - id: format-changed
+        name: format changed files only
+        entry: python tools/format-changed.py --staged
+        language: system
+        files: \.py$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: lint-changed
+        name: lint changed files only
+        entry: bash -c 'git diff --cached --name-only -- "*.py" | xargs ruff check --fix'
+        language: system
+        files: \.py$
+        pass_filenames: false
+        stages: [pre-commit]
