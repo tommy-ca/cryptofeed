@@ -82,7 +82,7 @@
 ## Phase 4: Test Coverage and Regression Prevention
 
 - [ ] 4. Establish comprehensive test coverage for migration safety
-- [ ] 4.1 Create legacy backend test suite with deprecation verification
+- [x] 4.1 Create legacy backend test suite with deprecation verification
   - Build test suite for all legacy Kafka backend classes
   - Add deprecation warning emission verification tests
   - Implement functional equivalence tests between legacy and modern implementations
