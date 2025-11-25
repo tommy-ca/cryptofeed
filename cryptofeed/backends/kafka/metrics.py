@@ -15,7 +15,7 @@ to avoid code intrusion and maintain clean separation of concerns.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 import logging
 
@@ -117,7 +117,7 @@ class PrometheusMetricsExporter:
 
     class _NoOpMetric:
         """No-op metric for when Prometheus is unavailable."""
-        def labels(self, **kwargs) -> _NoOpMetric:
+        def labels(self, **kwargs) -> "PrometheusMetricsExporter._NoOpMetric":
             return self
 
         def inc(self, amount: float = 1) -> None:

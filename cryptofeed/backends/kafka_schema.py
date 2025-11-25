@@ -16,7 +16,6 @@ import logging
 import struct
 from abc import ABC, abstractmethod
 from enum import Enum
-from functools import lru_cache
 from typing import Dict, Optional, Any, Tuple
 from urllib.parse import urljoin
 
