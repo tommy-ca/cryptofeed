@@ -13,12 +13,6 @@ Key Features:
 import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional, List
-from pydantic import ValidationError
-
-
-class ValidationError(Exception):
-    """Validation error raised during config validation."""
-    pass
 
 
 class ValidationResult:
