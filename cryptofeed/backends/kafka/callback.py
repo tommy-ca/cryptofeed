@@ -15,15 +15,8 @@ from cryptofeed.json_utils import dumps_bytes
 
 from .base import KafkaBackendBase, KafkaQueuedMessage
 from .producer import KafkaProducer
-from .topic_manager import TopicManager, TopicStrategy
-from .partitioner import (
-    Partitioner,
-    SymbolPartitioner,
-    CompositePartitioner,
-    ExchangePartitioner,
-    RoundRobinPartitioner,
-    PartitionerFactory,
-)
+from .topic_manager import TopicManager
+from .partitioner import PartitionerFactory
 from .headers import HeaderEnricher, OptionalHeaders
 from .metrics import PrometheusMetricsExporter
 

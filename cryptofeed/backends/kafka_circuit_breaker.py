@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
@@ -309,7 +309,7 @@ class CircuitBreaker:
             self._metrics.successful_test_requests += 1
             self._record_state_transition(CircuitState.CLOSED)
             return result
-        except Exception as e:
+        except Exception:
             # Test request failed, reopen circuit
             self._state = CircuitState.OPEN
             self._last_failure_time = time.time()
