@@ -15,6 +15,7 @@ from typing import Dict, Any
 from cryptofeed.backends.kafka.maintenance import (
     DeprecationWarningSystem,
     _resolve_user_stacklevel,
+    get_deprecation_warning_system,
 )
 
 
@@ -156,6 +157,19 @@ class TestDeprecationWarningSystem:
                 # Check that enrichment fields are added
                 assert "timestamp" in call_args[1]
                 assert call_args[1]["component"] == "TestComponent"
+
+    def test_usage_report_contains_counts_and_last_context(self):
+        """Ensure usage report includes counts and last seen context."""
+        system = get_deprecation_warning_system()
+        system.reset_usage_stats()
+
+        system.track_usage("TradeKafka", {"symbol": "BTC-USD"})
+        system.track_usage("TradeKafka", {"symbol": "ETH-USD"})
+
+        report = system.get_usage_report()
+        assert report["TradeKafka"]["count"] == 2
+        assert report["TradeKafka"]["last_context"]["symbol"] == "ETH-USD"
+        assert report["TradeKafka"]["last_timestamp"] is not None
 
     def test_warning_consistency_across_calls(self):
         """Test that warning messages remain consistent across multiple calls."""
