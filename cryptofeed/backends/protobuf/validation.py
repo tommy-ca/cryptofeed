@@ -36,9 +36,10 @@ class SchemaValidator:
             return
 
         if not proto_msg.IsInitialized():
-            missing = proto_msg.FindInitializationErrors()
+            missing_fields = proto_msg.FindInitializationErrors()
+            missing_detail = f": missing {', '.join(missing_fields)}" if missing_fields else ""
             raise ProtobufEncodeError(
-                "Missing required fields",
+                f"Missing required fields{missing_detail}",
                 schema_version=version,
                 data_type=proto_msg.DESCRIPTOR.name if proto_msg.DESCRIPTOR else None,
                 schema_name=proto_msg.DESCRIPTOR.full_name if proto_msg.DESCRIPTOR else None,

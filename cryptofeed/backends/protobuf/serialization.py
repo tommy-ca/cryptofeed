@@ -9,7 +9,7 @@ from google.protobuf.message import Message
 from cryptofeed.exceptions import ProtobufEncodeError, SerializationError
 
 from cryptofeed.proto_bindings import (
-    trade_pb2, trade_side_pb2,
+    trade_pb2,
     ticker_pb2, candle_pb2, funding_pb2, order_book_pb2,
     liquidation_pb2, open_interest_pb2, index_price_pb2,
     balance_pb2, position_pb2, fill_pb2,
