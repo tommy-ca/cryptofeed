@@ -9,9 +9,7 @@ Tests cover:
 
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from typing import Dict, Any
-import http.client
+from unittest.mock import Mock, patch
 from requests.exceptions import ConnectionError, Timeout
 from requests.auth import HTTPBasicAuth
 
