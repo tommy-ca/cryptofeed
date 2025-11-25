@@ -51,8 +51,7 @@ class TopicManager:
         if data_type not in TopicManager.SUPPORTED_DATA_TYPES:
             sorted_types = ", ".join(sorted(TopicManager.SUPPORTED_DATA_TYPES))
             raise ValueError(
-                f"Unsupported data type: {data_type}. "
-                f"Supported types: {sorted_types}"
+                f"Unsupported data type: {data_type}. Supported types: {sorted_types}"
             )
 
     @staticmethod
@@ -80,9 +79,17 @@ class TopicManager:
         if strategy == TopicStrategy.CONSOLIDATED.value:
             topic_body = f"cryptofeed.{data_type}"
         else:
+            # Validate required fields for per_symbol strategy
+            if not symbol:
+                raise ValueError("Symbol is required for per_symbol topic strategy")
+            if not exchange:
+                raise ValueError("Exchange is required for per_symbol topic strategy")
+
             normalized_exchange = TopicManager._normalize_exchange(exchange)
             normalized_symbol = TopicManager._normalize_symbol(symbol)
-            topic_body = f"cryptofeed.{data_type}.{normalized_exchange}.{normalized_symbol}"
+            topic_body = (
+                f"cryptofeed.{data_type}.{normalized_exchange}.{normalized_symbol}"
+            )
 
         if prefix_clean:
             return f"{prefix_clean}.{topic_body}"
