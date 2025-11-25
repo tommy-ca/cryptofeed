@@ -2,7 +2,7 @@
 
 ## Phase 1 – Reorganization & Isolation
 
-- [ ] 1. Stabilize legacy Kafka backend status
+- [x] 1. Stabilize legacy Kafka backend status
 - [x] 1.1 Remove deprecation behavior and restate maintenance contract
   - Strip `warnings.warn` paths so importing `cryptofeed.backends.kafka` no longer emits runtime noise while keeping aiokafka defaults untouched.
   - Refresh module docstring and logging to document the backend as MAINTAINED and JSON-only.
@@ -84,7 +84,7 @@
   - Create a smoke test that starts both unified and legacy callbacks in the same process to ensure no conflicts in shared resources.
   - _Requirements: 6.1_
 
-- [ ] 6. Migrate and expand automated tests
+- [x] 6. Migrate and expand automated tests
 - [x] 6.1 Update existing unit/integration suites to new module locations
   - Rewrite imports across tests to use the colocated packages, ensuring pytest discovery finds the updated modules.
   - Remove skipped tests tied to deprecated modules and replace them with coverage for KafkaBackendBase and SchemaValidator.
