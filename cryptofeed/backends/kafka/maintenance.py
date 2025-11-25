@@ -47,6 +47,7 @@ class DeprecationWarningSystem:
             return
 
         self._usage_stats: Dict[str, int] = {}
+        self._usage_meta: Dict[str, Dict[str, Any]] = {}
         self._lock = Lock()
         self._initialized = True
         LOG.debug("DeprecationWarningSystem initialized")
@@ -131,6 +132,10 @@ class DeprecationWarningSystem:
         # Update usage statistics
         with self._lock:
             self._usage_stats[component] = self._usage_stats.get(component, 0) + 1
+            self._usage_meta[component] = {
+                "last_timestamp": enriched_context["timestamp"],
+                "last_context": {k: v for k, v in enriched_context.items() if k not in {"timestamp", "component"}},
+            }
 
         # Log usage for analytics collection
         self._log_usage(component, enriched_context)
@@ -144,6 +149,32 @@ class DeprecationWarningSystem:
         """
         with self._lock:
             return self._usage_stats.copy()
+
+    def get_usage_report(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get detailed usage report including counts and last-seen context.
+
+        Returns:
+            Dict mapping component -> {'count': int, 'last_timestamp': float, 'last_context': dict}
+        """
+        with self._lock:
+            report: Dict[str, Dict[str, Any]] = {}
+            for component, count in self._usage_stats.items():
+                meta = self._usage_meta.get(component, {})
+                report[component] = {
+                    "count": count,
+                    "last_timestamp": meta.get("last_timestamp"),
+                    "last_context": meta.get("last_context", {}),
+                }
+            return report
+
+    def emit_usage_report(self, logger: logging.Logger | None = None) -> None:
+        """
+        Emit usage report to provided logger (defaults to feedhandler).
+        """
+        logger = logger or LOG
+        report = self.get_usage_report()
+        logger.info("Kafka legacy usage report: %s", report)
 
     def reset_usage_stats(self) -> None:
         """Reset usage statistics (primarily for testing)."""
