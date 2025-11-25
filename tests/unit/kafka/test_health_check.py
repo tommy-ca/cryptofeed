@@ -71,3 +71,23 @@ async def test_periodic_health_check_runs_max_times():
     )
     await task
     assert len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_periodic_health_check_triggers_alert():
+    alerts = []
+
+    def _check():
+        return KafkaHealthCheck.check_connectivity(
+            ["k:9092"], implementation="modern", producer_factory=FailingProducer
+        )
+
+    def _alert(status):
+        alerts.append(status)
+
+    task = await start_periodic_health_checks(
+        interval_sec=0.01, check_fn=_check, max_runs=1, alert_fn=_alert
+    )
+    await task
+    assert len(alerts) == 1
+    assert alerts[0].ok is False
