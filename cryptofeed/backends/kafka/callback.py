@@ -470,6 +470,7 @@ class KafkaCallback(KafkaBackendBase):
             ,
             schema_version=self._schema_version if hasattr(self, "_schema_version") else "v1",
             serialization_format=self.serialization_format,
+            include_serialization_header=False,
         )
 
         self._producer = KafkaProducer(
@@ -746,6 +747,7 @@ class KafkaCallback(KafkaBackendBase):
             producer_version=self._header_enricher.producer_version,
             timestamp_generated=None,
             serialization_format=self.serialization_format,
+            include_serialization_format=self._header_enricher._include_serialization_header,
         )
         return base_headers + optional
 
@@ -757,7 +759,9 @@ class KafkaCallback(KafkaBackendBase):
         data_type: str,
     ) -> bool:
         header_names = {name for name, _ in headers}
-        required = {b"schema_version", b"cf.serialization_format"}
+        required = {b"schema_version"}
+        if self._header_enricher._include_serialization_header:
+            required.add(b"cf.serialization_format")
         missing = required - header_names
         if missing:
             LOG.error(

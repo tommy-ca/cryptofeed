@@ -13,6 +13,7 @@ warnings.warn(
     stacklevel=2,
 )
 
+from cryptofeed.backends.kafka.base import _SUPPORTED_METHODS  # noqa: F401
 from cryptofeed.backends.kafka.callback import *  # noqa: F401,F403
 from cryptofeed.backends.kafka.headers import (  # noqa: F401
     MessageHeaders,
