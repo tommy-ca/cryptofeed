@@ -9,7 +9,6 @@ from typing import Any, Iterable, Optional
 from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
 
-from .base import KafkaQueuedMessage
 from .callback import KafkaCallback
 from .headers import HeaderEnricher
 
