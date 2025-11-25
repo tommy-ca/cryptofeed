@@ -8,12 +8,21 @@ from google.protobuf.message import Message
 
 from cryptofeed.exceptions import ProtobufEncodeError, SerializationError
 
-from cryptofeed.proto_bindings import (
+from .bindings import (
     trade_pb2,
-    ticker_pb2, candle_pb2, funding_pb2, order_book_pb2,
-    liquidation_pb2, open_interest_pb2, index_price_pb2,
-    balance_pb2, position_pb2, fill_pb2,
-    order_info_pb2, order_pb2, transaction_pb2,
+    ticker_pb2,
+    candle_pb2,
+    funding_pb2,
+    order_book_pb2,
+    liquidation_pb2,
+    open_interest_pb2,
+    index_price_pb2,
+    balance_pb2,
+    position_pb2,
+    fill_pb2,
+    order_info_pb2,
+    order_pb2,
+    transaction_pb2,
     REQUIRED_MODULES,
 )
 
@@ -23,47 +32,49 @@ from .validation import SchemaValidator
 logger = logging.getLogger(__name__)
 
 PROTO_MODULES: Dict[str, Any] = {
-    'trade_pb2': trade_pb2,
-    'ticker_pb2': ticker_pb2,
-    'candle_pb2': candle_pb2,
-    'funding_pb2': funding_pb2,
-    'order_book_pb2': order_book_pb2,
-    'liquidation_pb2': liquidation_pb2,
-    'open_interest_pb2': open_interest_pb2,
-    'index_price_pb2': index_price_pb2,
-    'balance_pb2': balance_pb2,
-    'position_pb2': position_pb2,
-    'fill_pb2': fill_pb2,
-    'order_info_pb2': order_info_pb2,
-    'order_pb2': order_pb2,
-    'transaction_pb2': transaction_pb2,
+    "trade_pb2": trade_pb2,
+    "ticker_pb2": ticker_pb2,
+    "candle_pb2": candle_pb2,
+    "funding_pb2": funding_pb2,
+    "order_book_pb2": order_book_pb2,
+    "liquidation_pb2": liquidation_pb2,
+    "open_interest_pb2": open_interest_pb2,
+    "index_price_pb2": index_price_pb2,
+    "balance_pb2": balance_pb2,
+    "position_pb2": position_pb2,
+    "fill_pb2": fill_pb2,
+    "order_info_pb2": order_info_pb2,
+    "order_pb2": order_pb2,
+    "transaction_pb2": transaction_pb2,
 }
 
 TYPE_NAME_OVERRIDES = {
-    'Orderbook': 'OrderBook',
-    'Openinterest': 'OpenInterest',
-    'Orderinfo': 'OrderInfo',
-    'Fundingrate': 'Funding',
+    "Orderbook": "OrderBook",
+    "Openinterest": "OpenInterest",
+    "Orderinfo": "OrderInfo",
+    "Fundingrate": "Funding",
 }
 
 SCHEMA_OVERRIDES = {
-    'OrderBook': ('order_book_pb2', 'Level2Book'),
-    'Index': ('index_price_pb2', 'IndexPrice'),
+    "OrderBook": ("order_book_pb2", "Level2Book"),
+    "Index": ("index_price_pb2", "IndexPrice"),
 }
 
 OPTIONAL_SCHEMAS = {
-    'TradeSide',
-    'PriceLevel',
-    'Level2Delta',
-    'Nbbo',
-    'TopOfBook',
-    'Events',
+    "TradeSide",
+    "PriceLevel",
+    "Level2Delta",
+    "Nbbo",
+    "TopOfBook",
+    "Events",
 }
 
+
 def _canonical_type_name(slug: str) -> str:
-    parts = [segment for segment in slug.split('_') if segment]
-    candidate = ''.join(part.capitalize() for part in parts)
+    parts = [segment for segment in slug.split("_") if segment]
+    candidate = "".join(part.capitalize() for part in parts)
     return TYPE_NAME_OVERRIDES.get(candidate, candidate)
+
 
 def _resolve_schema_class(type_name: str):
     if type_name in SCHEMA_OVERRIDES:
@@ -76,25 +87,29 @@ def _resolve_schema_class(type_name: str):
             return candidate
     raise KeyError(f"No protobuf schema found for data type '{type_name}'")
 
+
 def _type_from_message(message_name: str) -> str:
     overrides = {
-        'Level2Book': 'OrderBook',
-        'IndexPrice': 'Index',
-        'FundingRate': 'Funding',
+        "Level2Book": "OrderBook",
+        "IndexPrice": "Index",
+        "FundingRate": "Funding",
     }
     if message_name in overrides:
         return overrides[message_name]
     return TYPE_NAME_OVERRIDES.get(message_name, message_name)
 
-def _build_converter_registry() -> Tuple[Dict[str, Callable[[Any], Message]], Dict[str, Any]]:
+
+def _build_converter_registry() -> Tuple[
+    Dict[str, Callable[[Any], Message]], Dict[str, Any]
+]:
     converters: Dict[str, Callable[[Any], Message]] = {}
     schema_classes: Dict[str, Any] = {}
     for name, value in vars(_converters).items():
-        if not name.endswith('_to_proto'):
+        if not name.endswith("_to_proto"):
             continue
         if not callable(value):
             continue
-        slug = name[:-len('_to_proto')]
+        slug = name[: -len("_to_proto")]
         type_name = _canonical_type_name(slug)
         try:
             schema_class = _resolve_schema_class(type_name)
@@ -106,6 +121,7 @@ def _build_converter_registry() -> Tuple[Dict[str, Callable[[Any], Message]], Di
 
     _validate_registry(converters)
     return converters, schema_classes
+
 
 def _validate_registry(converters: Dict[str, Callable[[Any], Message]]) -> None:
     missing = []
@@ -121,26 +137,29 @@ def _validate_registry(converters: Dict[str, Callable[[Any], Message]]) -> None:
             data_type=",".join(sorted(set(missing))),
         )
 
+
 _CONVERTER_MAP, _SCHEMA_CLASS_MAP = _build_converter_registry()
 
 _DEFAULT_SCHEMA_VERSION = "v0.1.0"
 _SCHEMA_VALIDATOR = SchemaValidator(_DEFAULT_SCHEMA_VERSION)
 
+
 def _resolve_schema_name(schema_message: Message | None, type_name: str) -> str | None:
     """Return protobuf schema identifier for diagnostics."""
 
-    if schema_message is not None and hasattr(schema_message, 'DESCRIPTOR'):
+    if schema_message is not None and hasattr(schema_message, "DESCRIPTOR"):
         descriptor = schema_message.DESCRIPTOR
         if descriptor is not None:
             return descriptor.full_name
 
     schema_class = _SCHEMA_CLASS_MAP.get(type_name)
-    if schema_class is not None and hasattr(schema_class, 'DESCRIPTOR'):
+    if schema_class is not None and hasattr(schema_class, "DESCRIPTOR"):
         descriptor = schema_class.DESCRIPTOR
         if descriptor is not None:
             return descriptor.full_name
 
     return f"{type_name.lower()}_pb2.{type_name}"
+
 
 def _ensure_message(instance, type_name: str, context: str) -> Message:
     """Validate converter/to_proto output is a protobuf Message instance."""
@@ -148,7 +167,9 @@ def _ensure_message(instance, type_name: str, context: str) -> Message:
     if isinstance(instance, Message):
         return instance
 
-    if hasattr(instance, 'SerializeToString') and callable(getattr(instance, 'SerializeToString')):
+    if hasattr(instance, "SerializeToString") and callable(
+        getattr(instance, "SerializeToString")
+    ):
         return instance
 
     raise ProtobufEncodeError(
@@ -157,6 +178,7 @@ def _ensure_message(instance, type_name: str, context: str) -> Message:
         schema_name=_resolve_schema_name(None, type_name),
         schema_version=_DEFAULT_SCHEMA_VERSION,
     )
+
 
 def get_converter(type_name: str):
     """
@@ -173,6 +195,7 @@ def get_converter(type_name: str):
         >>> proto_msg = converter(trade_obj)
     """
     return _CONVERTER_MAP.get(type_name)
+
 
 def serialize_to_protobuf(obj):
     """
@@ -191,7 +214,7 @@ def serialize_to_protobuf(obj):
     type_name = type(obj).__name__
 
     # First, check if the object exposes a to_proto() method (test doubles)
-    if hasattr(obj, 'to_proto') and callable(getattr(obj, 'to_proto')):
+    if hasattr(obj, "to_proto") and callable(getattr(obj, "to_proto")):
         try:
             proto_msg = obj.to_proto()
         except Exception as exc:  # pragma: no cover - defensive guard
@@ -246,7 +269,8 @@ def serialize_to_protobuf(obj):
             schema_version=_DEFAULT_SCHEMA_VERSION,
         ) from exc
 
+
 __all__ = [
-    'get_converter',
-    'serialize_to_protobuf',
+    "get_converter",
+    "serialize_to_protobuf",
 ]

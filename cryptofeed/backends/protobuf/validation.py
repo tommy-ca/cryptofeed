@@ -7,7 +7,7 @@ from __future__ import annotations
 from google.protobuf.message import Message
 
 from cryptofeed.exceptions import ProtobufEncodeError
-from cryptofeed.proto_bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+from .bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
 
 
 class SchemaValidator:
@@ -19,7 +19,9 @@ class SchemaValidator:
     def __init__(self, expected_version: str | None = None) -> None:
         self._expected_version = expected_version or DEFAULT_SCHEMA_VERSION
 
-    def validate(self, proto_msg: Message, *, schema_version: str | None = None) -> None:
+    def validate(
+        self, proto_msg: Message, *, schema_version: str | None = None
+    ) -> None:
         """
         Validate that required fields are populated and schema version matches.
         """
@@ -37,12 +39,16 @@ class SchemaValidator:
 
         if not proto_msg.IsInitialized():
             missing_fields = proto_msg.FindInitializationErrors()
-            missing_detail = f": missing {', '.join(missing_fields)}" if missing_fields else ""
+            missing_detail = (
+                f": missing {', '.join(missing_fields)}" if missing_fields else ""
+            )
             raise ProtobufEncodeError(
                 f"Missing required fields{missing_detail}",
                 schema_version=version,
                 data_type=proto_msg.DESCRIPTOR.name if proto_msg.DESCRIPTOR else None,
-                schema_name=proto_msg.DESCRIPTOR.full_name if proto_msg.DESCRIPTOR else None,
+                schema_name=proto_msg.DESCRIPTOR.full_name
+                if proto_msg.DESCRIPTOR
+                else None,
             )
 
 
