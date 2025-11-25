@@ -10,7 +10,6 @@ All tests written FIRST (TDD: RED phase) before implementation.
 import pytest
 from datetime import datetime
 from dataclasses import dataclass
-from unittest.mock import patch, MagicMock
 import re
 
 from cryptofeed.kafka_callback import (
@@ -245,7 +244,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_schema_version_header_default(self):
         """schema_version header should default to 'v1'."""
-        trade = MockTrade()
         headers = OptionalHeaders.build()
 
         header_dict = dict(headers)
@@ -256,7 +254,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_producer_version_header_present(self):
         """producer_version header should contain package version."""
-        trade = MockTrade()
         headers = OptionalHeaders.build()
 
         header_dict = dict(headers)
@@ -270,7 +267,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_timestamp_generated_header_iso8601(self):
         """timestamp_generated header should be ISO8601 format."""
-        trade = MockTrade()
         headers = OptionalHeaders.build()
 
         header_dict = dict(headers)
@@ -284,7 +280,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_optional_headers_are_bytes(self):
         """All optional header values should be bytes."""
-        trade = MockTrade()
         headers = OptionalHeaders.build()
 
         for key, value in headers:
@@ -295,7 +290,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_optional_headers_format_is_list_of_tuples(self):
         """Optional headers should be list of tuples."""
-        trade = MockTrade()
         headers = OptionalHeaders.build()
 
         assert isinstance(headers, list), \
@@ -305,7 +299,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_schema_version_custom_value(self):
         """schema_version should be customizable."""
-        trade = MockTrade()
         headers = OptionalHeaders.build(
             schema_version='v2'
         )
@@ -316,7 +309,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_producer_version_custom_value(self):
         """producer_version should be customizable."""
-        trade = MockTrade()
         headers = OptionalHeaders.build(
             producer_version='0.2.0'
         )
@@ -327,8 +319,6 @@ class TestTaskEightTwoOptionalHeaders:
 
     def test_optional_headers_override_capability(self):
         """Optional headers should be overridable for testing."""
-        trade = MockTrade()
-
         # Test with overrides
         headers = OptionalHeaders.build(
             schema_version='v2',

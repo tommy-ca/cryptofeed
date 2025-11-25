@@ -125,7 +125,7 @@ class SuccessCriteria:
             actual_value=f"{error_rate_percent:.3f}%",
             status=status,
             validation_method="DLQ ratio over 7 days",
-            evidence=f"DLQ messages / total messages",
+            evidence="DLQ messages / total messages",
         )
 
     @staticmethod
@@ -144,7 +144,7 @@ class SuccessCriteria:
             actual_value=f"{latency_ms:.2f}ms",
             status=status,
             validation_method="Prometheus percentile histogram",
-            evidence=f"Measured from producer to broker ack",
+            evidence="Measured from producer to broker ack",
         )
 
     @staticmethod
@@ -163,7 +163,7 @@ class SuccessCriteria:
             actual_value=f"{throughput_msg_per_sec:,.0f} msg/s",
             status=status,
             validation_method="Sustained peak measurement",
-            evidence=f"During peak market hours",
+            evidence="During peak market hours",
         )
 
     @staticmethod
@@ -184,7 +184,7 @@ class SuccessCriteria:
             actual_value=f"{match_percent:.2f}%",
             status=status,
             validation_method="Hash comparison across 1000+ samples",
-            evidence=f"Pre-migration vs post-migration data sets",
+            evidence="Pre-migration vs post-migration data sets",
         )
 
     @staticmethod
@@ -272,7 +272,7 @@ class SuccessCriteria:
             actual_value=f"{headers_present_percent:.2f}%",
             status=status,
             validation_method="Sample 10,000 messages, check header presence",
-            evidence=f"All required headers (exchange, symbol, data_type, schema_version)",
+            evidence="All required headers (exchange, symbol, data_type, schema_version)",
         )
 
 

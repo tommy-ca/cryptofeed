@@ -12,12 +12,9 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
 import time
-from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -292,7 +289,7 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_default_configuration(self):
         """Test circuit breaker uses sensible defaults."""
-        from cryptofeed.backends.kafka_circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+        from cryptofeed.backends.kafka_circuit_breaker import CircuitBreakerConfig
 
         config = CircuitBreakerConfig()
 

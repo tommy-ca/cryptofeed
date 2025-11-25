@@ -10,18 +10,11 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import time
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
 
 import pytest
-
-from cryptofeed.types import Trade, Ticker
 
 
 LOG = logging.getLogger("feedhandler")

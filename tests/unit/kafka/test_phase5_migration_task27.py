@@ -16,12 +16,10 @@ Test Strategy:
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -86,7 +84,7 @@ class ArchiveMetadata:
                 }
                 for m in self.backup_manifests
             ],
-            "retention_policy": f"30-day retention for incident investigation",
+            "retention_policy": "30-day retention for incident investigation",
             "audit_log": self.audit_trail,
         }
 

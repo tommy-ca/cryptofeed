@@ -10,7 +10,6 @@ All tests written FIRST (TDD: RED phase) before implementation.
 
 import pytest
 from dataclasses import dataclass
-from typing import Optional
 
 from cryptofeed.kafka_callback import (
     SymbolPartitioner,
