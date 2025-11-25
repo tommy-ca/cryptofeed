@@ -123,6 +123,7 @@ class OptionalHeaders:
         producer_version: Optional[str] = None,
         timestamp_generated: Optional[str] = None,
         serialization_format: str = "json",
+        include_serialization_format: bool = True,
     ) -> list[tuple[bytes, bytes]]:
         """Build optional headers with defaults.
 
@@ -164,8 +165,12 @@ class OptionalHeaders:
             (b"schema_version", schema_version.encode("utf-8")),
             (b"producer_version", producer_version.encode("utf-8")),
             (b"timestamp_generated", timestamp_generated.encode("utf-8")),
-            (b"cf.serialization_format", serialization_format.encode("utf-8")),
         ]
+
+        if include_serialization_format:
+            headers.append(
+                (b"cf.serialization_format", serialization_format.encode("utf-8"))
+            )
 
         return headers
 
@@ -222,6 +227,7 @@ class HeaderEnricher:
         producer_version: Optional[str] = None,
         timestamp_generated: Optional[str] = None,
         serialization_format: str = "json",
+        include_serialization_header: bool = True,
     ) -> None:
         """Initialize header enricher with configuration.
 
@@ -244,6 +250,7 @@ class HeaderEnricher:
         self.producer_version = producer_version
         self.timestamp_generated = timestamp_generated
         self.serialization_format = serialization_format
+        self._include_serialization_header = include_serialization_header
 
     def build(self, message: Any, data_type: str) -> list[tuple[bytes, bytes]]:
         """Build complete set of headers (mandatory + optional) for a message.
@@ -290,6 +297,7 @@ class HeaderEnricher:
             producer_version=self.producer_version,
             timestamp_generated=self.timestamp_generated,
             serialization_format=self.serialization_format,
+            include_serialization_format=self._include_serialization_header,
         )
 
         # Combine all headers: mandatory first, then optional
@@ -338,5 +346,3 @@ class HeaderEnricher:
 # ============================================================================
 # Health Check Models and Implementation (Task 17.3)
 # ============================================================================
-
-

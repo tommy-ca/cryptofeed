@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -132,8 +133,10 @@ class KafkaBackendBase(BackendCallback, ABC):
         self,
         data_type: str,
         obj: Any,
-        receipt_timestamp: Optional[float],
+        receipt_timestamp: Optional[float] = None,
     ) -> bool:
+        if receipt_timestamp is None:
+            receipt_timestamp = time.time()
         message = KafkaQueuedMessage(
             data_type=data_type,
             obj=obj,
