@@ -13,6 +13,14 @@ from cryptofeed.backends.kafka.headers import (  # noqa: F401
     OptionalHeaders,
     HeaderEnricher,
 )
+from cryptofeed.backends.kafka.partitioner import (  # noqa: F401
+    Partitioner,
+    SymbolPartitioner,
+    CompositePartitioner,
+    ExchangePartitioner,
+    RoundRobinPartitioner,
+    PartitionerFactory,
+)
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback  # noqa: F401
 
 warnings.warn(
