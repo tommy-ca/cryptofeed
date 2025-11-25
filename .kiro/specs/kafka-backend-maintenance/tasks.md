@@ -2,22 +2,22 @@
 
 ## Phase 1: Deprecation Warning System
 
-- [ ] 1. Implement deprecation warning system for legacy Kafka backend classes
-- [ ] 1.1 Create centralized deprecation warning service
+- [x] 1. Implement deprecation warning system for legacy Kafka backend classes
+- [x] 1.1 Create centralized deprecation warning service
   - Build warning emission service using Python's warnings module
   - Implement usage tracking and analytics collection
   - Add migration guidance generation with actionable messages
   - Integrate with existing cryptofeed logging infrastructure
   - _Requirements: 1.1, 1.2, 5.2_
 
-- [ ] 1.2 Add deprecation warnings to legacy Kafka backend classes
+- [x] 1.2 Add deprecation warnings to legacy Kafka backend classes
   - Instrument TradeKafka, BookKafka, and other legacy classes with warning emission
   - Implement class instantiation warnings with migration guidance
   - Add import-time deprecation warnings for legacy backend usage
   - Ensure warnings are consistent across all legacy components
   - _Requirements: 1.1, 1.2, 2.1_
 
-- [ ] 1.3 Create compatibility shim deprecation warnings
+- [x] 1.3 Create compatibility shim deprecation warnings
   - Add deprecation warnings to kafka_callback.py import redirection
   - Implement clear import path guidance for new backend location
   - Track shim usage patterns for migration planning
