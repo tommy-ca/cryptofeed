@@ -26,6 +26,16 @@ class MigrationResult:
     warnings: List[str]
 
 
+@dataclass
+class MigrationValidationReport:
+    """Validation outcome for a legacy→modern migration comparison."""
+
+    is_equivalent: bool
+    differences: List[Tuple[str, Any, Any]]
+    unmapped_options: Dict[str, Any]
+    warnings: List[str]
+
+
 # ---- Core translation helpers --------------------------------------------
 
 
@@ -123,10 +133,16 @@ def detect_legacy_config(config: Dict[str, Any]) -> bool:
     """
     Heuristically detect whether a config dictionary is using the legacy format.
 
-    Returns True when it contains legacy-only keys like topic_prefix/partition_strategy.
+    Returns True when it contains legacy-only keys like topic_prefix/partition_strategy
+    or when it omits modern nested 'topic'/'partition' sections (minimal legacy configs).
     """
     legacy_keys = {"topic_prefix", "partition_strategy", "topic_strategy"}
-    return any(key in config for key in legacy_keys)
+    if any(key in config for key in legacy_keys):
+        return True
+    # Minimal legacy configs lacked nested topic/partition sections.
+    if "topic" not in config and "partition" not in config:
+        return True
+    return False
 
 
 def diff_configs(modern_a: KafkaConfig, modern_b: KafkaConfig) -> List[Tuple[str, Any, Any]]:
@@ -164,9 +180,50 @@ def diff_configs(modern_a: KafkaConfig, modern_b: KafkaConfig) -> List[Tuple[str
     return diffs
 
 
+def validate_migration(
+    legacy_config: Dict[str, Any],
+    expected_modern: KafkaConfig | None = None,
+) -> MigrationValidationReport:
+    """
+    Validate a migration by translating legacy config and comparing to target modern config.
+
+    Args:
+        legacy_config: Legacy configuration dictionary.
+        expected_modern: Optional expected KafkaConfig to compare against. If not
+            provided, the translation result is compared to itself (always equivalent).
+
+    Returns:
+        MigrationValidationReport capturing equivalence, differences, and unmapped options.
+    """
+    translation = translate_legacy_config(legacy_config)
+    translated_modern = translation.modern_config
+
+    if expected_modern is None:
+        differences: List[Tuple[str, Any, Any]] = []
+        is_equivalent = True
+    else:
+        differences = diff_configs(translated_modern, expected_modern)
+        is_equivalent = len(differences) == 0
+
+    warnings = list(translation.warnings)
+    if translation.unmapped_options:
+        warnings.append(
+            f"Unmapped legacy options detected: {', '.join(sorted(translation.unmapped_options))}"
+        )
+
+    return MigrationValidationReport(
+        is_equivalent=is_equivalent,
+        differences=differences,
+        unmapped_options=translation.unmapped_options,
+        warnings=warnings,
+    )
+
+
 __all__ = [
     "MigrationResult",
+    "MigrationValidationReport",
     "translate_legacy_config",
     "detect_legacy_config",
     "diff_configs",
+    "validate_migration",
 ]
