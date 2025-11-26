@@ -1,0 +1,116 @@
+# Kafka Maintenance Scheduler Configuration Example
+#
+# This file defines automated maintenance tasks for Kafka backend operations.
+# Copy to config/maintenance-tasks.yaml and customize for your environment.
+#
+# Task types:
+#   - health_check: Validate Kafka connectivity and performance
+#   - analytics_report: Generate migration analytics report
+#   - deprecation_report: Generate deprecation usage report
+#   - config_migration: Automated configuration migration
+#
+# Cron schedule format: minute hour day month weekday
+#   Examples:
+#     "0 * * * *"     - Every hour
+#     "*/15 * * * *"  - Every 15 minutes
+#     "0 0 * * *"     - Daily at midnight
+#     "0 0 * * 0"     - Weekly on Sunday
+#     "0 0 1 * *"     - Monthly on 1st
+#
+# Note: Requires croniter package for cron parsing.
+#       Without croniter, uses simplified interval-based scheduling.
+
+tasks:
+  # Health Checks
+  - task_id: health-check-modern-hourly
+    task_type: health_check
+    schedule_cron: "0 * * * *"  # Every hour
+    enabled: true
+    parameters:
+      implementation: modern
+      bootstrap_servers:
+        - kafka.prod.example.com:9092
+    max_retries: 3
+
+  - task_id: health-check-legacy-hourly
+    task_type: health_check
+    schedule_cron: "30 * * * *"  # Every hour at :30
+    enabled: true  # Set to false once legacy fully deprecated
+    parameters:
+      implementation: legacy
+      bootstrap_servers:
+        - kafka.prod.example.com:9092
+    max_retries: 3
+
+  # Analytics Reports
+  - task_id: analytics-daily
+    task_type: analytics_report
+    schedule_cron: "0 1 * * *"  # Daily at 1 AM
+    enabled: true
+    parameters:
+      report_format: json
+      output_path: /var/log/cryptofeed/analytics/daily-report.json
+    max_retries: 1
+
+  - task_id: analytics-weekly
+    task_type: analytics_report
+    schedule_cron: "0 2 * * 0"  # Weekly on Sunday at 2 AM
+    enabled: true
+    parameters:
+      report_format: json
+      output_path: /var/log/cryptofeed/analytics/weekly-report.json
+      include_trends: true
+    max_retries: 1
+
+  # Deprecation Reports
+  - task_id: deprecation-daily
+    task_type: deprecation_report
+    schedule_cron: "0 3 * * *"  # Daily at 3 AM
+    enabled: true
+    parameters:
+      output_path: /var/log/cryptofeed/deprecation/daily-report.json
+    max_retries: 1
+
+  - task_id: deprecation-weekly-summary
+    task_type: deprecation_report
+    schedule_cron: "0 4 * * 0"  # Weekly on Sunday at 4 AM
+    enabled: true
+    parameters:
+      output_path: /var/log/cryptofeed/deprecation/weekly-summary.json
+      include_recommendations: true
+    max_retries: 1
+
+  # Configuration Migration (Disabled by default)
+  # Enable only when batch config migrations are needed
+  - task_id: config-migration-batch
+    task_type: config_migration
+    schedule_cron: "0 5 * * 0"  # Weekly on Sunday at 5 AM
+    enabled: false  # Enable only when needed
+    parameters:
+      legacy_config_path: /etc/cryptofeed/legacy-configs/
+      output_path: /etc/cryptofeed/migrated-configs/
+      validate_after_migration: true
+    max_retries: 1
+
+# Alternative: Minimal configuration for development/testing
+# Uncomment and use this section for local development
+
+# tasks:
+#   - task_id: health-check-local
+#     task_type: health_check
+#     schedule_cron: "*/5 * * * *"  # Every 5 minutes
+#     enabled: true
+#     parameters:
+#       implementation: modern
+#       bootstrap_servers:
+#         - localhost:9092
+#     max_retries: 1
+#
+#   - task_id: analytics-test
+#     task_type: analytics_report
+#     schedule_cron: "*/10 * * * *"  # Every 10 minutes
+#     enabled: true
+#     parameters:
+#       report_format: json
+#       output_path: /tmp/analytics-test.json
+#     max_retries: 1
