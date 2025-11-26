@@ -1,0 +1,241 @@
+# Staging Environment - KafkaCallback Configuration
+# Market Data Kafka Producer - Phase 5 Week 1 Deployment
+#
+# Purpose: Configure KafkaCallback for staging deployment with consolidated topics
+# Usage: Load this config when initializing KafkaCallback in staging environment
+#
+# Environment Variables Required:
+#   - KAFKA_BOOTSTRAP_SERVERS (e.g., kafka1:9092,kafka2:9092,kafka3:9092)
+#   - KAFKA_SASL_USERNAME
+#   - KAFKA_SASL_PASSWORD
+#   - See .env.production.template for complete list
+
+# ==============================================================================
+# Kafka Connection Configuration
+# ==============================================================================
+kafka:
+  # Bootstrap servers (set via environment variable)
+  bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+
+  # Topic configuration
+  topic_prefix: "cryptofeed"
+  topic_strategy: "consolidated"  # Default: consolidated topics (cryptofeed.trades, cryptofeed.orderbook, etc.)
+
+  # Partition configuration
+  partition_strategy: "composite"  # Default: hash(exchange + symbol) for ordering guarantees
+  num_partitions: 12               # Matches production configuration
+  replication_factor: 3            # High availability (requires 3+ brokers)
+
+  # Message headers
+  enable_message_headers: true
+  headers:
+    - "exchange"        # e.g., "coinbase"
+    - "symbol"          # e.g., "BTC-USD"
+    - "data_type"       # e.g., "trades"
+    - "schema_version"  # e.g., "1.0.0"
+
+  # Producer configuration
+  producer_config:
+    # Delivery guarantees
+    acks: "all"                    # Wait for all in-sync replicas
+    enable_idempotence: true       # Exactly-once semantics
+    max_in_flight_requests: 5      # Pipelining for throughput
+
+    # Performance tuning
+    batch_size: 16384              # 16 KB batch size
+    linger_ms: 10                  # Wait up to 10ms to batch messages
+    compression_type: "lz4"        # Fast compression for protobuf
+
+    # Timeouts
+    request_timeout_ms: 30000      # 30 second timeout
+    delivery_timeout_ms: 120000    # 2 minute total delivery timeout
+
+    # Retry configuration
+    retries: 2147483647            # Retry indefinitely (bounded by delivery_timeout_ms)
+    retry_backoff_ms: 100          # 100ms between retries
+
+    # Buffer configuration
+    buffer_memory: 33554432        # 32 MB buffer
+
+  # Topic auto-creation
+  auto_create_topics: true         # Create topics if they don't exist
+  topic_config:
+    cleanup_policy: "delete"       # Delete old messages (not compact)
+    retention_ms: 604800000        # 7 days retention (staging only)
+    segment_ms: 86400000           # 1 day segments
+    min_insync_replicas: 2         # Minimum 2 replicas must acknowledge
+
+# ==============================================================================
+# Monitoring & Observability
+# ==============================================================================
+monitoring:
+  # Prometheus metrics
+  prometheus_enabled: true
+  metrics_port: 9090
+  metrics_path: "/metrics"
+
+  # Metrics to expose
+  metrics:
+    - "kafka_producer_messages_sent_total"
+    - "kafka_producer_messages_sent_bytes_total"
+    - "kafka_producer_errors_total"
+    - "kafka_producer_latency_seconds"
+    - "kafka_producer_batch_size"
+    - "kafka_producer_queue_size"
+
+  # Logging configuration
+  logging:
+    level: "INFO"                  # INFO level for staging
+    format: "json"                 # JSON logs for structured logging
+    destination: "stdout"          # Log to stdout (captured by container runtime)
+
+# ==============================================================================
+# Deployment Configuration
+# ==============================================================================
+deployment:
+  environment: "staging"
+
+  # Canary rollout strategy
+  canary_strategy: "gradual"
+  canary_stages:
+    - percentage: 10
+      duration_minutes: 120        # Monitor 10% for 2 hours
+      success_criteria:
+        - "error_rate < 0.1%"
+        - "latency_p99 < 5ms"
+        - "no_message_loss"
+    - percentage: 50
+      duration_minutes: 120        # Monitor 50% for 2 hours
+      success_criteria:
+        - "error_rate < 0.1%"
+        - "latency_p99 < 5ms"
+        - "no_message_loss"
+    - percentage: 100
+      duration_minutes: 0          # Complete rollout
+
+  # Rollback configuration
+  rollback:
+    auto_rollback_enabled: true
+    rollback_triggers:
+      - condition: "error_rate > 0.1%"
+        duration_minutes: 5
+        action: "rollback_to_previous_version"
+      - condition: "latency_p99 > 5ms"
+        duration_minutes: 10
+        action: "rollback_to_previous_version"
+      - condition: "broker_cpu > 90%"
+        duration_minutes: 15
+        action: "alert_and_pause"
+
+  # Health checks
+  health_checks:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 10
+    failure_threshold: 3
+    checks:
+      - name: "producer_connectivity"
+        type: "tcp"
+        target: "${KAFKA_BOOTSTRAP_SERVERS}"
+      - name: "message_delivery"
+        type: "functional"
+        action: "produce_test_message"
+      - name: "error_rate"
+        type: "metric"
+        threshold: "< 0.1%"
+      - name: "latency_p99"
+        type: "metric"
+        threshold: "< 5ms"
+
+# ==============================================================================
+# Serialization Configuration
+# ==============================================================================
+serialization:
+  format: "protobuf"               # Use protobuf serialization
+  schema_registry:
+    enabled: false                 # Not using schema registry in initial deployment
+    url: "${SCHEMA_REGISTRY_URL}"  # For future use
+
+  # Protobuf settings
+  protobuf:
+    include_schema_version: true   # Include schema version in message headers
+    validate_on_serialize: true    # Validate messages before serializing
+
+# ==============================================================================
+# Error Handling & Dead Letter Queue
+# ==============================================================================
+error_handling:
+  # Dead letter queue
+  dlq_enabled: true
+  dlq_topic_prefix: "cryptofeed.dlq"
+
+  # Retry policy
+  retry_policy:
+    max_retries: 3
+    backoff_type: "exponential"
+    initial_backoff_ms: 100
+    max_backoff_ms: 10000
+
+  # Circuit breaker
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5           # Open circuit after 5 failures
+    success_threshold: 3           # Close circuit after 3 successes
+    timeout_seconds: 60            # Half-open after 60 seconds
+
+# ==============================================================================
+# Security Configuration (references environment variables)
+# ==============================================================================
+security:
+  # SASL/SSL configuration
+  sasl_mechanism: "PLAIN"          # PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512
+  security_protocol: "SASL_SSL"    # SASL_SSL for production/staging
+
+  # SSL certificates (paths set via environment variables)
+  ssl_cert_location: "${KAFKA_SSL_CERT}"
+  ssl_key_location: "${KAFKA_SSL_KEY}"
+  ssl_ca_location: "${KAFKA_SSL_CA}"
+
+  # SASL credentials (set via environment variables)
+  sasl_username: "${KAFKA_SASL_USERNAME}"
+  sasl_password: "${KAFKA_SASL_PASSWORD}"
+
+# ==============================================================================
+# Validation & Testing
+# ==============================================================================
+validation:
+  # Pre-deployment checks
+  pre_deployment_checks:
+    - "validate_environment_variables"
+    - "validate_kafka_cluster_health"
+    - "validate_broker_count >= 3"
+    - "validate_topic_creation_capability"
+    - "validate_consumer_readiness"
+
+  # Post-deployment checks
+  post_deployment_checks:
+    - "validate_message_format"
+    - "validate_message_headers"
+    - "validate_protobuf_serialization"
+    - "validate_latency < 5ms"
+    - "validate_error_rate < 0.1%"
+    - "validate_broker_metrics_stable"
+
+  # Test message configuration
+  test_message:
+    enabled: true
+    topic: "cryptofeed.trades"
+    symbol: "BTC-USD"
+    exchange: "coinbase"
+    interval_seconds: 60           # Send test message every 60 seconds
+
+# ==============================================================================
+# Notes
+# ==============================================================================
+# 1. All sensitive values (passwords, keys) MUST be set via environment variables
+# 2. Bootstrap servers and broker addresses MUST be internal/private
+# 3. TLS/SSL MUST be enabled in production and staging environments
+# 4. Monitoring MUST be configured before deployment
+# 5. Pre-deployment validation MUST pass before proceeding
+# 6. Canary rollout MUST be followed (no direct 100% deployment)
+# 7. Rollback procedure MUST be tested before production deployment
