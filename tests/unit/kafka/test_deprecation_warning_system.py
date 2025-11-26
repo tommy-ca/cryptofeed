@@ -120,7 +120,7 @@ class TestDeprecationWarningSystem:
 
     def test_logging_integration(self):
         """Test integration with cryptofeed logging infrastructure."""
-        with patch("cryptofeed.backends.kafka.maintenance.LOG") as mock_logger:
+        with patch("cryptofeed.backends.kafka.maintenance.deprecation_system.LOG") as mock_logger:
             self.warning_system.emit_class_warning(
                 "TestKafka", "NewKafka", stacklevel=_resolve_user_stacklevel()
             )
@@ -211,7 +211,7 @@ class TestDeprecationWarningSystem:
                 assert class_name in str(warning.message)
                 assert replacement in str(warning.message)
 
-    @patch("cryptofeed.backends.kafka.maintenance.time.time")
+    @patch("cryptofeed.backends.kafka.maintenance.deprecation_system.time.time")
     def test_usage_tracking_includes_timestamp(self, mock_time):
         """Test that usage tracking includes timestamp information."""
         mock_time.return_value = 1640995200.0  # Fixed timestamp
