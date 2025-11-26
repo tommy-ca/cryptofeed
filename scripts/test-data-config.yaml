@@ -1,0 +1,116 @@
+# Test Data Generation Configuration
+#
+# Defines volume profiles for staging validation and load testing.
+# Used by scripts/generate-test-data.py for synthetic market data generation.
+
+profiles:
+  # Low volume profile: 1K msg/s for 1 hour
+  low:
+    messages_per_second: 1000
+    duration_seconds: 3600  # 1 hour
+    exchanges:
+      - coinbase
+    symbols:
+      - BTC-USD
+    data_types:
+      - trade
+      - ticker
+    description: "Low volume test: 1K msg/s, single exchange, single symbol"
+
+  # Medium volume profile: 50K msg/s for 1 hour
+  medium:
+    messages_per_second: 50000
+    duration_seconds: 3600  # 1 hour
+    exchanges:
+      - coinbase
+      - binance
+      - kraken
+    symbols:
+      - BTC-USD
+      - ETH-USD
+      - SOL-USD
+    data_types:
+      - trade
+      - ticker
+      - orderbook
+    description: "Medium volume test: 50K msg/s, 3 exchanges, 3 symbols"
+
+  # High volume profile: 150K msg/s for 1 hour
+  high:
+    messages_per_second: 150000
+    duration_seconds: 3600  # 1 hour
+    exchanges:
+      - coinbase
+      - binance
+      - kraken
+      - okx
+      - bybit
+    symbols:
+      - BTC-USD
+      - ETH-USD
+      - SOL-USD
+      - AVAX-USD
+      - MATIC-USD
+    data_types:
+      - trade
+      - ticker
+      - orderbook
+      - funding
+    description: "High volume test: 150K msg/s, 5 exchanges, 5 symbols"
+
+  # Spike scenario: 10K → 200K → 10K msg/s over 30 minutes
+  spike:
+    spike_scenario: true
+    start_rate: 10000
+    peak_rate: 200000
+    end_rate: 10000
+    ramp_up_seconds: 600    # 10 minutes
+    peak_seconds: 600       # 10 minutes
+    ramp_down_seconds: 600  # 10 minutes
+    exchanges:
+      - coinbase
+      - binance
+      - kraken
+      - okx
+      - bybit
+      - gemini
+    symbols:
+      - BTC-USD
+      - ETH-USD
+      - SOL-USD
+      - AVAX-USD
+      - MATIC-USD
+      - LINK-USD
+    data_types:
+      - trade
+      - ticker
+      - orderbook
+    description: "Spike test: 10K → 200K → 10K msg/s over 30 minutes"
+
+  # Smoke test: minimal load for quick validation
+  smoke:
+    messages_per_second: 100
+    duration_seconds: 60  # 1 minute
+    exchanges:
+      - coinbase
+    symbols:
+      - BTC-USD
+    data_types:
+      - trade
+    description: "Smoke test: 100 msg/s for 1 minute (quick validation)"
+
+# Kafka output configuration (optional)
+kafka:
+  bootstrap_servers:
+    - localhost:9092
+  topic_prefix: "cryptofeed.test"
+  acks: "all"
+  enable_idempotence: true
+  compression_type: "snappy"
+
+# File output configuration (optional)
+file_output:
+  directory: "./test-data-output"
+  format: "jsonlines"  # jsonlines or parquet
+  rotation_size_mb: 100
+  compression: "gzip"
