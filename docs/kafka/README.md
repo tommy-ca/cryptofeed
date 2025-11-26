@@ -10,6 +10,7 @@ The Kafka backend provides high-performance, production-ready integration with A
 - **Schema Validation**: Built-in validation for Protocol Buffer messages
 - **Header Enrichment**: Automatic metadata headers for routing and debugging
 - **Backward Compatibility**: Legacy API support with deprecation warnings
+- **Maintenance Toolkit**: Config translator/validator, health checks, and migration CLI (see `migration-guide-phase2-maintenance.md`)
 
 ## Quick Start
 
