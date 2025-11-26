@@ -199,7 +199,7 @@ class HeaderEnricher:
     - Suitable for 10K+ messages/second throughput
 
     Example Usage:
-        >>> from cryptofeed.kafka_callback import HeaderEnricher
+        >>> from cryptofeed.backends.kafka.headers import HeaderEnricher
         >>> enricher = HeaderEnricher(
         ...     content_type='application/x-protobuf',
         ...     schema_version='v1'
