@@ -351,7 +351,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Data Integrity Validation")
+    print("Data Integrity Validation")
     print(f"Legacy Topic: {args.legacy_topic}")
     print(f"New Topic: {args.new_topic}")
     print(f"Exchange: {args.exchange or 'ALL'}")

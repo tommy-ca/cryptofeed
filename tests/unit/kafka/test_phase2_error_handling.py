@@ -7,11 +7,10 @@ errors are logged with structured metadata.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from confluent_kafka import KafkaException

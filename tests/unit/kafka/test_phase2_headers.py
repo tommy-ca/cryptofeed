@@ -7,8 +7,6 @@ This module tests:
 All tests written FIRST (TDD: RED phase) before implementation.
 """
 
-import pytest
-from datetime import datetime
 from dataclasses import dataclass
 import re
 

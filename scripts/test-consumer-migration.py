@@ -39,10 +39,8 @@ NOTE: Most tests require a running Kafka cluster and will be skipped in unit tes
 import argparse
 import json
 import sys
-import time
 import os
-from typing import Dict, List, Any
-from pathlib import Path
+from typing import Dict, Any
 
 
 VERSION = "1.0.0"

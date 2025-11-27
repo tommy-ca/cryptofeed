@@ -16,12 +16,9 @@ What CANNOT be tested:
 - Slack/PagerDuty integration (requires external services)
 """
 
-import pytest
-import subprocess
 import json
 import yaml
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 
 
 class TestMonitoringDeploymentScripts:
@@ -325,7 +322,6 @@ class TestAlertTestingAutomation:
     def test_test_alerts_simulates_high_error_rate(self):
         """Test alert simulation for high error rate."""
         # Mock alert simulation
-        alert_name = "KafkaProducerErrorRateHigh"
 
         # Should simulate condition that triggers alert
         simulated_error_rate = 0.015  # 1.5% > 1% threshold
@@ -335,7 +331,6 @@ class TestAlertTestingAutomation:
 
     def test_test_alerts_simulates_high_latency(self):
         """Test alert simulation for high latency."""
-        alert_name = "ProducerLatencyHigh"
 
         # Should simulate high latency condition
         simulated_p99_latency = 0.055  # 55ms > 50ms threshold
@@ -345,7 +340,6 @@ class TestAlertTestingAutomation:
 
     def test_test_alerts_simulates_consumer_lag(self):
         """Test alert simulation for consumer lag."""
-        alert_name = "ConsumerLagHigh"
 
         # Should simulate lag condition
         simulated_lag = 35  # 35 messages > 30 threshold

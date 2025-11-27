@@ -11,7 +11,6 @@ Tests the consumer configuration validation script that ensures:
 TDD Approach: Write tests first, then implement validator script.
 """
 
-import pytest
 import subprocess
 import json
 from pathlib import Path
@@ -234,7 +233,6 @@ class TestConsumerConfigValidator:
         # This will fail initially (RED phase) until we implement the script
         # Validator script should accept JSON on stdin and output JSON
         import tempfile
-        import json
 
         # Write config to temp file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:

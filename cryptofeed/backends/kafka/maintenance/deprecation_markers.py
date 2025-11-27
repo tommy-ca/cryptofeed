@@ -8,7 +8,7 @@ in documentation files, ensuring clear communication of deprecation timelines.
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from packaging import version
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import warnings
 
-import pytest
 
 # Load legacy kafka.py directly (shadowed by package)
 import importlib.util

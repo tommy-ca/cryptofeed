@@ -11,5 +11,5 @@ message Ticker {
   string symbol = 2; // normalized trading pair (Cryptofeed Ticker.symbol)
   string bid = 3; // decimal string, scale 1e-8
   string ask = 4; // decimal string, scale 1e-8
-  optional int64 timestamp = 5; // microseconds since UNIX epoch (Ticker.timestamp converted to µs)
+  int64 timestamp = 5; // microseconds since UNIX epoch (Ticker.timestamp converted to µs)
 }

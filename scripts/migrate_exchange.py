@@ -21,7 +21,6 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 

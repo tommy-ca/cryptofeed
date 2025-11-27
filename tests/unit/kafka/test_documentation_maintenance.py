@@ -10,12 +10,8 @@ This TDD-first test suite ensures that documentation maintenance tools work corr
 Requirements: 3.3, 7.2
 """
 
-import pytest
 import tempfile
-import shutil
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List
 
 
 class TestDocumentationAutoUpdater:
@@ -326,9 +322,9 @@ class TestDocumentationVersioning:
             (docs_dir / "guide.md").write_text("content")
 
             # Create multiple snapshots
-            id1 = manager.create_snapshot(docs_dir, tag="v1.0.0")
-            id2 = manager.create_snapshot(docs_dir, tag="v1.1.0")
-            id3 = manager.create_snapshot(docs_dir, tag="v2.0.0")
+            manager.create_snapshot(docs_dir, tag="v1.0.0")
+            manager.create_snapshot(docs_dir, tag="v1.1.0")
+            manager.create_snapshot(docs_dir, tag="v2.0.0")
 
             # List snapshots
             snapshots = manager.list_snapshots()
@@ -578,7 +574,7 @@ config = KafkaConfig(bootstrap_servers=["localhost:9092"])
 
             # Step 1: Create snapshot before changes
             version_mgr = DocumentationVersionManager()
-            snapshot_id = version_mgr.create_snapshot(docs_dir, tag="before-update")
+            version_mgr.create_snapshot(docs_dir, tag="before-update")
 
             # Step 2: Update documentation for new field
             updater = DocumentationAutoUpdater()
@@ -607,7 +603,7 @@ config = KafkaConfig(bootstrap_servers=["localhost:9092"])
             assert results["invalid"] == 0
 
             # Step 5: Create new snapshot
-            new_snapshot = version_mgr.create_snapshot(docs_dir, tag="after-update")
+            version_mgr.create_snapshot(docs_dir, tag="after-update")
 
             # Should have two snapshots
             snapshots = version_mgr.list_snapshots()

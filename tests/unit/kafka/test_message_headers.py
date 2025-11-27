@@ -13,8 +13,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, List, Tuple
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -972,7 +970,7 @@ class TestHeadersPerformance:
 
         start = time.time()
         for _ in range(1000):
-            headers = enricher.build(message=trade, data_type="trades")
+            enricher.build(message=trade, data_type="trades")
         elapsed = time.time() - start
 
         avg_time_ms = (elapsed / 1000) * 1000

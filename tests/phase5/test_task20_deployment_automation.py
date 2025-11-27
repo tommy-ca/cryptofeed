@@ -12,15 +12,9 @@ Test Categories:
 5. Health Check Automation
 """
 
-import json
-import os
-import subprocess
-import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 
-import pytest
 
 
 class TestDeploymentConfiguration:
@@ -29,7 +23,7 @@ class TestDeploymentConfiguration:
     def test_staging_config_file_exists(self):
         """Should have staging deployment configuration file."""
         # This test will pass once we create the file
-        config_path = Path("deployment/staging/kafka-callback-config.yaml")
+        Path("deployment/staging/kafka-callback-config.yaml")
         # We'll create this file in implementation
         assert True  # Placeholder - will validate actual file
 

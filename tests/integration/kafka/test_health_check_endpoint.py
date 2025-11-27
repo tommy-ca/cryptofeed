@@ -17,14 +17,12 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass, asdict
-from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 
-from cryptofeed.types import Trade, Ticker
 from cryptofeed.kafka_callback import KafkaCallback
 
 

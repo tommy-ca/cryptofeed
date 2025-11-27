@@ -10,8 +10,8 @@ Implements TDD approach for task 6.1 of kafka-backend-maintenance spec.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime, timedelta
+from unittest.mock import MagicMock
+from datetime import datetime
 from pathlib import Path
 import tempfile
 
@@ -23,15 +23,13 @@ from cryptofeed.backends.kafka.migration import (
     translate_legacy_config,
     validate_migration,
 )
-from cryptofeed.backends.kafka.health import KafkaHealthCheck, KafkaHealthStatus
+from cryptofeed.backends.kafka.health import KafkaHealthCheck
 from cryptofeed.backends.kafka.deprecation import (
     DeprecationTimeline,
     CommunicationSystem,
-    DecisionLog,
     ProgressReport,
 )
 from cryptofeed.backends.kafka.maintenance.doc_updater import DocumentationAutoUpdater
-from cryptofeed.backends.kafka.callback import KafkaConfig
 
 
 # ============================================================================
@@ -280,7 +278,7 @@ class TestEndToEndIntegrationWorkflows:
         deprecation_system = DeprecationWarningSystem()
         deprecation_system.reset_usage_stats()
         progress_report = ProgressReport()
-        timeline = DeprecationTimeline.load_default()
+        DeprecationTimeline.load_default()
         comm_system = CommunicationSystem()
 
         # 2. Simulate legacy class usage
@@ -314,7 +312,7 @@ class TestEndToEndIntegrationWorkflows:
         """Complete workflow: migration -> validation -> documentation update."""
         # 1. Setup components
         with tempfile.TemporaryDirectory() as tmpdir:
-            doc_updater = DocumentationAutoUpdater(docs_root=Path(tmpdir))
+            DocumentationAutoUpdater(docs_root=Path(tmpdir))
 
             # 2. Perform configuration migration
             legacy_config = {

@@ -13,7 +13,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-from cryptofeed.backends.kafka.deprecation import ProgressReport, DeprecationTimeline, CommunicationSystem, TimelineUpdate
+from cryptofeed.backends.kafka.deprecation import ProgressReport, DeprecationTimeline
 
 
 def generate_report(output_path: str | None = None) -> str:
@@ -60,9 +60,9 @@ def generate_report(output_path: str | None = None) -> str:
             "",
             "### Migration Progress Bar",
             "",
-            f"```",
+            "```",
             f"[{'█' * int(migration_pct / 5)}{'░' * (20 - int(migration_pct / 5))}] {migration_pct:.1f}%",
-            f"```",
+            "```",
             "",
         ]
     )

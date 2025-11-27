@@ -9,11 +9,9 @@ Test organization follows TDD approach with real Kafka testing support.
 import pytest
 from pathlib import Path
 import tempfile
-import yaml
 
 from cryptofeed.migration.config_validator import (
     ConfigValidator,
-    ValidationResult,
 )
 from cryptofeed.kafka_callback import KafkaConfig
 
