@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+import public "cryptofeed/normalized/v2beta1/balance.proto";
+import public "cryptofeed/normalized/v2beta1/candle.proto";
+import public "cryptofeed/normalized/v2beta1/fill.proto";
+import public "cryptofeed/normalized/v2beta1/funding.proto";
+import public "cryptofeed/normalized/v2beta1/index_price.proto";
+import public "cryptofeed/normalized/v2beta1/level2_delta.proto";
+import public "cryptofeed/normalized/v2beta1/liquidation.proto";
+import public "cryptofeed/normalized/v2beta1/nbbo.proto";
+import public "cryptofeed/normalized/v2beta1/open_interest.proto";
+import public "cryptofeed/normalized/v2beta1/order.proto";
+import public "cryptofeed/normalized/v2beta1/order_book.proto";
+import public "cryptofeed/normalized/v2beta1/order_info.proto";
+import public "cryptofeed/normalized/v2beta1/position.proto";
+import public "cryptofeed/normalized/v2beta1/price_level.proto";
+import public "cryptofeed/normalized/v2beta1/ticker.proto";
+import public "cryptofeed/normalized/v2beta1/top_of_book.proto";
+import public "cryptofeed/normalized/v2beta1/trade.proto";
+import public "cryptofeed/normalized/v2beta1/trade_side.proto";
+import public "cryptofeed/normalized/v2beta1/transaction.proto";
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";

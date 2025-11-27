@@ -22,13 +22,13 @@ Expected test count: 100-120 tests covering:
 from __future__ import annotations
 
 import asyncio
-import json
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock
 
 import pytest
+from cryptofeed.types import Candle, Ticker, Trade
 
 # Import KafkaCallback and related components
 kafka_module = pytest.importorskip("cryptofeed.kafka_callback")
@@ -47,11 +47,6 @@ KafkaConfig = kafka_module.KafkaConfig
 KafkaTopicConfig = kafka_module.KafkaTopicConfig
 KafkaPartitionConfig = kafka_module.KafkaPartitionConfig
 KafkaProducerConfig = kafka_module.KafkaProducerConfig
-
-from cryptofeed.types import (
-    Trade, Ticker, Candle, OrderBook, Liquidation,
-    Funding, Index, OpenInterest
-)
 
 
 # =============================================================================
@@ -420,7 +415,7 @@ class TestCompleteMessagePipeline:
     @pytest.mark.asyncio
     async def test_complete_pipeline_with_json_serialization(self, trade_message):
         """Test complete pipeline: queue -> serialize -> topic -> partition -> headers -> produce."""
-        stub_producer = _StubProducer({})
+        _StubProducer({})
         callback = KafkaCallback(
             bootstrap_servers=['kafka:9092'],
             connection_timeout_ms=50,
@@ -437,7 +432,7 @@ class TestCompleteMessagePipeline:
     @pytest.mark.asyncio
     async def test_drain_once_processes_single_message(self, trade_message):
         """Test that _drain_once processes exactly one message from queue."""
-        stub_producer = _StubProducer({})
+        _StubProducer({})
         callback = KafkaCallback(
             bootstrap_servers=['kafka:9092'],
             connection_timeout_ms=50,
@@ -495,7 +490,7 @@ class TestCompleteMessagePipeline:
         # Should not raise exception
         topic = callback._topic_name('trades', minimal_obj)
         assert 'cryptofeed' in topic
-        key = callback._partition_key(minimal_obj)
+        callback._partition_key(minimal_obj)
         # Should still return a key or None gracefully
 
 # =============================================================================
@@ -1201,7 +1196,6 @@ class TestMessageHandlerIntegration:
         handler = callback.trade
         assert callable(handler)
         # Handler should be an async function
-        import asyncio
         assert asyncio.iscoroutinefunction(handler)
 
 
@@ -1526,7 +1520,7 @@ class TestAdditionalIntegrationScenarios:
 
     def test_partition_strategies_with_normalized_symbols(self, trade_message):
         """Test all partition strategies handle symbol normalization correctly."""
-        callback = KafkaCallback(
+        KafkaCallback(
             bootstrap_servers=['kafka:9092'],
             connection_timeout_ms=50,
             producer_factory=_producer_factory(_StubProducer),

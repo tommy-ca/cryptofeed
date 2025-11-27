@@ -739,17 +739,19 @@ curl -H "Authorization: Bearer $GRAFANA_API_KEY" \
 
 #### Migration Sequence
 
-**Rationale**: Migrate from highest confidence to broadest coverage, 1 exchange per day with validation windows.
+**Rationale**: Migrate from highest confidence to broadest coverage, 1 exchange per day with extended 6-hour validation windows for breathing room.
 
-| Day | Exchange | Volume | Confidence | Migration Window |
-|-----|----------|--------|------------|------------------|
-| **Mon** | Coinbase | Highest | Highest (largest, most tested) | 10:00-14:00 UTC |
-| **Tue** | Binance | High | High (second largest) | 10:00-14:00 UTC |
-| **Wed** | OKX | Medium | Medium | 10:00-14:00 UTC |
-| **Thu** | Kraken + Bybit | Medium | Medium | 10:00-14:00 UTC |
+| Day | Exchange | Volume | Confidence | Migration Window (6 hours) |
+|-----|----------|--------|------------|---------------------------|
+| **Mon** | Coinbase | Highest | Highest (largest, most tested) | 10:00-16:00 UTC |
+| **Tue** | Binance | High | High (second largest) | 10:00-16:00 UTC |
+| **Wed** | OKX | Medium | Medium | 10:00-16:00 UTC |
+| **Thu** | Kraken + Bybit | Medium | Medium | 10:00-16:00 UTC |
 | **Fri** | Remaining (5-10 exchanges) | Low-Medium | Low-Medium | 10:00-16:00 UTC |
 
-#### Per-Exchange Migration Procedure (4-hour window)
+#### Per-Exchange Migration Procedure (6-hour window)
+
+**Rationale for 6-Hour Window**: The original 4-hour window was too tight for unexpected issues under pressure. The extended 6-hour window provides critical buffer time and breathing room for thorough validation, troubleshooting, and go/no-go decisions without rushing.
 
 **Phase 1: Pre-Migration (30 minutes)**
 ```
@@ -759,40 +761,44 @@ T-10min: Notify stakeholders (migration starting)
 T-0min: Begin migration
 ```
 
-**Phase 2: Consumer Cutover (1 hour)**
+**Phase 2: Consumer Cutover (1.5 hours, +30min buffer)**
 ```
 T+0min: Update consumer subscriptions to consolidated topics
 T+10min: Deploy updated consumers to production
 T+20min: Verify consumers started successfully
 T+30min: Validate consumer lag <5s
 T+45min: Check error rates and DLQ
-T+60min: Consumer cutover complete
+T+60min: Consumer cutover complete (initial)
+T+90min: Consumer cutover fully validated (+30min buffer)
 ```
+**PAUSE POINT 1** (30 minutes): Review cutover metrics, assess for any issues before proceeding to validation phase.
 
-**Phase 3: Validation (1.5 hours)**
+**Phase 3: Validation (2.5 hours, +1 hour buffer)**
 ```
-T+60min: Validate message count (legacy vs new)
-T+75min: Validate data completeness (downstream storage)
-T+90min: Validate message headers and format
-T+105min: Check consumer lag stability
-T+120min: Verify no duplicates in storage
-T+150min: Validation complete
+T+90min: Validate message count (legacy vs new)
+T+110min: Validate data completeness (downstream storage)
+T+130min: Validate message headers and format
+T+150min: Check consumer lag stability
+T+170min: Verify no duplicates in storage
+T+210min: Validation complete (+1 hour buffer for thorough checks)
 ```
+**PAUSE POINT 2** (60 minutes): Go/no-go decision after validation phase, breathing room for analysis.
 
-**Phase 4: Monitoring (1 hour)**
+**Phase 4: Monitoring (1.5 hours, +30min buffer)**
 ```
-T+150min: Monitor for 1 hour (passive observation)
-T+180min: Review metrics and identify any anomalies
-T+210min: Document migration results
-T+210min: Approve proceed to next exchange (go/no-go)
+T+210min: Monitor for 1 hour (passive observation)
+T+240min: Review metrics and identify any anomalies
+T+270min: Document migration results
+T+300min: Monitoring complete (+30min buffer)
 ```
+**PAUSE POINT 3** (60 minutes): Final go/no-go decision, approve proceed to next exchange with breathing room.
 
-**Phase 5: Post-Migration (30 minutes)**
+**Phase 5: Post-Migration (1 hour)**
 ```
-T+210min: Create post-migration report
-T+220min: Update stakeholders (migration complete)
-T+230min: Schedule next exchange migration
-T+240min: Migration window closed
+T+300min: Create post-migration report
+T+320min: Update stakeholders (migration complete)
+T+340min: Schedule next exchange migration
+T+360min: Migration window closed (6-hour total)
 ```
 
 #### Success Criteria (Per Exchange)
@@ -1417,6 +1423,326 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 3. Schedule postmortem (within 24 hours)
 4. Fix issue in staging before retry
 
+---
+
+#### Runbook 1.5: Partial Rollback Procedure (<5 minutes)
+
+**Purpose**: Roll back a single failed exchange while keeping successfully migrated exchanges on new topics
+
+**Trigger**: Single exchange failure during Week 3 per-exchange migration
+
+**Decision Tree: Partial vs Full Rollback**
+
+```
+Exchange Migration Failure Detected
+│
+├─ Are other exchanges already migrated and healthy?
+│  ├─ NO  → Execute FULL ROLLBACK (Runbook 1)
+│  │       All exchanges revert to legacy topics
+│  │
+│  └─ YES → Evaluate PARTIAL ROLLBACK criteria
+│           │
+│           ├─ Is failure isolated to one exchange?
+│           │  ├─ NO  (multiple exchanges failing)
+│           │  │  └─> FULL ROLLBACK (Runbook 1)
+│           │  │
+│           │  └─ YES → Continue to next check
+│           │
+│           ├─ Can we identify affected consumers by exchange routing?
+│           │  ├─ NO  → FULL ROLLBACK (Runbook 1)
+│           │  │       Consumer routing not granular enough
+│           │  │
+│           │  └─ YES → Continue to next check
+│           │
+│           ├─ Is the failed exchange low-volume (<10% total traffic)?
+│           │  ├─ YES → PARTIAL ROLLBACK (this runbook)
+│           │  │       Minimize impact to other exchanges
+│           │  │
+│           │  └─ NO  (high-volume exchange like Coinbase/Binance)
+│           │         │
+│           │         ├─ Risk assessment required
+│           │         ├─ Consult L3 (Engineering Lead)
+│           │         └─ Decision: PARTIAL or FULL
+│           │
+│           └─ Final Decision
+│              ├─ PARTIAL: Keep healthy exchanges on new topics
+│              └─ FULL: Revert all exchanges (lower risk, more downtime)
+```
+
+**When to Use Partial Rollback**:
+- ✅ Single exchange failure during Week 3 migration
+- ✅ Other exchanges migrated successfully (lag <5s, error <0.1%)
+- ✅ Failed exchange is isolated (no cascading failures)
+- ✅ Consumer instances can be filtered by exchange routing
+- ✅ Risk is acceptable (failed exchange <10% of total volume)
+
+**When to Use Full Rollback** (Runbook 1):
+- ❌ Multiple exchanges failing simultaneously
+- ❌ Unable to identify consumers by exchange routing
+- ❌ Failed exchange is high-volume (>10% total traffic) AND L3 recommends full rollback
+- ❌ Cascading failures or infrastructure issues
+- ❌ Week 1-2 (before per-exchange migration begins)
+
+---
+
+**Partial Rollback Procedure** (4 steps, <5 minutes):
+
+**Step 1: Identify Affected Consumer Instances (T+0min to T+1min)**
+
+```bash
+# Identify consumers processing the failed exchange
+# Consumers filter messages by exchange header metadata
+FAILED_EXCHANGE="binance"  # Example: Binance migration failed
+
+# List consumer instances processing this exchange
+kubectl get pods -l app=kafka-consumers -o json \
+  | jq -r ".items[] | select(.metadata.annotations.exchange_routing | contains(\"$FAILED_EXCHANGE\")) | .metadata.name"
+
+# Example output:
+# kafka-consumer-binance-0
+# kafka-consumer-binance-1
+# kafka-consumer-binance-2
+
+# Note affected consumer instances for rollback
+AFFECTED_CONSUMERS="kafka-consumer-binance-0,kafka-consumer-binance-1,kafka-consumer-binance-2"
+```
+
+**Step 2: Revert Affected Consumers to Legacy Topics (T+1min to T+3min)**
+
+```bash
+# Revert only the failed exchange's consumers to legacy per-symbol topics
+FAILED_EXCHANGE="binance"
+
+# Update consumer subscriptions for affected instances only
+kubectl set env deployment/kafka-consumers-$FAILED_EXCHANGE \
+  KAFKA_TOPICS="cryptofeed.trades.binance.*,cryptofeed.orderbook.binance.*" \
+  --selector=exchange=$FAILED_EXCHANGE
+
+# Redeploy affected consumers only
+kubectl rollout restart deployment/kafka-consumers-$FAILED_EXCHANGE
+
+# Verify consumers reconnected to legacy topics
+kubectl logs -l app=kafka-consumers,exchange=$FAILED_EXCHANGE --tail=50 \
+  | grep "Subscribed to topics"
+# Expected output: legacy topic pattern (per-symbol)
+```
+
+**Step 3: Update Partition Strategy to Exclude Failed Exchange (T+3min to T+4min)**
+
+```bash
+# Update producer configuration to exclude failed exchange from new topic routing
+# Keep failed exchange on legacy backend, healthy exchanges on new backend
+
+# Option A: Using environment variable exclusion list
+kubectl set env deployment/kafka-producer \
+  KAFKA_CALLBACK_EXCLUDE_EXCHANGES="binance"
+
+# Option B: Using runtime configuration update (if supported)
+curl -X POST http://kafka-producer.internal:8000/admin/exclude-exchange \
+  -H "Content-Type: application/json" \
+  -d '{"exchange": "binance", "reason": "partial_rollback"}'
+
+# Verify exclusion applied
+curl http://kafka-producer.internal:8000/admin/config | jq '.exclude_exchanges'
+# Expected: ["binance"]
+```
+
+**Step 4: Validate Partial Rollback Success (T+4min to T+5min)**
+
+```bash
+FAILED_EXCHANGE="binance"
+HEALTHY_EXCHANGES="coinbase,okx"  # Previously migrated successfully
+
+# Validate failed exchange on legacy topics
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group cryptofeed-consumers-$FAILED_EXCHANGE \
+  | grep -E "cryptofeed\.(trades|orderbook)\.$FAILED_EXCHANGE"
+# Expected: Consumer lag decreasing on legacy topics
+
+# Validate healthy exchanges still on new topics
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group cryptofeed-consumers \
+  | grep -E "^cryptofeed\.(trades|orderbook)\s+"
+# Expected: Coinbase, OKX still consuming from consolidated topics
+
+# Check consumer lag for healthy exchanges (must remain <5s)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group cryptofeed-consumers \
+  | awk '$1 ~ /^cryptofeed\./ && $6 > 5000 {print "WARNING: Lag >5s on "$1}'
+# Expected: No output (all lag <5s)
+
+# Confirm partial rollback success
+echo "✅ Partial rollback complete:"
+echo "  - Failed exchange ($FAILED_EXCHANGE): Reverted to legacy topics"
+echo "  - Healthy exchanges ($HEALTHY_EXCHANGES): Remain on consolidated topics"
+```
+
+---
+
+**Validation Checklist** (Partial Rollback):
+- [ ] Failed exchange consumers reverted to legacy topics
+- [ ] Failed exchange consumer lag decreasing (<30s within 2 minutes)
+- [ ] Healthy exchanges remain on consolidated topics (no disruption)
+- [ ] Healthy exchange consumer lag still <5s
+- [ ] Healthy exchange error rate still <0.1%
+- [ ] Producer exclusion applied (failed exchange not routed to new topics)
+- [ ] Monitoring dashboard shows split routing (legacy + new)
+- [ ] System stabilized within 5 minutes
+
+---
+
+**Example Scenarios**:
+
+**Scenario A: Binance Migration Fails on Day 2**
+- **Context**: Coinbase migrated successfully on Day 1 (Monday), Binance fails on Day 2 (Tuesday)
+- **Question**: Rollback only Binance? Or rollback Coinbase too?
+- **Decision**: PARTIAL ROLLBACK
+  - Coinbase stays on consolidated topics (healthy, validated)
+  - Binance reverts to legacy per-symbol topics
+  - Day 3: Fix Binance issue, retry migration
+  - Day 3: If Binance succeeds, proceed to OKX
+- **Rationale**: Coinbase is highest-volume exchange, already validated for 24+ hours. Rolling back Coinbase would unnecessarily disrupt the largest data source.
+
+**Scenario B: OKX Migration Fails on Day 3**
+- **Context**: Coinbase (Day 1) and Binance (Day 2) migrated successfully, OKX fails on Day 3
+- **Decision**: PARTIAL ROLLBACK
+  - Coinbase + Binance stay on consolidated topics (48+ hours of stability)
+  - OKX reverts to legacy per-symbol topics
+  - Day 4: Fix OKX issue, retry migration
+- **Rationale**: Two major exchanges already stable on new topics. Partial rollback minimizes risk.
+
+**Scenario C: Kraken Fails on Day 4 (Low-Volume Exchange)**
+- **Context**: Coinbase, Binance, OKX migrated successfully. Kraken (medium volume) fails.
+- **Decision**: PARTIAL ROLLBACK
+  - Coinbase + Binance + OKX stay on consolidated topics
+  - Kraken reverts to legacy topics
+  - Day 5: Retry Kraken with other remaining exchanges
+- **Rationale**: Kraken is <5% of total volume. Minimal impact to keep others on new topics.
+
+**Scenario D: Coinbase Migration Fails on Day 1**
+- **Context**: First exchange migration (Day 1), Coinbase fails
+- **Question**: Rollback to what? No other exchanges migrated yet.
+- **Decision**: FULL ROLLBACK (Runbook 1)
+  - Revert all consumers to legacy topics (no partial state)
+  - Fix issue in staging
+  - Retry Week 3 migration schedule
+- **Rationale**: No partial state exists. Full rollback is simpler and safer.
+
+**Scenario E: Multiple Exchanges Failing (Cascading Failure)**
+- **Context**: Binance migrated on Day 2, then both OKX (Day 3) and Binance start showing errors
+- **Decision**: FULL ROLLBACK (Runbook 1)
+  - Infrastructure or systemic issue suspected
+  - Revert all exchanges to legacy topics
+  - Escalate to L3 (Engineering Lead)
+  - Root cause analysis before retry
+- **Rationale**: Multiple failures indicate systemic issue, not isolated exchange problem.
+
+---
+
+**Post-Partial-Rollback Actions**:
+
+1. **Document Rollback** (within 30 minutes):
+   - Failed exchange name
+   - Rollback trigger (error rate, consumer lag, data integrity)
+   - Rollback timestamp (start/end)
+   - Affected consumer instances
+   - Healthy exchanges (remain on new topics)
+
+2. **Notify Stakeholders** (within 1 hour):
+   - Slack: #data-engineering, #platform-ops
+   - Email: stakeholders distribution list
+   - Message template:
+     ```
+     ⚠️ PARTIAL ROLLBACK EXECUTED
+
+     Exchange: [Failed Exchange Name]
+     Trigger: [Error rate >1% / Lag >30s / Data integrity issue]
+     Rollback Time: [Timestamp] (completed in [X] minutes)
+
+     Status:
+     ✅ Healthy exchanges remain on new topics: [Coinbase, OKX, ...]
+     ⏮️  Failed exchange reverted to legacy topics: [Binance]
+
+     Next Steps:
+     - Root cause analysis in progress
+     - Fix identified, testing in staging
+     - Retry migration scheduled: [Date/Time]
+
+     Impact: Minimal (failed exchange <10% of volume, healthy exchanges unaffected)
+     ```
+
+3. **Root Cause Analysis** (within 4 hours):
+   - Review producer logs for failed exchange
+   - Review consumer logs for failed exchange
+   - Check Kafka broker metrics (partition lag, errors)
+   - Identify issue: configuration, code bug, infrastructure
+   - Document findings in incident report
+
+4. **Fix and Validate in Staging** (within 24 hours):
+   - Apply fix to staging environment
+   - Retest failed exchange migration in staging
+   - Validate all success criteria pass
+   - Obtain approval from QA team
+
+5. **Reschedule Migration** (next available day):
+   - Update Week 3 migration schedule
+   - Notify teams of new migration window
+   - Execute pre-migration checklist
+   - Retry failed exchange migration
+
+---
+
+**Key Differences: Partial vs Full Rollback**
+
+| Aspect | Partial Rollback (Runbook 1.5) | Full Rollback (Runbook 1) |
+|--------|-------------------------------|--------------------------|
+| **Scope** | Single failed exchange | All exchanges |
+| **Trigger** | Per-exchange migration failure (Week 3) | Systemic failure or early-phase issues |
+| **Healthy Exchanges** | Remain on consolidated topics | Revert to legacy topics |
+| **Consumer Impact** | Only failed exchange consumers redeployed | All consumers redeployed |
+| **Producer Config** | Add exclusion for failed exchange | Disable new topic production entirely |
+| **Timeline** | <5 minutes (same as full) | <5 minutes |
+| **Risk** | Medium (split state: legacy + new) | Low (all on legacy, consistent state) |
+| **Use Case** | Isolated exchange issue, others healthy | Multiple failures, infrastructure issues |
+| **Retry** | Next day (fix and retry single exchange) | Full Week 3 restart (all exchanges) |
+
+---
+
+**Monitoring During Partial Rollback**:
+
+```bash
+# Dashboard should show split state (expected during partial rollback)
+# New topics: Healthy exchanges (Coinbase, OKX, ...)
+# Legacy topics: Failed exchange (Binance)
+
+# Monitor new topics (healthy exchanges)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group cryptofeed-consumers \
+  | grep -E "^cryptofeed\.(trades|orderbook)\s+"
+
+# Monitor legacy topics (failed exchange)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group cryptofeed-consumers-binance \
+  | grep -E "cryptofeed\.(trades|orderbook)\.binance"
+
+# Alert if healthy exchange lag exceeds threshold
+# (should remain <5s despite partial rollback)
+```
+
+---
+
+**Success Criteria for Partial Rollback**:
+- [ ] Rollback completes in <5 minutes
+- [ ] Failed exchange reverted to legacy topics (consumer lag <30s)
+- [ ] Healthy exchanges unaffected (lag still <5s, error still <0.1%)
+- [ ] No cascading failures (split state stable)
+- [ ] Monitoring shows correct split routing
+- [ ] Root cause identified within 4 hours
+- [ ] Fix validated in staging within 24 hours
+- [ ] Migration retry scheduled
+
+---
+
 #### Runbook 2: Per-Exchange Migration
 
 **Trigger**: Scheduled migration window (10:00 UTC)
@@ -1428,7 +1754,7 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 - [ ] Confirm rollback procedure ready
 - [ ] Confirm QA team available for validation
 
-**Migration Procedure** (4-hour window):
+**Migration Procedure** (6-hour window with pause points):
 
 ```bash
 # Phase 1: Pre-Migration (T-30min to T+0min)

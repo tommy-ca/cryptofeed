@@ -1,0 +1,42 @@
+{
+  "name": "kafka-proto-code-improvement",
+  "version": "0.1.0",
+  "status": "tasks-complete",
+  "created": "2025-01-15",
+  "updated": "2025-11-25",
+  "description": "Reorganize Kafka and Protobuf code for improved maintainability, isolation, and colocation",
+  "scope": "code_organization",
+  "phases": {
+    "requirements": {
+      "status": "approved",
+      "file": "requirements.md",
+      "approved_date": "2025-01-15"
+    },
+    "design": {
+      "status": "approved",
+      "file": "design.md",
+      "generated_date": "2025-01-15",
+      "approved_date": "2025-01-15"
+    },
+    "tasks": {
+      "status": "approved",
+      "file": "tasks.md",
+      "generated_date": "2025-01-15",
+      "approved_date": "2025-11-25"
+    }
+  },
+  "implementation_status": {
+    "production_ready": true,
+    "estimated_effort_days": 13,
+    "estimated_effort_weeks": 3,
+    "complexity": "medium"
+  },
+  "dependencies": {
+    "required": [
+      "market-data-kafka-producer",
+      "protobuf-callback-serialization"
+    ],
+    "optional": []
+  },
+  "tags": ["kafka", "protobuf", "refactoring", "code-organization", "maintainability", "colocation"]
+}

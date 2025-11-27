@@ -1,0 +1,99 @@
+# Implementation Plan
+
+## Phase 1 – Reorganization & Isolation
+
+- [x] 1. Stabilize legacy Kafka backend status
+- [x] 1.1 Remove deprecation behavior and restate maintenance contract
+  - Strip `warnings.warn` paths so importing `cryptofeed.backends.kafka` no longer emits runtime noise while keeping aiokafka defaults untouched.
+  - Refresh module docstring and logging to document the backend as MAINTAINED and JSON-only.
+  - _Requirements: 1.1, 1.2_
+- [x] 1.2 Add regression checks for legacy backend path
+  - Exercise legacy callbacks in unit tests to ensure queue startup, topic selection, and aiokafka configuration remain unchanged.
+  - Capture warning-free startup logs in tests to guard against reintroducing deprecation messaging.
+  - _Requirements: 1.1_
+
+- [x] 2. Reorganize protobuf helpers into dedicated module tree
+- [x] 2.1 Create `backends/protobuf/` package structure
+  - Establish `__init__.py`, `helpers.py`, `converters.py`, `serialization.py`, `bindings.py`, and `validation.py` scaffolding with explicit exports for converters and schema utilities.
+  - Preserve schema version constants by relocating them into `bindings.py` alongside generated module imports.
+  - _Requirements: 2.1, 2.2, 2.3_
+- [x] 2.2 Move existing converter and serialization logic into new modules
+  - Split converter registry and serialization helpers so each file has a single responsibility while keeping identical public APIs.
+  - Ensure helper entry points delegate to the new modules without altering call signatures.
+  - _Requirements: 2.2, 2.3_
+- [x] 2.3 Introduce schema validation surface for protobuf payloads
+  - Implement a lightweight `SchemaValidator` that checks required fields, enum values, and schema version compatibility before serialization returns bytes.
+  - Emit descriptive exceptions to make ingestion errors actionable.
+  - _Requirements: 2.3, 2.4_
+- [x] 2.4 Add compatibility shims for legacy protobuf imports
+  - Convert `cryptofeed/backends/protobuf_helpers.py` and `cryptofeed/proto_bindings/__init__.py` into thin re-export modules with DeprecationWarnings pointing to the new package.
+  - Update internal imports across the repository (tests, converters, callbacks) to use the colocated module paths.
+  - _Requirements: 2.5, 6.1_
+- [x] 2.5 Verify protobuf serialization remains stable
+  - Run targeted serialization tests for all fourteen data types to ensure byte outputs remain identical after the refactor.
+  - Add validation-focused tests that fail when required fields are absent or enums carry unsupported values.
+  - _Requirements: 2.4_
+
+- [x] 3. Reorganize Kafka callbacks into colocated modules
+- [x] 3.1 Establish `backends/kafka/` package and move supporting modules
+  - Relocate config, producer, and unified callback files into the new package, wiring `__init__.py` to publish the public API surface.
+  - Maintain root-level shims (`cryptofeed/kafka_callback.py`, `kafka_producer.py`, `kafka_config.py`) that raise DeprecationWarnings yet re-export the same symbols.
+  - _Requirements: 3.1, 6.1_
+- [x] 3.2 Extract TopicManager, Partitioner, HeaderEnricher, and metrics modules
+  - Carve the existing logic out of the monolithic callback into `topic_manager.py`, `partitioner.py`, `headers.py`, and `metrics.py`, each encapsulating a single concern.
+  - Provide factory helpers so callbacks can consume these components without circular imports.
+  - _Requirements: 3.2, 3.3, 3.4_
+- [x] 3.3 Implement KafkaBackendBase for shared infrastructure
+  - Create the base class that owns queue lifecycles, batching, dependency injection, and concurrency controls for Kafka callbacks.
+  - Port existing writer loop logic into the base while exposing hooks for serialization and header customization.
+  - _Requirements: 5.1, 5.2_
+- [x] 3.4 Refactor unified KafkaCallback to inherit from the base
+  - Update the unified callback to delegate queue writes, serialization, and header enrichment to KafkaBackendBase plus the extracted helpers.
+  - Confirm JSON + Protobuf dual-mode behavior remains configurable through existing serialization_format wiring.
+  - _Requirements: 3.1, 3.3, 5.2_
+- [x] 3.5 Harden compatibility shims and import graph
+  - Ensure every legacy import path (`cryptofeed.kafka_*`, `cryptofeed.backends.kafka`) resolves to the new modules, and add regression tests that import each path.
+  - Wire static analysis configuration if necessary so the new package becomes the canonical source.
+  - _Requirements: 6.1_
+
+- [x] 4. Deliver protobuf-only Kafka backend
+- [x] 4.1 Implement KafkaProtobufCallback on top of KafkaBackendBase
+  - Lock serialization to protobuf by setting `serialization_format` during initialization and enforcing the new base hooks.
+  - Ensure header enrichment always includes schema version, serialization format, and data type metadata.
+  - _Requirements: 4.1, 5.2_
+- [x] 4.2 Integrate SchemaValidator and serialization pipeline
+  - Inject SchemaValidator and helpers from `backends/protobuf/` so every message validates before being enqueued for production.
+  - Surface validation errors through structured logs plus metrics to aid operators during rollout.
+  - _Requirements: 2.4, 4.2, 4.3_
+- [x] 4.3 Add targeted tests for protobuf-only backend
+  - Cover success and failure flows (valid payload, missing field, invalid enum) plus header contents to guarantee schema metadata is available to consumers.
+  - Include integration tests that produce to a test topic using confluent-kafka, verifying headers and payload bytes match expectations.
+  - _Requirements: 4.4, 4.5_
+
+- [x] 5. Instrument metrics and schema metadata for all backends
+- [x] 5.1 Wire metrics module into KafkaBackendBase and callbacks
+  - Record queue depth, drain latency, serialization counts, and delivery outcomes using the new metrics helpers.
+  - Provide Prometheus-friendly naming and ensure instrumentation can be toggled or replaced in deployments without Prometheus.
+  - _Requirements: 3.3, 3.4_
+- [x] 5.2 Document and enforce schema version headers
+  - Update header enrichment logic across unified and protobuf-only callbacks to stamp `schema_version`, `cf.serialization_format`, and ingestion timestamps consistently.
+  - Add guardrails to reject payloads missing schema metadata before they exit the writer loop.
+  - _Requirements: 3.3, 4.3, 6.1_
+- [x] 5.3 Run compatibility and import matrix checks
+  - Execute a matrix of imports covering all historical entry points (legacy backend, kafka_callback, kafka_producer, kafka_config, proto_bindings, protobuf_helpers) to confirm DeprecationWarnings fire but functionality remains intact.
+  - Create a smoke test that starts both unified and legacy callbacks in the same process to ensure no conflicts in shared resources.
+  - _Requirements: 6.1_
+
+- [x] 6. Migrate and expand automated tests
+- [x] 6.1 Update existing unit/integration suites to new module locations
+  - Rewrite imports across tests to use the colocated packages, ensuring pytest discovery finds the updated modules.
+  - Remove skipped tests tied to deprecated modules and replace them with coverage for KafkaBackendBase and SchemaValidator.
+  - _Requirements: 2.4, 3.3, 4.4_
+- [x] 6.2 Add regression tests for compatibility shims
+  - Create lightweight tests that import each shimmed module and verify they emit a single DeprecationWarning while exposing the expected API surface.
+  - Guard against accidental removal of shims before downstream consumers transition.
+  - _Requirements: 6.1_
+- [x] 6.3 Expand performance and load checks
+  - Run the existing high-throughput benchmarks against the refactored callbacks to confirm batch drain throughput and latency remain within prior thresholds.
+  - Profile protobuf serialization throughput after the module split to ensure no regressions versus the 2.1µs baseline.
+  - _Requirements: 2.4, 3.3, 4.3_

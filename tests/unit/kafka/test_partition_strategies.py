@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass
-from typing import Any, Optional
 
 
 # Import or skip partitioner implementations

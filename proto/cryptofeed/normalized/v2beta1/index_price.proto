@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// IndexPrice captures index calculations published by venues.
+message IndexPrice {
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Index.exchange)
+  string symbol = 2; // normalized index symbol or contract (Index.symbol)
+  string price = 3; // decimal string, scale 1e-8 (Index.price)
+  int64 timestamp = 4; // microseconds since UNIX epoch (Index.timestamp converted to µs)
+}

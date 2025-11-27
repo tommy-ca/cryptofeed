@@ -11,7 +11,6 @@ All tests are written FIRST (TDD: RED phase) before implementation.
 import pytest
 from pathlib import Path
 import tempfile
-from unittest.mock import patch, MagicMock
 
 from cryptofeed.kafka_callback import (
     TopicManager,

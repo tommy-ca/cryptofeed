@@ -119,8 +119,9 @@ async def test_kafka_callback_concurrent_flow_e2e():
         await _drain(producer, expected=len(trades))
 
         topics = {message.topic for message in producer.messages}
-        assert "cryptofeed.trades.coinbase.btc-usd" in topics
-        assert "cryptofeed.trades.binance.eth-usdt" in topics
+        # Consolidated topic strategy (default): all trades go to single topic
+        assert "cryptofeed.trade" in topics
+        assert len(topics) == 1  # All messages use consolidated topic
 
         for message in producer.messages:
             assert message.value

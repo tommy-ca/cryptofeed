@@ -78,6 +78,14 @@ Detailed status available in [`docs/specs/SPEC_STATUS.md`](docs/specs/SPEC_STATU
   - **Dependencies**: CCXT generic and Backpack specs (in progress)
   - **Next Step**: Review and approve design before proceeding
 
+- `cryptofeed-quixstreams-source`: Initialized (Nov 14, 2025) - CryptofeedSource for QuixStreams streaming framework
+  - **Status**: Specification initialized, requirements generation pending
+  - **Purpose**: Seamless integration of Cryptofeed's Kafka producer with QuixStreams, enabling real-time market data analytics
+  - **Data Types**: Consumes all 14 protobuf message types (trade, ticker, orderbook, etc.)
+  - **Dependencies**: market-data-kafka-producer (COMPLETE), protobuf-callback-serialization (COMPLETE), normalized-data-schema-crypto (COMPLETE)
+  - **Timeline**: 4 weeks to production-ready (Phase 1: Core, Phase 2: Error handling, Phase 3: Monitoring, Phase 4: Production)
+  - **Next Step**: Generate requirements using `/kiro:spec-requirements cryptofeed-quixstreams-source`
+
 ---
 
 ## Architecture: Ingestion Layer
@@ -102,16 +110,16 @@ Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics a
                                           │ (Protobuf msgs)  │
                                           └────────┬─────────┘
                                                    │
-                ┌──────────────┬──────────────────┼──────────────┬──────────────┐
-                ▼              ▼                  ▼              ▼              ▼
-          ┌──────────┐   ┌──────────┐      ┌──────────┐   ┌──────────┐   ┌──────────┐
-          │ Flink    │   │ Spark    │      │ DuckDB   │   │ Custom   │   │ Iceberg  │
-          │ → Iceberg│   │ → Parquet│      │ Consumer │   │ Consumer │   │ Direct   │
-          └──────────┘   └──────────┘      └──────────┘   └──────────┘   └──────────┘
+                ┌─────────────┬──────────────────┬──────────────┬──────────────┬──────────────┐
+                ▼             ▼                  ▼              ▼              ▼              ▼
+          ┌──────────┐ ┌──────────┐      ┌──────────┐   ┌──────────┐   ┌──────────┐ ┌──────────┐
+          │ Flink    │ │QuixStreams│     │ DuckDB   │   │ Custom   │   │ Iceberg  │ │ Spark    │
+          │ → Iceberg│ │CryptofeedSrc    │ Consumer │   │ Consumer │   │ Direct   │ │ → Parquet│
+          └──────────┘ └──────────┘      └──────────┘   └──────────┘   └──────────┘ └──────────┘
 
           Consumer Responsibility (OUT-OF-SCOPE):
           - Read Kafka topics
-          - Deserialize protobuf
+          - Deserialize protobuf (CryptofeedSource handles for QuixStreams)
           - Implement storage (Iceberg, Parquet, DuckDB)
           - Implement analytics (aggregations, queries)
           - Implement retention policies
@@ -129,11 +137,12 @@ Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics a
 **Key Principle**: Cryptofeed stops at Kafka. Consumers handle everything downstream.
 
 ### ⏸️ Paused/Disabled Specifications
-- `quixstreams-integration`: Disabled (Oct 31, 2025) - Stream processing delegated to consumers
-  - **Status**: Archived, stream processing is not part of ingestion layer scope
+- `quixstreams-integration`: Replaced by `cryptofeed-quixstreams-source` (Nov 14, 2025)
+  - **Original Status**: Disabled (Oct 31, 2025) - Stream processing delegated to consumers
   - **Rationale**: Consumers can implement QuixStreams, Flink, Spark independently
-  - **Dependencies**: Can leverage protobuf schemas from `protobuf-callback-serialization`
-  - **Future**: If needed, implement as reference examples in consumer integration guide
+  - **Evolution**: Reconsidered as consumer integration pattern - now initializing as `cryptofeed-quixstreams-source` in Planning Phase
+  - **New Approach**: CryptofeedSource handles protobuf deserialization within consumer layer, not ingestion layer
+  - **Dependencies**: Leverages protobuf schemas from `protobuf-callback-serialization` and market data from `market-data-kafka-producer`
 
 - `cryptofeed-lakehouse-architecture`: Disabled (user request) - Data lakehouse architecture with real-time ingestion and analytics
   - **Status**: Can be reactivated anytime, all phases (requirements, design, tasks) prepared and approved
@@ -361,6 +370,13 @@ mypy cryptofeed/
 ruff check cryptofeed/
 ruff format cryptofeed/
 
+# Scoped formatting (only changed files)
+./tools/format-utils.sh format-staged    # Format only staged changes
+./tools/format-utils.sh format-unstaged  # Format only unstaged changes
+./tools/format-utils.sh format-all       # Format all changes
+./tools/format-utils.sh dry-run-unstaged # Preview what would be formatted
+python tools/format-changed.py --unstaged  # Direct script usage
+
 # Install development dependencies
 pip install -e ".[dev]"
 ```
@@ -461,3 +477,118 @@ tests/
 ---
 
 *This document serves as the primary context for AI-assisted development in the Cryptofeed project. Update regularly as patterns and practices evolve.*
+
+
+# AI-DLC and Spec-Driven Development
+
+Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life Cycle)
+
+## Project Context
+
+### Paths
+- Steering: `.kiro/steering/`
+- Specs: `.kiro/specs/`
+
+### Steering vs Specification
+
+**Steering** (`.kiro/steering/`) - Guide AI with project-wide rules and context
+**Specs** (`.kiro/specs/`) - Formalize development process for individual features
+
+### Active Specifications
+- Check `.kiro/specs/` for active specifications
+- Use `/kiro/spec-status [feature-name]` to check progress
+
+## Development Guidelines
+- Think in English, generate responses in English. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
+
+## Minimal Workflow
+- Phase 0 (optional): `/kiro/steering`, `/kiro/steering-custom`
+- Phase 1 (Specification):
+  - `/kiro/spec-init "description"`
+  - `/kiro/spec-requirements {feature}`
+  - `/kiro/validate-gap {feature}` (optional: for existing codebase)
+  - `/kiro/spec-design {feature} [-y]`
+  - `/kiro/validate-design {feature}` (optional: design review)
+  - `/kiro/spec-tasks {feature} [-y]`
+- Phase 2 (Implementation): `/kiro/spec-impl {feature} [tasks]`
+  - `/kiro/validate-impl {feature}` (optional: after implementation)
+- Progress check: `/kiro/spec-status {feature}` (use anytime)
+
+### Command Definitions & Subagents
+- All `kiro:spec-*` command definitions live in `.claude/commands/kiro/`. These files describe the workflow steps and checks you must perform manually—they are instructions, not executable binaries. Follow them verbatim when acting as the CLI.
+- Commands that delegate work to specialized agents reference the implementations under `.claude/agents/kiro/` (for example `spec-design-agent`, `spec-tasks-agent`). These agent files likewise contain procedural instructions you must follow; no automatic process will run unless you explicitly perform the documented steps.
+
+### Running `kiro:spec-*` Commands (Manual Emulation)
+1. Run commands from the repository root so relative paths resolve correctly.
+2. Use the zsh-style syntax (`kiro:spec-design feature-name`) as documented, but remember you are emulating the command by following the instructions in `.claude/commands/kiro/`.
+3. Perform every validation and file read/write step described in the command definition, including invoking subagent instructions when specified.
+4. Follow the approval gating shown in the command definitions (e.g., requirements must exist before design generation, design must be approved before tasks).
+5. Consult `.claude/commands/kiro/spec-status.md` for the required checks when reporting progress.
+
+```bash
+# Typical workflow
+kiro:spec-init "feature description"
+kiro:spec-requirements my-feature
+kiro:spec-design my-feature      # add -y to auto-approve requirements
+kiro:spec-tasks my-feature       # add -y to auto-approve design
+kiro:spec-impl my-feature 1.1    # executes task 1.1
+kiro:spec-status my-feature      # view progress anytime
+```
+
+## Development Rules
+- 3-phase approval workflow: Requirements → Design → Tasks → Implementation
+- Human review required each phase; use `-y` only for intentional fast-track
+- Keep steering current and verify alignment with `/kiro/spec-status`
+- Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
+
+## Steering Configuration
+- Load entire `.kiro/steering/` as project memory
+- Default files: `product.md`, `tech.md`, `structure.md`
+- Custom files are supported (managed via `/kiro/steering-custom`)
+
+
+# AI-DLC and Spec-Driven Development
+
+Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life Cycle)
+
+## Project Context
+
+### Paths
+- Steering: `.kiro/steering/`
+- Specs: `.kiro/specs/`
+
+### Steering vs Specification
+
+**Steering** (`.kiro/steering/`) - Guide AI with project-wide rules and context
+**Specs** (`.kiro/specs/`) - Formalize development process for individual features
+
+### Active Specifications
+- Check `.kiro/specs/` for active specifications
+- Use `/kiro:spec-status [feature-name]` to check progress
+
+## Development Guidelines
+- Think in English, generate responses in English. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
+
+## Minimal Workflow
+- Phase 0 (optional): `/kiro:steering`, `/kiro:steering-custom`
+- Phase 1 (Specification):
+  - `/kiro:spec-init "description"`
+  - `/kiro:spec-requirements {feature}`
+  - `/kiro:validate-gap {feature}` (optional: for existing codebase)
+  - `/kiro:spec-design {feature} [-y]`
+  - `/kiro:validate-design {feature}` (optional: design review)
+  - `/kiro:spec-tasks {feature} [-y]`
+- Phase 2 (Implementation): `/kiro:spec-impl {feature} [tasks]`
+  - `/kiro:validate-impl {feature}` (optional: after implementation)
+- Progress check: `/kiro:spec-status {feature}` (use anytime)
+
+## Development Rules
+- 3-phase approval workflow: Requirements → Design → Tasks → Implementation
+- Human review required each phase; use `-y` only for intentional fast-track
+- Keep steering current and verify alignment with `/kiro:spec-status`
+- Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
+
+## Steering Configuration
+- Load entire `.kiro/steering/` as project memory
+- Default files: `product.md`, `tech.md`, `structure.md`
+- Custom files are supported (managed via `/kiro:steering-custom`)

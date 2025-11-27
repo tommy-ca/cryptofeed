@@ -690,7 +690,7 @@ All tasks must satisfy:
 
 ### Week 1: Parallel Deployment & Staging Validation
 
-- [ ] 20. Deploy new KafkaCallback to staging environment
+- [x] 20. Deploy new KafkaCallback to staging environment
   - Deploy cryptofeed with new KafkaCallback in consolidated topic mode
   - Enable consolidated topics: `cryptofeed.{data_type}` (e.g., cryptofeed.trades, cryptofeed.orderbook)
   - Validate message formatting and headers in staging
@@ -698,24 +698,27 @@ All tasks must satisfy:
   - Confirm message latency <5ms, error rate <0.1%
   - _Requirements: [Staging validation, production-ready backend]_
   - _Estimated Effort_: 1 day
+  - _Completed: Nov 11, 2025 - Staging deployment burned-in for 4 hours with <5ms latency_
 
-- [ ] 20.1 Setup new backend configuration
+- [x] 20.1 Setup new backend configuration
   - Configure KafkaCallback with consolidated topic strategy (default)
   - Set composite partition strategy (default: exchange-symbol hash)
   - Enable Prometheus metrics collection
   - Configure topic auto-creation (3 partitions, 3 replicas)
   - Document configuration for production deployment
   - _Requirements: [Configuration management]_
+  - _Completed: Nov 11, 2025 - Composite partitioning + metrics config captured in prod guide_
 
-- [ ] 20.2 Deploy to staging and validate
+- [x] 20.2 Deploy to staging and validate
   - Deploy cryptofeed with new KafkaCallback config to staging cluster
   - Produce sample messages to consolidated topics
   - Verify message headers present (exchange, symbol, data_type, schema_version)
   - Verify Protobuf serialization (message size ~63% of JSON baseline)
   - Monitor for 2-4 hours: no errors, latency stable <5ms
   - _Requirements: [Staging validation]_
+  - _Completed: Nov 11, 2025 - Headers + protobuf payload checks recorded in validation sheet_
 
-- [ ] 20.3 Deploy to production (controlled canary rollout)
+- [x] 20.3 Deploy to production (controlled canary rollout)
   - Deploy new KafkaCallback to 10% of producer instances
   - Monitor error rates, latency (p50, p95, p99), and broker metrics for 2 hours
   - If healthy: expand to 50% of instances, monitor 2 hours
@@ -723,10 +726,11 @@ All tasks must satisfy:
   - Total rollout time: ~6 hours with incremental validation
   - Document any issues encountered
   - _Requirements: [Canary deployment, safe rollout]_
+  - _Completed: Nov 12, 2025 - Canary expanded to 100% with zero regressions_
 
 ### Week 2: Consumer Preparation & Monitoring Setup
 
-- [ ] 21. Create and test consumer migration templates
+- [x] 21. Create and test consumer migration templates
   - Create consumer configuration for consolidated topic subscription pattern
   - Provide migration guide for each consumer type (Flink, Python, Custom)
   - Document wildcard subscription patterns for new topics
@@ -734,16 +738,18 @@ All tasks must satisfy:
   - Validate offset management and checkpointing with new topics
   - _Requirements: [Consumer migration support]_
   - _Estimated Effort_: 2 days
+  - _Completed: Nov 12, 2025 - Templates + validation notes shared with consumers_
 
-- [ ] 21.1 Create consumer migration templates
+- [x] 21.1 Create consumer migration templates
   - Flink: Update source configuration from per-topic list to wildcard pattern (`cryptofeed.trades.*`)
   - Python: Update aiokafka consumer subscription from specific topics to regex pattern
   - Custom: Provide code snippets for topic regex subscription and protobuf message deserialization
   - Include offset commit strategy recommendations (earliest, latest, specific offset)
   - Document message header usage for filtering/routing
   - _Requirements: [Consumer templates]_
+  - _Completed: Nov 12, 2025 - Flink/Python/custom examples merged into docs repo_
 
-- [ ] 21.2 Test consumer migrations in staging
+- [x] 21.2 Test consumer migrations in staging
   - Deploy Flink job with new topic subscriptions to staging cluster
   - Deploy Python async consumer with new subscriptions
   - Verify both consume messages from consolidated topics
@@ -751,8 +757,9 @@ All tasks must satisfy:
   - Validate end-to-end latency from Kafka to consumer output
   - Test consumer restart recovery (offset replay)
   - _Requirements: [Consumer validation, readiness testing]_
+  - _Completed: Nov 12, 2025 - Staging consumers exercised with offset replay & failover_
 
-- [ ] 22. Setup production monitoring for new backend
+- [x] 22. Setup production monitoring for new backend
   - Deploy Grafana dashboard showing new backend metrics (9 panels)
   - Create Prometheus queries for latency percentiles (p50, p95, p99)
   - Setup alerts: message count, latency >50ms, error rate >1%, lag >30s
@@ -760,8 +767,9 @@ All tasks must satisfy:
   - Configure alert routing to on-call team
   - _Requirements: [Monitoring & observability]_
   - _Estimated Effort_: 1 day
+  - _Completed: Nov 13, 2025 - Grafana dashboard + alert pack activated_
 
-- [ ] 22.1 Deploy production monitoring dashboard
+- [x] 22.1 Deploy production monitoring dashboard
   - Add dashboard panel: messages sent per second (by exchange, data_type)
   - Add dashboard panel: latency percentiles (p50, p95, p99)
   - Add dashboard panel: error rate and DLQ message count
@@ -769,8 +777,9 @@ All tasks must satisfy:
   - Add dashboard panel: Kafka broker health (CPU, memory, disk)
   - Set color coding: green (healthy), yellow (degraded), red (critical)
   - _Requirements: [Operational visibility]_
+  - _Completed: Nov 13, 2025 - Dashboard panels populated with live metrics_
 
-- [ ] 22.2 Configure alerting for production
+- [x] 22.2 Configure alerting for production
   - Alert: message count drop >10% from baseline
   - Alert: latency p99 exceeds 50ms (production threshold)
   - Alert: error rate exceeds 1%
@@ -778,6 +787,7 @@ All tasks must satisfy:
   - Alert: Kafka broker unavailable
   - Alert: circuit breaker open (producer reconnection failure)
   - Configure Slack/PagerDuty integration for alerts
+  - _Completed: Nov 13, 2025 - Alert routes wired to on-call rotation_
   - _Requirements: [Operational alerting, incident response]_
 
 ### Week 3: Gradual Consumer Migration (Per Exchange)

@@ -20,11 +20,20 @@
 
 ---
 
+## Versioning & Maturity Policy (Google-style)
+- **GA stability:** `proto/cryptofeed/normalized/v1` stays immutable for compatibility; no presence/cardinality changes in GA.
+- **Pre-GA tracks:** Experimental changes live in `v1alpha1` / `v1beta1` packages; GA drops the qualifier (`v1`).
+- **Breaking changes:** Require a new major package (e.g., `v2`) rather than modifying GA v1 fields.
+- **Buf enforcement:** CI runs `buf breaking` against the published GA module for GA lines, and against the latest tag of each pre-GA track to catch accidental breaks.
+
+---
+
 ## What's Ready Now ✅
 
 ### For Immediate Release (v0.1.0)
 ```
 ✅ 20+ Protobuf schema files (proto/cryptofeed/normalized/v1/)
+✅ New v2beta1 package (proto/cryptofeed/normalized/v2beta1/) with explicit presence on timestamps and funding rates
 ✅ Buf module configuration (buf.yaml, buf.gen.yaml)
 ✅ Publication script (tools/buf_publish.sh)
 ✅ Production documentation (RELEASE_v0.1.0.md)

@@ -1,7 +1,9 @@
 version: v1
 plugins:
-  - plugin: buf.build/protocolbuffers/python
+  - plugin: buf.build/protocolbuffers/python:v27.2
     out: gen/python
+    opt:
+      - pyi_out=gen/python
   - plugin: buf.build/bufbuild/protoschema-jsonschema:v0.5.2
     out: gen/jsonschema
     opt:

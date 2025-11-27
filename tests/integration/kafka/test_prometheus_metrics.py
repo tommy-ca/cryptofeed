@@ -13,18 +13,14 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import time
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List
 
 import pytest
 
 from cryptofeed.types import Trade, Ticker
-from cryptofeed.kafka_callback import KafkaCallback
 
 # Skip if prometheus_client not available
 pytest_mark = pytest.importorskip("prometheus_client")

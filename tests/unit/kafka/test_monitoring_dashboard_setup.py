@@ -5,10 +5,8 @@ These tests verify the Grafana dashboard JSON structure, alert rule syntax,
 and health check endpoint functionality.
 """
 
-import pytest
 import json
 import yaml
-from datetime import datetime
 
 
 class TestGrafanaDashboardJSON:

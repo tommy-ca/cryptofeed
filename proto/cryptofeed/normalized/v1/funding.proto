@@ -10,8 +10,8 @@ option java_package = "build.buf.cryptofeed.normalized.v1";
 message Funding {
   string exchange = 1; // normalized exchange identifier (Cryptofeed Funding.exchange)
   string symbol = 2; // normalized perpetual contract (Funding.symbol)
-  optional string mark_price = 3; // decimal string, scale 1e-8 (Funding.mark_price) - optional, can be null in Python
-  optional string rate = 4; // decimal string, scale 1e-8 per funding period (Funding.rate) - optional, can be null in Python
+  string mark_price = 3; // decimal string, scale 1e-8 (Funding.mark_price) - optional, can be null in Python
+  string rate = 4; // decimal string, scale 1e-8 per funding period (Funding.rate) - optional, can be null in Python
   optional string predicted_rate = 5; // decimal string, scale 1e-8 (Funding.predicted_rate)
   optional int64 next_funding_time = 6; // microseconds since UNIX epoch (Funding.next_funding_time converted to µs)
   int64 timestamp = 7; // event timestamp, microseconds (Funding.timestamp converted to µs)

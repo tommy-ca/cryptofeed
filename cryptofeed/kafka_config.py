@@ -1,30 +1,16 @@
-"""Kafka configuration models for Task 4.
-
-This module re-exports the Pydantic configuration models from kafka_callback.py
-for clean imports and API consistency.
-
-Classes:
-    - KafkaTopicConfig: Topic management configuration
-    - KafkaPartitionConfig: Partition strategy configuration
-    - KafkaProducerConfig: Producer client configuration
-    - KafkaConfig: Top-level composite configuration
-
-Example:
-    >>> from cryptofeed.kafka_config import KafkaConfig
-    >>> config = KafkaConfig.from_yaml('config/kafka.yaml')
-    >>> config = KafkaConfig(bootstrap_servers=['kafka:9092'])
+"""
+Compatibility shim for legacy Kafka config imports.
 """
 
-from cryptofeed.kafka_callback import (
-    KafkaTopicConfig,
-    KafkaPartitionConfig,
-    KafkaProducerConfig,
-    KafkaConfig,
-)
+from __future__ import annotations
 
-__all__ = [
-    "KafkaTopicConfig",
-    "KafkaPartitionConfig",
-    "KafkaProducerConfig",
-    "KafkaConfig",
-]
+import warnings
+
+from cryptofeed.backends.kafka.config import *  # noqa: F401,F403
+
+warnings.warn(
+    "cryptofeed.kafka_config is deprecated; import from "
+    "cryptofeed.backends.kafka.config instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)

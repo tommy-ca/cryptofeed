@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// PriceLevel encodes an individual order book level.
+message PriceLevel {
+  string price = 1; // decimal string, scale 1e-8 (OrderBook price component)
+  string quantity = 2; // decimal string, scale 1e-8 (OrderBook size component)
+}

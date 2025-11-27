@@ -17,7 +17,6 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from typing import Dict, Any
 from unittest.mock import patch, MagicMock
 
 # Note: These imports will fail until classes are implemented
@@ -780,7 +779,6 @@ class TestConfigValidation:
         try:
             config.strategy = "invalid"
             # If it doesn't raise immediately, validate it
-            from pydantic import ValidationError
             # Try to validate the change
             assert config.strategy == "invalid" or True  # Either way, test passes
         except (ValueError, AttributeError):

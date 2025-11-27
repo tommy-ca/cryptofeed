@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// TopOfBook captures best bid and ask ladders.
+message TopOfBook {
+  string exchange = 1; // normalized exchange identifier (Cryptofeed L1Book.exchange)
+  string symbol = 2; // normalized trading pair (Cryptofeed L1Book.symbol)
+  string bid_price = 3; // decimal string, scale 1e-8
+  string bid_size = 4; // decimal string, scale 1e-8
+  string ask_price = 5; // decimal string, scale 1e-8
+  string ask_size = 6; // decimal string, scale 1e-8
+  int64 timestamp = 7; // microseconds since UNIX epoch (L1Book.timestamp converted to µs)
+}

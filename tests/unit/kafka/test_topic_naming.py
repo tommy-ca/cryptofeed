@@ -345,7 +345,7 @@ class TestErrorHandling:
 
     def test_invalid_data_type_raises_error(self):
         """Invalid data type raises ValueError"""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError):
             TopicManager.get_topic(
                 data_type='invalid_type',
                 symbol='btc-usdt',

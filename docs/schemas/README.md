@@ -77,3 +77,15 @@ schema:
 
 Consumers should validate parity using the regression script before promoting a
 new version to production.
+
+## Recent Changes
+
+See `docs/schemas/CHANGELOG.md` for a detailed log. Highlights for the upcoming
+v3.2.0 schema refresh (v2beta1):
+- Trade now carries optional venue parity fields: `maker`, `event_time`,
+  `match_id`, and `liquidity_flag`.
+- Order book adds optional `event_time` and `last_update_id` for exchanges that
+  publish them (e.g., Binance).
+All additions are optional and wire-compatible; the decimal scale remains 1e-8
+and `timestamp` continues to represent match time, while `event_time` captures
+venue event timestamps when supplied.

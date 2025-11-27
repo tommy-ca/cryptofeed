@@ -16,7 +16,6 @@ Key Features:
 
 from kafka import KafkaConsumer
 from cryptofeed.schema.v1 import trade_pb2
-import json
 
 # 1. Create consumer for consolidated topics
 consumer = KafkaConsumer(

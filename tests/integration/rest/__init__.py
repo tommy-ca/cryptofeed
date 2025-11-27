@@ -1,7 +1,14 @@
+import os
 from decimal import Decimal
+
+import pytest
 
 from cryptofeed.exchanges import Binance
 from cryptofeed.json_utils import json as json_parser
+
+
+if not os.getenv("CF_LIVE_REST"):
+    pytest.skip("CF_LIVE_REST not set; skipping live REST integration tests", allow_module_level=True)
 
 
 def temp_f(r, address, json=False, text=False, uuid=None):
