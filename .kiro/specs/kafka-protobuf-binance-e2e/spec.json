@@ -1,0 +1,35 @@
+{
+  "name": "kafka-protobuf-binance-e2e",
+  "version": "0.1.0",
+  "created_at": "2025-11-27T00:00:00Z",
+  "updated_at": "2025-11-27T00:00:00Z",
+  "language": "en",
+  "phase": "requirements-draft",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": false
+    },
+    "design": {
+      "generated": false,
+      "approved": false
+    },
+    "tasks": {
+      "generated": false,
+      "approved": false
+    }
+  },
+  "ready_for_implementation": false,
+  "dependencies": {
+    "required": [
+      "market-data-kafka-producer",
+      "protobuf-callback-serialization",
+      "normalized-data-schema-crypto"
+    ],
+    "optional": [
+      "kafka-backend-maintenance",
+      "schema-parity-hardening"
+    ]
+  },
+  "description": "End-to-end validation pipeline from Binance REST/WS through normalized market data into Kafka Protobuf backend topics, using normalized protobuf schemas and Redpanda-based integration tests."
+}
