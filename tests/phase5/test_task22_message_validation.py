@@ -14,8 +14,6 @@ Test Categories:
 
 import json
 import logging
-from typing import Dict, List, Any
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -423,7 +421,8 @@ class TestMessageFormatValidation:
     def test_message_partition_consistent_for_symbol(self):
         """Unit: Same symbol should always go to same partition."""
         # Arrange
-        hash_func = lambda s: hash(s) % 12  # 12 partitions
+        def hash_func(s):
+            return hash(s) % 12  # 12 partitions
 
         symbol = "BTC-USD"
         partitions = [hash_func(f"{symbol}:{i}") for i in range(10)]

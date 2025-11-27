@@ -8,7 +8,6 @@ Tests fail initially (RED), then documentation is written to make them pass (GRE
 
 import pytest
 import warnings
-from typing import Dict, Any
 
 
 class TestMigrationGuideExamples:
@@ -22,7 +21,6 @@ class TestMigrationGuideExamples:
         # Legacy import (should emit warning)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            from cryptofeed.kafka_callback import KafkaCallback as LegacyKafka
 
             assert len(w) == 1
             assert issubclass(w[0].category, DeprecationWarning)

@@ -6,11 +6,8 @@ which provides centralized deprecation warning management for all
 Kafka backend components.
 """
 
-import logging
 import warnings
-import pytest
-from unittest.mock import Mock, patch
-from typing import Dict, Any
+from unittest.mock import patch
 
 from cryptofeed.backends.kafka.maintenance import (
     DeprecationWarningSystem,

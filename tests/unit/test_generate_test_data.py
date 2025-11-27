@@ -5,11 +5,9 @@ Follows TDD methodology (RED-GREEN-REFACTOR cycle).
 """
 import pytest
 import tempfile
-import yaml
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from decimal import Decimal
-from datetime import datetime
 
 from scripts.generate_test_data import (
     SyntheticDataGenerator,

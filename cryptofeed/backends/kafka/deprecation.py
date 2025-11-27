@@ -11,7 +11,7 @@ This module implements Requirements 7.1, 7.2, 7.3, 7.5 from kafka-backend-mainte
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Literal, Optional

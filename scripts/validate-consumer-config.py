@@ -32,7 +32,7 @@ import argparse
 import json
 import sys
 import re
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 VERSION = "1.0.0"

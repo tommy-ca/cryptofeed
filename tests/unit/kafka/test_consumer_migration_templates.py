@@ -6,8 +6,7 @@ consolidated topics, protobuf deserialization, and error handling.
 """
 
 import pytest
-import json
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
+from unittest.mock import Mock, AsyncMock
 from datetime import datetime
 
 
@@ -17,7 +16,6 @@ class TestFlinkConsumerTemplate:
     def test_flink_consumer_subscription_pattern(self):
         """Test that Flink consumer uses consolidated topic pattern."""
         # Pattern should match consolidated topics
-        pattern = r"cryptofeed\.(trades|orderbook|ticker|candle|funding|liquidation|index|openinterest)"
 
         assert "cryptofeed.trades" in ["cryptofeed.trades"]
         assert "cryptofeed.orderbook" in ["cryptofeed.orderbook"]
@@ -143,7 +141,7 @@ class TestPythonAsyncConsumerTemplate:
                 # Deserialize protobuf
                 data = message.value  # Would deserialize in real code
                 return data
-            except Exception as e:
+            except Exception:
                 # Send to DLQ
                 return None
 

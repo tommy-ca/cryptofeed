@@ -23,7 +23,7 @@ Usage:
 import argparse
 import json
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 VERSION = "1.0.0"

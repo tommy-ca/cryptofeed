@@ -11,14 +11,11 @@ Test Categories:
 4. Monitoring Setup Validation
 """
 
-import asyncio
-import json
 import logging
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, AsyncMock
 
 import pytest
-from confluent_kafka import KafkaError
-from confluent_kafka.admin import AdminClient, ConfigResource, ConfigSource, NewTopic
+from confluent_kafka.admin import AdminClient
 
 from cryptofeed.kafka_callback import KafkaTopicConfig
 
@@ -125,7 +122,7 @@ class TestClusterHealthValidator:
         """Unit: Should reject replication factor < 2."""
         # This should pass validation (no minimum enforced in config),
         # but operational requirement is >= 2
-        topic_config = KafkaTopicConfig(replication_factor=1)
+        KafkaTopicConfig(replication_factor=1)
         # Note: Operational constraint, not code constraint
         # Actual validation would happen at cluster level
 

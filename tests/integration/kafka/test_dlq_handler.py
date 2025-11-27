@@ -342,7 +342,7 @@ class TestDLQHandler:
 
     def test_dlq_error_classification(self):
         """Test classification of permanent vs transient errors."""
-        from cryptofeed.backends.kafka_dlq import DLQHandler, ErrorClassifier
+        from cryptofeed.backends.kafka_dlq import ErrorClassifier
 
         classifier = ErrorClassifier()
 

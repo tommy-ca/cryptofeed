@@ -10,9 +10,6 @@ This test suite validates that:
 Requirements: 2.4, 2.5
 """
 
-import pytest
-from pathlib import Path
-from typing import List, Set
 
 
 class TestShimRemovalAuditor:

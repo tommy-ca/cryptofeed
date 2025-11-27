@@ -255,7 +255,7 @@ class MaintenanceExecutor:
         }
 
         # Log or store report based on parameters
-        report_format = task.parameters.get("report_format", "json")
+        task.parameters.get("report_format", "json")
         output_path = task.parameters.get("output_path")
 
         if output_path:

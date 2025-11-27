@@ -10,11 +10,9 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
 import time
 from unittest.mock import MagicMock
 
-import pytest
 
 
 # ============================================================================

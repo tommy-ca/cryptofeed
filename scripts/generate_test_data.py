@@ -34,9 +34,9 @@ import argparse
 import yaml
 import json
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Iterator, Tuple
+from typing import Dict, List, Any, Optional, Iterator
 from dataclasses import dataclass, field
 
 
@@ -315,7 +315,7 @@ class SyntheticDataGenerator:
         total_messages = messages_per_second * duration_seconds
         interval_seconds = 1.0 / messages_per_second
 
-        start_time = time.time()
+        time.time()
         base_timestamp = datetime.now(datetime.UTC).timestamp() if hasattr(datetime, 'UTC') else datetime.utcnow().timestamp()
 
         for i in range(total_messages):
@@ -696,7 +696,7 @@ def main():
     elapsed = time.time() - start_time
     final_rate = message_count / elapsed if elapsed > 0 else 0
 
-    print(f"\nGeneration complete!")
+    print("\nGeneration complete!")
     print(f"Total messages: {message_count:,}")
     print(f"Elapsed time: {elapsed:.2f} seconds")
     print(f"Average rate: {final_rate:.0f} msg/s")

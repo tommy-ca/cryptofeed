@@ -18,7 +18,6 @@ class TestLegacyBackendDeprecation:
             warnings.simplefilter("always")
 
             # Import the legacy module
-            import cryptofeed.backends.kafka
 
             # Should have at least one deprecation warning
             assert len(w) >= 1
@@ -28,7 +27,7 @@ class TestLegacyBackendDeprecation:
 
     def test_trade_kafka_deprecation_warning(self):
         """TradeKafka instantiation should emit deprecation warning."""
-        with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
 
             from cryptofeed.backends.kafka import TradeKafka
@@ -45,7 +44,7 @@ class TestLegacyBackendDeprecation:
 
     def test_book_kafka_deprecation_warning(self):
         """BookKafka instantiation should emit deprecation warning."""
-        with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
 
             from cryptofeed.backends.kafka import BookKafka
@@ -60,7 +59,7 @@ class TestLegacyBackendDeprecation:
 
     def test_ticker_kafka_deprecation_warning(self):
         """TickerKafka instantiation should emit deprecation warning."""
-        with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
 
             from cryptofeed.backends.kafka import TickerKafka
@@ -82,7 +81,6 @@ class TestUnifiedImplementation:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            from cryptofeed.kafka_callback import KafkaCallback
 
             # Should not have any deprecation warnings from kafka_callback module
             deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]

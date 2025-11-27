@@ -12,11 +12,7 @@ Test coverage:
 - Comparison report generation
 """
 import pytest
-import json
-import hashlib
-from decimal import Decimal
-from unittest.mock import Mock, MagicMock, patch
-from google.protobuf.json_format import MessageToDict
+from unittest.mock import Mock, patch
 
 # Import the script functions (will be implemented)
 import sys
@@ -35,7 +31,6 @@ try:
         validate_message_count,
         compare_messages,
         generate_comparison_report,
-        filter_messages
     )
 except ImportError as e:
     import pytest

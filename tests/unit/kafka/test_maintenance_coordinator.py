@@ -5,11 +5,9 @@ Tests the MaintenanceCoordinator class which provides a single unified
 interface for all maintenance operations across integrated components.
 """
 
-import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
 import tempfile
-from pathlib import Path
 
 from cryptofeed.backends.kafka.maintenance.integration import (
     MaintenanceCoordinator,
@@ -19,8 +17,6 @@ from cryptofeed.backends.kafka.maintenance.integration import (
     MigrationDocumentationBridge,
     HealthAlertingBridge,
 )
-from cryptofeed.backends.kafka.maintenance.deprecation_system import DeprecationWarningSystem
-from cryptofeed.backends.kafka.deprecation import ProgressReport, DeprecationTimeline
 
 
 class TestMaintenanceCoordinator:
@@ -206,7 +202,7 @@ class TestMigrationDocumentationBridge:
 
     def test_bridge_migrates_with_documentation(self):
         """Bridge should perform migration and generate documentation."""
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory():
             bridge = MigrationDocumentationBridge()
 
             legacy_config = {
@@ -225,7 +221,7 @@ class TestMigrationDocumentationBridge:
 
     def test_bridge_updates_component_documentation(self):
         """Bridge should update documentation for component changes."""
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory():
             bridge = MigrationDocumentationBridge()
 
             component_info = {

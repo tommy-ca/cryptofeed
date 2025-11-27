@@ -8,7 +8,6 @@ import pytest
 import tempfile
 from pathlib import Path
 import yaml
-import json
 
 from cryptofeed.migration.cli import (
     MigrationCLI,

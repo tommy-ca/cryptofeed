@@ -20,7 +20,6 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
-from pathlib import Path
 
 import pytest
 
@@ -33,20 +32,15 @@ except ImportError:
 
 # Standard Kafka clients
 try:
-    from kafka import KafkaProducer, KafkaConsumer
-    from kafka.errors import KafkaError
+    from kafka import KafkaConsumer, KafkaProducer
     HAS_KAFKA = True
 except ImportError:
     HAS_KAFKA = False
 
 from cryptofeed.kafka_callback import (
-    KafkaCallback,
     KafkaConfig,
     KafkaTopicConfig,
     KafkaPartitionConfig,
-    TopicManager,
-    PartitionerFactory,
-    HeaderEnricher,
 )
 
 LOG = logging.getLogger("test_kafka_e2e")
@@ -1288,7 +1282,6 @@ class TestTask92PartitionRouting:
 
         # Phase 1: First batch of messages
         initial_partitions: Dict[str, int] = {}
-        partition_key_template = "{}"  # Will be filled with symbol
 
         for symbol in symbols:
             partition_key = symbol.lower().replace("_", "-").encode("utf-8")
@@ -1355,11 +1348,6 @@ def cleanup_topics(kafka_cluster: KafkaClusterInfo):
 
     This fixture can be used to clean up test topics after tests complete.
     """
-    topics_to_cleanup = [
-        "cryptofeed.trades",
-        "cryptofeed.orderbook",
-        "cryptofeed.ticker",
-    ]
 
     yield
 

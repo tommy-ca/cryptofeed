@@ -127,6 +127,7 @@ class TestScheduleConfig:
         # Skip if croniter not available (validation only works with croniter)
         try:
             from croniter import croniter
+            _ = croniter
             has_croniter = True
         except ImportError:
             has_croniter = False
@@ -286,7 +287,7 @@ class TestMaintenanceScheduler:
         # Set next_run to future to make it not due
         task2.next_run = datetime.now() + timedelta(hours=1)
 
-        config = ScheduleConfig(tasks=[task1, task2])
+        ScheduleConfig(tasks=[task1, task2])
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump({"tasks": []}, f)
@@ -315,7 +316,7 @@ class TestMaintenanceScheduler:
         # Make task due
         task.next_run = datetime.now() - timedelta(minutes=1)
 
-        config = ScheduleConfig(tasks=[task])
+        ScheduleConfig(tasks=[task])
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump({"tasks": []}, f)
@@ -353,7 +354,7 @@ class TestMaintenanceScheduler:
         task2.status = TaskStatus.FAILED
         task2.failure_count = 3
 
-        config = ScheduleConfig(tasks=[task1, task2])
+        ScheduleConfig(tasks=[task1, task2])
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump({"tasks": []}, f)

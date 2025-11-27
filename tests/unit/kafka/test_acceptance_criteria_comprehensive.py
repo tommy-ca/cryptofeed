@@ -20,7 +20,6 @@ import importlib.util
 import sys
 import warnings
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -88,7 +87,7 @@ class TestRequirement1LegacyDeprecation:
             warnings.simplefilter("always")
 
             # Import and instantiate legacy class
-            instance = TradeKafka()
+            TradeKafka()
 
             # Verify deprecation warning emitted
             assert len(w) == 1
@@ -196,7 +195,6 @@ class TestRequirement2CompatibilityShim:
             warnings.simplefilter("always")
 
             # Import the shim
-            import cryptofeed.kafka_callback
 
             # Should emit deprecation warning
             deprecation_warnings = [

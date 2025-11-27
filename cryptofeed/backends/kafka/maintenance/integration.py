@@ -14,13 +14,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from .deprecation_system import DeprecationWarningSystem, get_deprecation_warning_system
 from .doc_updater import DocumentationAutoUpdater
-from ..migration import translate_legacy_config, validate_migration, MigrationResult
-from ..health import KafkaHealthCheck, KafkaHealthStatus
+from ..migration import translate_legacy_config
+from ..health import KafkaHealthCheck
 from ..deprecation import (
     DeprecationTimeline,
     CommunicationSystem,
@@ -115,7 +114,7 @@ class DeprecationMonitoringBridge:
                 event_type="analytics",
                 component="progress_report",
                 severity="info",
-                message=f"Legacy usage recorded for migration tracking",
+                message="Legacy usage recorded for migration tracking",
                 metadata={"component": component, "context": context},
             )
         )
@@ -226,7 +225,7 @@ class MigrationDocumentationBridge:
 
             # Generate documentation if there are new patterns
             if result.unmapped_options:
-                component_info = {
+                {
                     "name": "KafkaConfig",
                     "migration_notes": result.warnings,
                     "unmapped_options": list(result.unmapped_options.keys()),

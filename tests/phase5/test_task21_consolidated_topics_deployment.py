@@ -12,17 +12,13 @@ Test Categories:
 5. Error Rate Monitoring
 """
 
-import json
 import logging
-from unittest.mock import Mock, patch, MagicMock
 from dataclasses import asdict
 
 import pytest
 
 from cryptofeed.kafka_callback import (
-    KafkaCallback,
     KafkaTopicConfig,
-    KafkaPartitionConfig,
 )
 
 
