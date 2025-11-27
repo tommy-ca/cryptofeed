@@ -39,6 +39,17 @@ jobs:
         if: env.BUF_TOKEN != ''
         run: |
           buf breaking proto --against 'buf.build/tommyk/crypto-market-data:main'
+      - name: Check for breaking changes (v2beta1)
+        if: env.BUF_TOKEN != '' && env.BUF_V2BETA1_AGAINST != ''
+        env:
+          BUF_V2BETA1_AGAINST: ${{ env.BUF_V2BETA1_AGAINST }}
+        run: |
+          echo "Using against ref: ${BUF_V2BETA1_AGAINST}"
+          buf breaking proto/cryptofeed/normalized/v2beta1 --against "${BUF_V2BETA1_AGAINST}"
+      - name: Skip v2beta1 breaking (no target set)
+        if: env.BUF_TOKEN != '' && env.BUF_V2BETA1_AGAINST == ''
+        run: |
+          echo "Skipping v2beta1 breaking check (set BUF_V2BETA1_AGAINST to enable)"
       - name: Generate Protobuf bindings
         run: |
           buf generate --template buf.gen.yaml proto
