@@ -206,12 +206,25 @@ class KafkaBackendBase(BackendCallback, ABC):
             except asyncio.QueueEmpty:
                 break
 
-            if message is _STOP_SENTINEL:
-                self._running = False
-                return
-
-            await self._process_message(message)
-            batch_count += 1
+            try:
+                if message is _STOP_SENTINEL:
+                    self._running = False
+                    return
+                await self._process_message(message)
+                batch_count += 1
+            finally:
+                try:
+                    self._queue.task_done()
+                except Exception as e:
+                    LOG.error(
+                        "%s: Failed to mark task as done: %s",
+                        self._log_name,
+                        e,
+                        extra={
+                            "error_type": "task_done_error",
+                            "error": str(e),
+                        },
+                    )
 
         await asyncio.sleep(0)
 
