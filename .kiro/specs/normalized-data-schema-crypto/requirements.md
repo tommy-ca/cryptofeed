@@ -108,3 +108,24 @@ implementations.
 4. WHERE production environments require staged rollout THE initiative SHALL
    provide configuration toggles or fallbacks (e.g., per-feed schema version
    selection) coupled with Buf module compatibility guidance.
+
+## Compound Engineering Alignment
+
+- **Parallel Workstreams**:
+  - This spec owns canonical normalized schemas and Buf publication.
+  - `protobuf-callback-serialization` owns mapping from dataclasses to schema fields.
+  - `market-data-kafka-producer` owns Kafka topic/partition semantics over those schemas.
+  - Parity and regression specs (e.g., `schema-parity-hardening`) ensure implementations stay aligned over time.
+- **Upstream/Downstream Contracts**:
+  - Upstream: Cryptofeed dataclasses are the primary source of truth for field semantics.
+  - Downstream: Serialization, Kafka backends, and E2E specs MUST treat this spec’s Protobuf definitions as canonical and avoid introducing parallel schema packages.
+
+## AI Agentic Implementation Constraints
+
+- AI agents operating on this spec MUST:
+  - Treat `.proto` files and Buf modules as canonical artifacts; changes to field names, types, or semantics must go through this spec’s governance process.
+  - Avoid embedding transport-specific concerns (Kafka topics, storage layout) into the schemas; those belong to downstream specs.
+  - Keep automation and tooling (inventory, generators, CI checks) aligned with the principle that Cryptofeed dataclasses remain the single upstream source for schema evolution.
+- When agents need to introduce new normalized fields or messages, they SHALL:
+  - Update this spec’s requirements and design first, including mapping back to Cryptofeed dataclasses.
+  - Coordinate with serialization and Kafka specs to ensure smooth propagation of the new schemas.

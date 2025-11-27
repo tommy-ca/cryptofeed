@@ -647,6 +647,16 @@ Comprehensive task list for the market-data-kafka-producer specification across 
 
 ---
 
+## Governance Tasks: Compound Engineering & AI Boundaries
+
+- [ ] G.1 Document compound workstreams and dependencies
+  - Verify that Requirements and Design explicitly describe how this spec composes with schema, serialization, and E2E/consumer specs.
+  - Ensure Kafka producer responsibilities stop at topic publication and headers, leaving storage and analytics to downstream specs.
+
+- [ ] G.2 Document AI agent boundaries for this spec
+  - Clarify which modules and tests AI agents may modify under this spec (Kafka backend, config models, Kafka-specific docs) and which are owned by other specs (normalized schemas, serialization helpers, exchange connectors).
+  - Add guidance that cross-spec changes require updating the relevant spec first and referencing it in implementation.
+
 ## Engineering Excellence Standards
 
 All tasks must satisfy:

@@ -563,6 +563,24 @@ class ProtobufEncodeError(CryptofeedSerializationException):
 
 ---
 
+## Compound Workstreams & Boundaries
+
+- **Workstream Decomposition**:
+  - `normalized-data-schema-crypto` defines message schemas.
+  - This spec defines how Cryptofeed dataclasses map into those schemas via converter functions and format selection.
+  - Kafka and other backends treat this spec as the serialization layer and must not embed their own divergent protobuf conversion logic.
+- **Interfaces & Contracts**:
+  - Input: normalized dataclasses and their fields.
+  - Output: protobuf messages and serialized bytes that conform to the canonical schemas.
+  - Error contract: a stable exception hierarchy (`SerializationError`, `ProtobufEncodeError`) consumed by downstream specs.
+
+## AI Agent Design Guidance
+
+- AI agents extending this design MUST:
+  - Respect the backend-only consolidation — new formats or schema evolutions should extend the existing helper/registry pattern rather than reintroducing Serializer ABCs or wrapper forests.
+  - Keep transport concerns (Kafka routing, Redis keying, ZMQ framing) out of this layer; those belong to respective backend specs.
+  - Ensure every new converter or behavior change is accompanied by parity tests and performance checks consistent with this spec’s success metrics.
+
 ## Files Affected
 
 ### Created
