@@ -271,6 +271,11 @@ Cryptofeed is positioned as a pure data ingestion layer. Storage and analytics a
 - Reference existing patterns and conventions
 - Clear context between major tasks
 
+### Steering & Spec Prerequisites
+- Before editing code, read `.kiro/steering/product.md`, `.kiro/steering/tech.md`, and `.kiro/steering/structure.md` to understand project-wide compound engineering and AI agent guidelines.
+- For any feature-level change, locate the relevant spec(s) under `.kiro/specs/` and read their **Compound Engineering Alignment** and **AI Agentic Implementation Constraints** sections before implementing.
+- Treat steering docs as global governance and spec docs as local contracts; do not cross spec boundaries (schemas, serialization, Kafka producer, E2E flows, consumers) without updating or creating the appropriate spec.
+
 ### Iterative Development
 - Make small, verifiable changes
 - Commit frequently with descriptive messages
