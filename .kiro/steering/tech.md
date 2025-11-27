@@ -72,10 +72,22 @@
 - **Deployment:** Typical deployments run as long-lived Python services;
   containerised examples are available via the companion `Cryptostore` project.
 
+## Schema Versioning (Protobuf)
+- **Package-suffixed majors:** Follow Google guidance—package names end with the
+  major version (`...normalized.v1`, `...normalized.v2`). Minor/patch changes
+  stay additive within the same major.
+- **Pre-GA tracks:** Experimental surfaces use maturity suffixes in the package
+  (`v1alpha1`, `v1beta1`); only the GA line drops the qualifier (`v1`).
+- **Breaking changes:** Require a new major package (e.g., introduce `v2`
+  rather than altering GA `v1`). Presence-changing tweaks (e.g., adding
+  `optional`) belong in the new major or in a pre-GA track, not in GA.
+- **Buf gates:** CI runs `buf breaking` against the published GA module for GA
+  packages, and against the latest tag of the same pre-GA track for
+  alpha/beta. This prevents inadvertent cardinality or field-number changes.
+
 ## Common Commands Quick Reference
 - `python -m pytest tests/unit/test_proxy_mvp.py -v`
 - `python -m pytest tests/integration/test_proxy_integration.py -v`
 - `python -m pytest tests/unit/test_ccxt_rest_transport.py -v`
 - `python examples/backpack_live.py` (requires Backpack credentials & proxies)
 - `cd docs && make html` to generate documentation locally.
-
