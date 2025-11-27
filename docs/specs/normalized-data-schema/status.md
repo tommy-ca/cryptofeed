@@ -33,6 +33,7 @@
 ### For Immediate Release (v0.1.0)
 ```
 ✅ 20+ Protobuf schema files (proto/cryptofeed/normalized/v1/)
+✅ New v2beta1 package (proto/cryptofeed/normalized/v2beta1/) with explicit presence on timestamps and funding rates
 ✅ Buf module configuration (buf.yaml, buf.gen.yaml)
 ✅ Publication script (tools/buf_publish.sh)
 ✅ Production documentation (RELEASE_v0.1.0.md)

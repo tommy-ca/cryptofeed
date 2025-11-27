@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// Nbbo captures best bid and ask across a set of exchanges.
+message Nbbo {
+  string symbol = 1; // normalized trading pair (Cryptofeed NBBO.symbol)
+  string best_bid_exchange = 2; // exchange contributing the best bid
+  string best_bid_price = 3; // decimal string, scale 1e-8 (best bid price)
+  string best_bid_size = 4; // decimal string, scale 1e-8 (best bid size)
+  string best_ask_exchange = 5; // exchange contributing the best ask
+  string best_ask_price = 6; // decimal string, scale 1e-8 (best ask price)
+  string best_ask_size = 7; // decimal string, scale 1e-8 (best ask size)
+  int64 timestamp = 8; // microseconds since UNIX epoch (NBBO timestamp converted to µs)
+}

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// TradeSide enumerates normalized trade directions.
+enum TradeSide {
+  TRADE_SIDE_UNSPECIFIED = 0;
+  TRADE_SIDE_BUY = 1;
+  TRADE_SIDE_SELL = 2;
+}
