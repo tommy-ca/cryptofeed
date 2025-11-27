@@ -11,3 +11,5 @@
 | `timestamp` | `OrderBook.timestamp` | `ts_event` | `timestamp` (µs) | Cryptofeed seconds → µs |
 | `sequence` | `OrderBook.sequence_number` | `sequence` | `sequence` | Optional, exchange provided |
 | `checksum` | `OrderBook.checksum` | `checksum` | `reserved` | Optional integrity indicator |
+| `event_time` | `OrderBook.event_time` | `E` | `reserved` | Exchange event time in microseconds when provided |
+| `last_update_id` | `OrderBook.last_update_id` | `lastUpdateId` | `reserved` | Exchange book update identifier |
