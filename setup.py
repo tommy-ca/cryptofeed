@@ -23,6 +23,8 @@ _BASE_REQUIREMENTS = [
     "requests>=2.18.4",
     "websockets>=14.1",
     "orjson>=3.10.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
 ]
 
 
