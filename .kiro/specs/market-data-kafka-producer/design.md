@@ -1305,6 +1305,28 @@ Produce Attempt
 
 ---
 
+## 13.5 Compound Workstreams & Boundaries
+
+- **Workstream Decomposition**:
+  - Schema definition and evolution are owned by `normalized-data-schema-crypto`.
+  - Protobuf serialization helpers and converter registry are owned by `protobuf-callback-serialization`.
+  - This spec owns the Kafka producer backend, including topic/partition strategies, delivery guarantees, metrics, and migration tooling.
+  - Separate E2E and consumer specs own exchange-specific pipelines and downstream processing.
+- **Interfaces & Contracts**:
+  - Input contract: normalized dataclasses and their `to_proto()` mappings.
+  - Output contract: Kafka topics, partitioning behavior, and headers (exchange, symbol, data_type, schema_version) as documented here and in Kafka docs.
+  - This design must remain compatible with those contracts so multiple workstreams can proceed independently.
+
+## 13.6 AI Agent Design Guidance
+
+- AI agents implementing or extending this design MUST:
+  - Use existing abstractions (TopicManager, PartitionerFactory, HeaderEnricher, KafkaConfig) instead of creating parallel mechanisms.
+  - Keep changes scoped to the Kafka backend and its tests unless upstream specs explicitly require schema/serialization changes.
+  - Avoid embedding consumer-specific behavior (e.g., storage layouts, query patterns) in the producer; such concerns belong in separate specs.
+- Cross-spec changes (e.g., to Protobuf fields, normalized dataclasses) SHALL be coordinated by:
+  - Updating `normalized-data-schema-crypto` and/or `protobuf-callback-serialization` first.
+  - Referencing those spec updates in commit messages and in any design/task modifications for this spec.
+
 ## 14. Conclusion
 
 This design establishes cryptofeed as a pure ingestion layer that produces protobuf-serialized market data to Kafka topics. The separation of concerns between cryptofeed (producer) and downstream consumers enables flexible storage and analytics implementations while maintaining high throughput, reliability, and observability.

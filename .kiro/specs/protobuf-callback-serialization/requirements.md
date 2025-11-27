@@ -302,6 +302,28 @@ This specification establishes the foundation for protobuf-native data serializa
 
 ---
 
+## Compound Engineering Alignment
+
+- **Parallel Workstreams**:
+  - Schema definition (`normalized-data-schema-crypto`) provides canonical message shapes.
+  - This spec owns protobuf serialization helpers and converter registry.
+  - Kafka producer specs (`market-data-kafka-producer`, E2E specs) consume these helpers as upstream contracts.
+- **Upstream/Downstream Contracts**:
+  - Upstream: any change to normalized schemas must be reflected here via converter updates and tests.
+  - Downstream: Kafka backends and E2E specs MUST treat this module as the single source of truth for serialization behavior and error semantics (e.g., `ProtobufEncodeError`).
+
+## AI Agentic Implementation Constraints
+
+- AI agents working under this spec MUST:
+  - Keep all serialization logic consolidated in the backend helpers module (and its successors), avoiding the re-introduction of distributed wrapper/serializer hierarchies.
+  - Update converters and registry entries in lockstep with schema changes, and extend or add tests to cover new paths instead of forking logic.
+  - Avoid embedding transport-specific behavior (Kafka, Redis, etc.) into converter functions; transport handling belongs in downstream specs/backends.
+- Cross-spec work (e.g., adding new normalized fields) SHALL:
+  - Start from `normalized-data-schema-crypto`, then propagate into this spec via converter updates and tests.
+  - Be referenced explicitly when AI agents modify converters, so downstream specs can rely on consistent semantics.
+
+---
+
 ## Success Criteria (All Met)
 
 **Functionality**:

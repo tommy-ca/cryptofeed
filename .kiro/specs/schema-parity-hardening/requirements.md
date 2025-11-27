@@ -32,3 +32,14 @@ Improve the schema parity regression workflow so Decimal precision is preserved,
 3. WHILE CI quality gates run THE registry builder SHALL verify that converters exist for all proto message types tagged for ingestion.
 4. WHERE manual overrides are needed (e.g., legacy schemas) THE system SHALL allow explicit exclusions documented within the registry configuration.
 
+## Compound Engineering Alignment
+
+- This spec sits between **schemas** (`normalized-data-schema-crypto`) and **serialization helpers** (`protobuf-callback-serialization`), ensuring they remain in lockstep over time.
+- It complements E2E specs (e.g., Kafka pipelines) by providing parity guarantees that those specs can rely on without re-implementing schema checks.
+
+## AI Agentic Implementation Constraints
+
+- AI agents implementing this spec MUST:
+  - Use the canonical schemas and converters as inputs; parity tools must not redefine field semantics.
+  - Keep regression tooling focused on detection and reporting; any required fixes must be made in the owning schema or serialization specs.
+  - Treat this spec as a validator workstream in a compound system, not as a place to “hotfix” cross-spec behavior.

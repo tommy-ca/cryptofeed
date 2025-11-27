@@ -270,6 +270,27 @@ Consumer implements Spark Structured Streaming job aggregating trades into OHLCV
 - **External**: Kafka cluster (3+ brokers recommended)
 - **External**: Schema registry (Confluent or Buf)
 
+## Compound Engineering Alignment
+
+- **Parallel Workstreams**:
+  - Normalized schemas (`normalized-data-schema-crypto`) define canonical message shapes.
+  - Protobuf serialization (`protobuf-callback-serialization`) produces binary payloads from normalized dataclasses.
+  - This spec owns the Kafka producer backend, topic/partition strategies, and operational tooling.
+  - E2E validation specs (e.g., `kafka-protobuf-binance-e2e`) exercise specific exchange→Kafka paths.
+- **Upstream Dependencies**:
+  - This spec SHALL treat schemas and serialization helpers as upstream contracts; any change to field semantics or serialization behavior must be implemented via the schema/serialization specs, not ad hoc in the Kafka backend.
+- **Downstream Consumers**:
+  - Downstream systems (Flink, QuixStreams, custom consumers) are separate workstreams that subscribe to Kafka topics and are responsible for storage and analytics; this spec only guarantees that topics and headers expose the information those streams need.
+
+## AI Agentic Implementation Constraints
+
+- AI agents working under this spec MUST:
+  - Restrict changes to Kafka backend code, configuration models, and tests scoped to this spec, and avoid modifying schemas or core serialization helpers unless the corresponding specs are explicitly updated.
+  - Prefer extending existing patterns (topic strategies, partitioners, header enrichers, metrics) rather than introducing parallel implementations or one-off code paths.
+  - Maintain the ingestion-layer-only boundary: no storage, query, or consumer business logic should be added to the Kafka backend.
+- When cross-stream behavior must change (e.g., schema fields, normalized types), agents SHALL:
+  - Propose or update the relevant upstream spec (`normalized-data-schema-crypto`, `protobuf-callback-serialization`) and reference it in design/tasks before changing Kafka producer behavior.
+
 ## Timeline (New Backend - Production Ready)
 
 - **Design Phase**: ✅ Complete (Oct 31, 2025)
