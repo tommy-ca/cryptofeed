@@ -19,4 +19,8 @@ message Trade {
   int64 timestamp = 7; // microseconds since UNIX epoch (Trade.timestamp converted to µs)
   string raw_id = 8; // optional raw identifier when available (CCXT/tardis trace)
   optional string trade_type = 9; // trade type when provided by venue (e.g., "market", "limit", "stop-loss") - maps to Trade.type
+  optional bool maker = 10; // true when venue reports taker/maker; defaults false when absent (e.g., Binance m flag)
+  optional int64 event_time = 11; // exchange event time in microseconds when provided (e.g., Binance E) distinct from match timestamp
+  optional string match_id = 12; // exchange match identifier when separate from trade_id (e.g., Binance t)
+  optional string liquidity_flag = 13; // venue-provided liquidity code (e.g., "M"/"T" or "B"/"S")
 }
