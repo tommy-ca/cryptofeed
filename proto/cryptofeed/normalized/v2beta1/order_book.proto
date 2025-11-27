@@ -18,4 +18,6 @@ message Level2Book {
   optional int64 timestamp = 5; // microseconds since UNIX epoch (OrderBook.timestamp converted to µs)
   optional int64 sequence = 6; // exchange sequence number when available (OrderBook.sequence_number)
   optional string checksum = 7; // venue checksum for integrity validation (OrderBook.checksum)
+  optional int64 event_time = 8; // exchange event time in microseconds when provided (e.g., Binance E)
+  optional string last_update_id = 9; // exchange book update identifier (e.g., Binance lastUpdateId)
 }
