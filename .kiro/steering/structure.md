@@ -53,3 +53,19 @@
 - **No Legacy:** Deprecated modules are removed rather than maintained; use
   compatibility shims only as temporary bridges.
 
+## Spec-Driven Structure & Compound Workstreams
+
+- **Spec Layout:** Each spec under `.kiro/specs/` (e.g., normalized schemas,
+  protobuf serialization, Kafka producer, E2E flows) contains requirements,
+  design, and tasks. These specs map onto distinct workstreams that compose
+  via clearly defined contracts (schemas, APIs, topics, headers, tools).
+- **Cross-Stream Changes:** When a change crosses streams (for example, adding
+  a new schema field that affects serialization and Kafka topics), the
+  owning spec for each stream must be updated and coordinated. Code changes
+  should then be localised to the modules that each spec explicitly owns.
+- **AI Navigation:** AI agents should treat this structure as a map: start
+  from steering (`.kiro/steering/`), locate the relevant spec(s), and use
+  the code and test layout (`cryptofeed/`, `tests/`, `docs/`) as informed by
+  those specs. Multi-area edits should only happen when driven by
+  cross-referenced spec updates, not by convenience.
+

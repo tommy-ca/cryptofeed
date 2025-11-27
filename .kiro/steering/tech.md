@@ -91,3 +91,33 @@
 - `python -m pytest tests/unit/test_ccxt_rest_transport.py -v`
 - `python examples/backpack_live.py` (requires Backpack credentials & proxies)
 - `cd docs && make html` to generate documentation locally.
+
+## Compound Architecture & AI Agent Guidelines
+
+- **Workstream Decomposition:** Technical work is split into streams such as
+  schemas, serialization, Kafka producer, exchange connectors, parity
+  tooling, and E2E validation. Each stream owns its portion of the
+  architecture and exposes explicit interfaces (Protobuf packages, converter
+  APIs, Kafka topics and headers, regression tools).
+- **Contracts Over Coupling:** Schemas define canonical message shapes;
+  serialization maps dataclasses into those schemas; Kafka producer specs
+  define topic/partition semantics and headers; E2E specs only verify
+  pipelines end-to-end; consumer specs own storage and analytics. Changes to
+  one layer must be driven by its spec and propagated through dependent
+  specs, not patched ad hoc in code.
+- **Agent Responsibilities:** AI agents MUST identify relevant specs under
+  `.kiro/specs/` before editing code, read their "Compound Engineering
+  Alignment" and "AI Agentic Implementation Constraints" sections, and
+  respect the boundaries they define. Agents should extend existing
+  abstractions (e.g., TopicManager, PartitionerFactory, header enrichers,
+  Protobuf converter registries) instead of creating parallel mechanisms.
+- **Scope Discipline:** Agents should keep changes within the ingestion
+  layer for Cryptofeed (connectors, normalization, backends) and avoid
+  embedding consumer or storage behaviour in this codebase. Downstream
+  systems (lakehouse jobs, analytics, dashboards) must be implemented in
+  their own repos/specs.
+- **Process Expectations:** Non-trivial changes should be spec-backed,
+  test-driven, and incremental. Agents should avoid multi-stream refactors
+  unless the affected specs have been updated and coordinated, and they
+  should treat tests as the primary mechanism for validating cross-stream
+  contracts.
