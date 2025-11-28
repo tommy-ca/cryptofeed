@@ -811,3 +811,5 @@
 ### 0.5.0 (2018-01-02)
   * Initial release: GDAX, Poloniex, Bitfinex Support
   * Feature: NBBO support
+## Unreleased
+- Python support: minimum raised to 3.10; 3.10–3.13 supported (3.9 dropped).
