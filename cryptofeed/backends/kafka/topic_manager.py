@@ -21,6 +21,7 @@ class TopicManager:
     # Supported data types (normalized to singular form for topic naming)
     SUPPORTED_DATA_TYPES = {
         "trade",
+        "trades",  # plural form supported for backward compatibility
         "orderbook",
         "ticker",
         "candle",
@@ -56,7 +57,8 @@ class TopicManager:
 
     @staticmethod
     def _normalize_symbol(symbol: str) -> str:
-        return str(symbol).lower().replace("_", "-")
+        # Lowercase for topic stability; normalize common separators.
+        return str(symbol).lower().replace("_", "-").replace("/", "-")
 
     @staticmethod
     def _normalize_exchange(exchange: str) -> str:

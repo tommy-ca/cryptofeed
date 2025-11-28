@@ -108,7 +108,7 @@ class TestSerializationErrorHandling:
 
         # Mock serialization to raise error
         with patch.object(callback, '_serialize_payload', side_effect=ValueError("Serialization failed")):
-            with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+            with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
                 callback._queue_message("trade", trade)
                 await callback._drain_once()
 
@@ -140,7 +140,7 @@ class TestSerializationErrorHandling:
 
         # First message serialization fails
         with patch.object(callback, '_serialize_payload', side_effect=[ValueError("Fail"), ("payload", [])]):
-            with patch('cryptofeed.kafka_callback.LOG'):
+            with patch('cryptofeed.backends.kafka.callback.LOG'):
                 await callback._drain_once()  # First message fails
                 await callback._drain_once()  # Second message succeeds
 
@@ -163,7 +163,7 @@ class TestTopicResolutionErrorHandling:
 
         # Mock topic resolution to raise error
         with patch.object(callback, '_topic_name', side_effect=ValueError("Topic resolution failed")):
-            with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+            with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
                 callback._queue_message("trade", trade)
                 await callback._drain_once()
 
@@ -190,7 +190,7 @@ class TestPartitionKeyErrorHandling:
 
         # Mock partition key to raise error
         with patch.object(callback, '_partition_key', side_effect=ValueError("Partition key failed")):
-            with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+            with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
                 callback._queue_message("trade", trade)
                 await callback._drain_once()
 
@@ -221,7 +221,7 @@ class TestHeaderEnrichmentErrorHandling:
 
         # Mock header enricher to raise error
         with patch.object(callback._header_enricher, 'build', side_effect=ValueError("Header enrichment failed")):
-            with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+            with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
                 callback._queue_message("trade", trade)
                 await callback._drain_once()
 
@@ -248,7 +248,7 @@ class TestKafkaProduceErrorHandling:
 
         trade = _sample_trade()
 
-        with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+        with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
             callback._queue_message("trade", trade)
             await callback._drain_once()
 
@@ -278,13 +278,13 @@ class TestKafkaProduceErrorHandling:
         # First message produce fails, second succeeds
         stub_producer.produce_error = KafkaException("Transient error")
 
-        with patch('cryptofeed.kafka_callback.LOG'):
+        with patch('cryptofeed.backends.kafka.callback.LOG'):
             await callback._drain_once()  # First message fails
 
         # Remove error for second message
         stub_producer.produce_error = None
 
-        with patch('cryptofeed.kafka_callback.LOG'):
+        with patch('cryptofeed.backends.kafka.callback.LOG'):
             await callback._drain_once()  # Second message succeeds
 
         # Only second message should be produced
@@ -310,7 +310,7 @@ class TestBackpressureHandling:
         assert callback.queue_size() == 1
 
         # Try to add another message - should fail
-        with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+        with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
             assert callback._queue_message("trade", trade2) is False
             assert callback.queue_size() == 1  # Still 1
 
@@ -340,7 +340,7 @@ class TestUnexpectedErrorHandling:
 
         # Inject an unexpected error by mocking a low-level operation in finally block
         with patch.object(callback._queue, 'task_done', side_effect=RuntimeError("Unexpected error")):
-            with patch('cryptofeed.kafka_callback.LOG') as mock_log:
+            with patch('cryptofeed.backends.kafka.callback.LOG') as mock_log:
                 callback._queue_message("trade", trade)
 
                 # This should not raise, but log the error
@@ -384,7 +384,7 @@ class TestErrorRecovery:
             return (b"payload", [])
 
         with patch.object(callback, '_serialize_payload', side_effect=mock_serialize):
-            with patch('cryptofeed.kafka_callback.LOG'):
+            with patch('cryptofeed.backends.kafka.callback.LOG'):
                 # Process all 5 messages
                 for _ in range(5):
                     await callback._drain_once()

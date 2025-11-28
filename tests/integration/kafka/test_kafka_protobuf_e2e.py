@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import time
@@ -16,18 +17,22 @@ from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.types import Trade
 
-COMPOSE_FILE = "docker/redpanda.yml"
-HOST_BOOTSTRAP = "localhost:19092"
+COMPOSE_FILE = os.getenv("REDPANDA_COMPOSE_FILE", "docker/infra/base.yml")
+HOST_BOOTSTRAP = os.getenv("REDPANDA_HOST_BOOTSTRAP", "localhost:19092")
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _docker_compose_available() -> bool:
     try:
         result = subprocess.run(
-            ["docker", "compose", "version"], capture_output=True, text=True, check=False
+            ["docker", "compose", "version"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
     except FileNotFoundError:
         return False
@@ -60,16 +65,21 @@ def redpanda(request):
         pytest.skip(f"failed to start redpanda: {up.stderr.strip()}")
 
     try:
-        _wait_for_port("localhost", 19092, timeout=30)
+        host, port_str = HOST_BOOTSTRAP.rsplit(":", 1)
+        _wait_for_port(host, int(port_str), timeout=30)
         time.sleep(3)
     except Exception as exc:  # pragma: no cover - env-specific
         subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "logs"])
-        subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True)
+        subprocess.run(
+            ["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True
+        )
         raise exc
 
     yield HOST_BOOTSTRAP
 
-    subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True)
+    subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True
+    )
 
 
 @dataclass
@@ -88,13 +98,17 @@ async def _produce_trade(bootstrap: str, trade: Trade) -> None:
     )
     # route per-symbol for easier verification
     cb._topic_strategy = "per_symbol"
-    message = KafkaQueuedMessage(data_type="trade", obj=trade, receipt_timestamp=time.time())
+    message = KafkaQueuedMessage(
+        data_type="trade", obj=trade, receipt_timestamp=time.time()
+    )
     await cb._process_message(message)
     # ensure message leaves client buffer
     cb._producer.flush(2)
 
 
-def _consume_one(bootstrap: str, topic: str, timeout_s: float = 10.0) -> _ConsumedRecord:
+def _consume_one(
+    bootstrap: str, topic: str, timeout_s: float = 10.0
+) -> _ConsumedRecord:
     consumer = Consumer(
         {
             "bootstrap.servers": bootstrap,
@@ -185,7 +199,9 @@ async def test_kafka_protobuf_partition_key_round_robin(redpanda):
     cb._partitioner = PartitionerFactory.create("round_robin")
     cb._topic_strategy = "per_symbol"
 
-    message = KafkaQueuedMessage(data_type="trade", obj=trade, receipt_timestamp=time.time())
+    message = KafkaQueuedMessage(
+        data_type="trade", obj=trade, receipt_timestamp=time.time()
+    )
     await cb._process_message(message)
 
     topic = "cryptofeed.trade.binance.eth-usdt"

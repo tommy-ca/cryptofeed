@@ -353,6 +353,43 @@ config = KafkaConfig(
 
 **Prevention:** Always test connectivity with health checks before deployment.
 
+### Issue 10a: Redpanda Test Cluster Port In Use
+
+**Symptom:**
+```
+Error response from daemon: ... Bind for 0.0.0.0:19092 failed: port is already allocated
+```
+
+**Cause:** Another process or container is already listening on the host port used by the Redpanda test cluster (default 19092).
+
+**Solution:**
+
+**Step 1: Check which process is using the port**
+```bash
+# On Linux
+sudo lsof -i :19092 || sudo ss -lntp | grep 19092
+```
+
+**Step 2: Either stop the conflicting process or run Redpanda on a different host port**
+```bash
+# Example: run tests on host port 29092
+export REDPANDA_HOST_PORT=29092
+export REDPANDA_HOST_BOOTSTRAP=localhost:29092
+export REDPANDA_COMPOSE_FILE=docker/infra/base.yml
+
+docker compose -f docker/infra/base.yml up -d
+```
+
+**Step 3: Run Kafka integration tests**
+```bash
+REDPANDA_HOST_PORT=29092 \
+REDPANDA_HOST_BOOTSTRAP=localhost:29092 \
+REDPANDA_COMPOSE_FILE=docker/infra/base.yml \
+python -m pytest tests/integration/kafka/test_kafka_protobuf_e2e.py -q
+```
+
+**Prevention:** Use the `REDPANDA_HOST_PORT` and `REDPANDA_HOST_BOOTSTRAP` environment variables to avoid host port conflicts when running tests locally.
+
 ---
 
 ### Issue 11: Health Check Timeout

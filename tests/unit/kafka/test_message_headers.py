@@ -27,6 +27,7 @@ from cryptofeed.kafka_callback import HeaderEnricher, MessageHeaders, OptionalHe
 @dataclass(slots=True)
 class MockTrade:
     """Mock Trade message for testing."""
+
     exchange: str = "coinbase"
     symbol: str = "BTC-USD"
     price: float = 50000.0
@@ -37,6 +38,7 @@ class MockTrade:
 @dataclass(slots=True)
 class MockTicker:
     """Mock Ticker message for testing."""
+
     exchange: str = "binance"
     symbol: str = "ETH-USDT"
     bid: float = 3000.0
@@ -47,6 +49,7 @@ class MockTicker:
 @dataclass(slots=True)
 class MockOrderBook:
     """Mock OrderBook message for testing."""
+
     exchange: str = "kraken"
     symbol: str = "SOL-USD"
     timestamp: float = 1234567890.0
@@ -55,6 +58,7 @@ class MockOrderBook:
 @dataclass(slots=True)
 class MockCandle:
     """Mock Candle message for testing."""
+
     exchange: str = "bitmex"
     symbol: str = "XBT-USD"
     timestamp: float = 1234567890.0
@@ -63,6 +67,7 @@ class MockCandle:
 @dataclass(slots=True)
 class MockMessageWithoutMetadata:
     """Mock message without exchange or symbol."""
+
     timestamp: float = 1234567890.0
 
 
@@ -78,9 +83,7 @@ class TestMessageHeadersClass:
         """Test that all mandatory headers are present in output."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         # Convert to dict for easier checking
@@ -95,9 +98,7 @@ class TestMessageHeadersClass:
         """Test content-type header for protobuf format."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -107,9 +108,7 @@ class TestMessageHeadersClass:
         """Test content-type header for JSON format."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/json"
+            message=trade, data_type="trades", content_type="application/json"
         )
 
         header_dict = dict(headers)
@@ -119,9 +118,7 @@ class TestMessageHeadersClass:
         """Test exchange header extracted from message."""
         trade = MockTrade(exchange="binance")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -131,9 +128,7 @@ class TestMessageHeadersClass:
         """Test exchange header is lowercase."""
         trade = MockTrade(exchange="Coinbase")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -143,9 +138,7 @@ class TestMessageHeadersClass:
         """Test symbol header extracted from message."""
         trade = MockTrade(symbol="BTC-USD")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -155,9 +148,7 @@ class TestMessageHeadersClass:
         """Test symbol header normalization (underscores to hyphens)."""
         trade = MockTrade(symbol="BTC_USD")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -168,9 +159,7 @@ class TestMessageHeadersClass:
         """Test data_type header is set correctly."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -184,7 +173,7 @@ class TestMessageHeadersClass:
             headers = MessageHeaders.build(
                 message=trade,
                 data_type=data_type,
-                content_type="application/x-protobuf"
+                content_type="application/x-protobuf",
             )
 
             header_dict = dict(headers)
@@ -194,24 +183,24 @@ class TestMessageHeadersClass:
         """Test that all header values are bytes."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         # headers should be list of (bytes, bytes) tuples
         assert isinstance(headers, list)
         for header_name, header_value in headers:
-            assert isinstance(header_name, bytes), f"Header name {header_name} is not bytes"
-            assert isinstance(header_value, bytes), f"Header value {header_value} is not bytes"
+            assert isinstance(header_name, bytes), (
+                f"Header name {header_name} is not bytes"
+            )
+            assert isinstance(header_value, bytes), (
+                f"Header value {header_value} is not bytes"
+            )
 
     def test_headers_encoding_utf8(self):
         """Test that headers are UTF-8 encoded."""
         trade = MockTrade(exchange="binance", symbol="BTC-USDT")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -227,9 +216,7 @@ class TestMessageHeadersClass:
         """Test that headers are returned as list of tuples."""
         trade = MockTrade()
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         assert isinstance(headers, list)
@@ -240,9 +227,7 @@ class TestMessageHeadersClass:
         """Test handling of messages without exchange attribute."""
         message = MockMessageWithoutMetadata()
         headers = MessageHeaders.build(
-            message=message,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=message, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -253,9 +238,7 @@ class TestMessageHeadersClass:
         """Test handling of messages without symbol attribute."""
         message = MockMessageWithoutMetadata()
         headers = MessageHeaders.build(
-            message=message,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=message, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -266,9 +249,7 @@ class TestMessageHeadersClass:
         """Test handling of special characters in exchange name."""
         trade = MockTrade(exchange="kraken-us")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -278,9 +259,7 @@ class TestMessageHeadersClass:
         """Test handling of special characters in symbol."""
         trade = MockTrade(symbol="BTC/USD")
         headers = MessageHeaders.build(
-            message=trade,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade, data_type="trades", content_type="application/x-protobuf"
         )
 
         header_dict = dict(headers)
@@ -293,14 +272,10 @@ class TestMessageHeadersClass:
         trade2 = MockTrade(exchange="coinbase", symbol="BTC-USD")
 
         headers1 = MessageHeaders.build(
-            message=trade1,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade1, data_type="trades", content_type="application/x-protobuf"
         )
         headers2 = MessageHeaders.build(
-            message=trade2,
-            data_type="trades",
-            content_type="application/x-protobuf"
+            message=trade2, data_type="trades", content_type="application/x-protobuf"
         )
 
         # Should produce identical headers
@@ -315,9 +290,7 @@ class TestMessageHeadersClass:
         for exchange in exchanges:
             trade = MockTrade(exchange=exchange)
             headers = MessageHeaders.build(
-                message=trade,
-                data_type="trades",
-                content_type="application/x-protobuf"
+                message=trade, data_type="trades", content_type="application/x-protobuf"
             )
 
             header_dict = dict(headers)
@@ -407,15 +380,16 @@ class TestOptionalHeadersClass:
 
         assert isinstance(headers, list)
         for header_name, header_value in headers:
-            assert isinstance(header_name, bytes), f"Header name {header_name} is not bytes"
-            assert isinstance(header_value, bytes), f"Header value {header_value} is not bytes"
+            assert isinstance(header_name, bytes), (
+                f"Header name {header_name} is not bytes"
+            )
+            assert isinstance(header_value, bytes), (
+                f"Header value {header_value} is not bytes"
+            )
 
     def test_optional_headers_encoding_utf8(self):
         """Test that optional headers are UTF-8 encoded."""
-        headers = OptionalHeaders.build(
-            schema_version="v2",
-            producer_version="2.0.0"
-        )
+        headers = OptionalHeaders.build(schema_version="v2", producer_version="2.0.0")
         header_dict = dict(headers)
 
         # Verify encoding by round-trip
@@ -432,14 +406,8 @@ class TestOptionalHeadersClass:
 
     def test_optional_headers_consistency(self):
         """Test that same parameters produce same headers (except timestamp)."""
-        headers1 = OptionalHeaders.build(
-            schema_version="v1",
-            producer_version="2.4.1"
-        )
-        headers2 = OptionalHeaders.build(
-            schema_version="v1",
-            producer_version="2.4.1"
-        )
+        headers1 = OptionalHeaders.build(schema_version="v1", producer_version="2.4.1")
+        headers2 = OptionalHeaders.build(schema_version="v1", producer_version="2.4.1")
 
         # Extract without timestamp for comparison
         dict1 = {k: v for k, v in headers1 if k != b"timestamp_generated"}
@@ -518,9 +486,11 @@ class TestHeaderEnricherClass:
         enricher = HeaderEnricher(content_type="application/x-protobuf")
 
         headers = enricher.build(message=trade, data_type="trades")
+        header_dict = dict(headers)
 
-        # Should have: 4 mandatory + 3 optional = 7 headers
-        assert len(headers) == 7
+        # Should have: 4 mandatory + 3 optional + 1 serialization header = 8 headers
+        assert len(headers) == 8
+        assert b"cf.serialization_format" in header_dict
 
     def test_enricher_with_protobuf_content_type(self):
         """Test enricher with protobuf content type."""
@@ -641,8 +611,7 @@ class TestHeaderEnricherClass:
         """Test enricher with custom schema version."""
         trade = MockTrade()
         enricher = HeaderEnricher(
-            content_type="application/x-protobuf",
-            schema_version="v2"
+            content_type="application/x-protobuf", schema_version="v2"
         )
 
         headers = enricher.build(message=trade, data_type="trades")
@@ -654,8 +623,7 @@ class TestHeaderEnricherClass:
         """Test enricher with custom producer version."""
         trade = MockTrade()
         enricher = HeaderEnricher(
-            content_type="application/x-protobuf",
-            producer_version="1.0.0"
+            content_type="application/x-protobuf", producer_version="1.0.0"
         )
 
         headers = enricher.build(message=trade, data_type="trades")
@@ -668,7 +636,7 @@ class TestHeaderEnricherClass:
         enricher = HeaderEnricher(
             content_type="application/x-protobuf",
             schema_version="v2",
-            producer_version="3.0.0"
+            producer_version="3.0.0",
         )
 
         trade = MockTrade()
@@ -694,9 +662,20 @@ class TestHeaderEnricherClass:
     def test_enricher_with_all_data_types(self):
         """Test enricher with all supported data types."""
         data_types = [
-            "trades", "orderbook", "ticker", "candles", "funding",
-            "liquidation", "index", "openinterest", "fills", "balances",
-            "positions", "margin", "orders", "transactions"
+            "trades",
+            "orderbook",
+            "ticker",
+            "candles",
+            "funding",
+            "liquidation",
+            "index",
+            "openinterest",
+            "fills",
+            "balances",
+            "positions",
+            "margin",
+            "orders",
+            "transactions",
         ]
 
         trade = MockTrade()
@@ -994,13 +973,9 @@ class TestHeadersPerformance:
     def test_multiple_enricher_instances(self):
         """Test multiple enricher instances work independently."""
         enricher1 = HeaderEnricher(
-            content_type="application/x-protobuf",
-            schema_version="v1"
+            content_type="application/x-protobuf", schema_version="v1"
         )
-        enricher2 = HeaderEnricher(
-            content_type="application/json",
-            schema_version="v2"
-        )
+        enricher2 = HeaderEnricher(content_type="application/json", schema_version="v2")
 
         trade = MockTrade()
 
