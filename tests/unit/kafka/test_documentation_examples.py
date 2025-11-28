@@ -8,6 +8,11 @@ Tests fail initially (RED), then documentation is written to make them pass (GRE
 
 import pytest
 import warnings
+import sys
+
+from tests.helpers.kafka_env import get_bootstrap_servers
+
+BOOTSTRAP = get_bootstrap_servers()
 
 
 class TestMigrationGuideExamples:
@@ -15,12 +20,15 @@ class TestMigrationGuideExamples:
 
     def test_example_01_basic_legacy_to_modern_import(self):
         """Example 1: Basic import migration from legacy to modern."""
-        # This test ensures the basic import example works
-        # RED: Will fail until documentation example is written
+        # This test ensures the basic import example works.
+        # Legacy import (should emit warning via shim module on first import).
+        if "cryptofeed.kafka_callback" in sys.modules:
+            del sys.modules["cryptofeed.kafka_callback"]
 
-        # Legacy import (should emit warning)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
+
+            import cryptofeed.kafka_callback  # noqa: F401
 
             assert len(w) == 1
             assert issubclass(w[0].category, DeprecationWarning)
@@ -28,6 +36,7 @@ class TestMigrationGuideExamples:
 
         # Modern import (no warning)
         from cryptofeed.backends.kafka.callback import KafkaCallback
+
         assert KafkaCallback is not None
 
     def test_example_02_basic_configuration_translation(self):
@@ -36,7 +45,7 @@ class TestMigrationGuideExamples:
 
         # Legacy config
         legacy = {
-            "bootstrap_servers": ["localhost:9092"],
+            "bootstrap_servers": BOOTSTRAP,
             "topic_prefix": "trades",
             "partition_strategy": "composite",
         }
@@ -45,7 +54,7 @@ class TestMigrationGuideExamples:
         result = translate_legacy_config(legacy)
 
         # Verify modern config
-        assert result.modern_config.bootstrap_servers == ["localhost:9092"]
+        assert result.modern_config.bootstrap_servers == BOOTSTRAP
         assert result.modern_config.topic.prefix == "trades"
         assert result.modern_config.partition.strategy == "composite"
 
@@ -74,7 +83,7 @@ class TestMigrationGuideExamples:
         from cryptofeed.backends.kafka.callback import KafkaConfig
 
         # Create modern config
-        config = KafkaConfig(bootstrap_servers=["localhost:9092"])
+        config = KafkaConfig(bootstrap_servers=BOOTSTRAP)
 
         # Health check should not raise (even if connection fails)
         # We're testing the API, not actual Kafka connectivity
@@ -82,8 +91,8 @@ class TestMigrationGuideExamples:
             status = KafkaHealthCheck.check_modern(config)
             # Status will likely fail (no real Kafka), but API should work
             assert status.implementation == "modern"
-            assert hasattr(status, 'ok')
-            assert hasattr(status, 'latency_ms')
+            assert hasattr(status, "ok")
+            assert hasattr(status, "latency_ms")
         except Exception as e:
             # Health check itself shouldn't raise, but if it does, that's a docs bug
             pytest.fail(f"Health check API raised exception: {e}")
@@ -93,10 +102,10 @@ class TestMigrationGuideExamples:
         from cryptofeed.backends.kafka.migration import translate_legacy_config
 
         legacy = {
-            "bootstrap_servers": ["localhost:9092"],
+            "bootstrap_servers": BOOTSTRAP,
             "topic_prefix": "trades",
             "custom_option": "value",  # Unmapped
-            "another_custom": 123,      # Unmapped
+            "another_custom": 123,  # Unmapped
         }
 
         result = translate_legacy_config(legacy)
@@ -114,17 +123,21 @@ class TestMigrationGuideExamples:
     def test_example_06_validation_equivalence(self):
         """Example 6: Validation of migration equivalence."""
         from cryptofeed.backends.kafka.migration import validate_migration
-        from cryptofeed.backends.kafka.callback import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
+        from cryptofeed.backends.kafka.callback import (
+            KafkaConfig,
+            KafkaTopicConfig,
+            KafkaPartitionConfig,
+        )
 
         legacy = {
-            "bootstrap_servers": ["localhost:9092"],
+            "bootstrap_servers": BOOTSTRAP,
             "topic_prefix": "crypto",
             "partition_strategy": "symbol",
         }
 
         # Expected modern config
         expected = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             topic=KafkaTopicConfig(strategy="per_symbol", prefix="crypto"),
             partition=KafkaPartitionConfig(strategy="symbol"),
         )
@@ -145,8 +158,12 @@ class TestMigrationGuideExamples:
         system.reset_usage_stats()
 
         # Track some usage
-        system.track_usage("test_component", {"exchange": "binance", "symbol": "BTC-USDT"})
-        system.track_usage("test_component", {"exchange": "coinbase", "symbol": "ETH-USD"})
+        system.track_usage(
+            "test_component", {"exchange": "binance", "symbol": "BTC-USDT"}
+        )
+        system.track_usage(
+            "test_component", {"exchange": "coinbase", "symbol": "ETH-USD"}
+        )
 
         # Verify tracking
         stats = system.get_usage_stats()
@@ -165,14 +182,14 @@ class TestMigrationGuideExamples:
 
         # Consolidated topics (modern default)
         consolidated = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             topic=KafkaTopicConfig(strategy="consolidated", prefix="cryptofeed"),
         )
         assert consolidated.topic.strategy == "consolidated"
 
         # Per-symbol topics (legacy default)
         per_symbol = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             topic=KafkaTopicConfig(strategy="per_symbol", prefix="trades"),
         )
         assert per_symbol.topic.strategy == "per_symbol"
@@ -183,40 +200,43 @@ class TestMigrationGuideExamples:
 
         # Composite (recommended)
         composite = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             partition=KafkaPartitionConfig(strategy="composite"),
         )
         assert composite.partition.strategy == "composite"
 
         # Symbol (cross-exchange analysis)
         symbol = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             partition=KafkaPartitionConfig(strategy="symbol"),
         )
         assert symbol.partition.strategy == "symbol"
 
         # Exchange (per-exchange processing)
         exchange = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             partition=KafkaPartitionConfig(strategy="exchange"),
         )
         assert exchange.partition.strategy == "exchange"
 
         # Round-robin (maximum parallelism)
         round_robin = KafkaConfig(
-            bootstrap_servers=["localhost:9092"],
+            bootstrap_servers=BOOTSTRAP,
             partition=KafkaPartitionConfig(strategy="round_robin"),
         )
         assert round_robin.partition.strategy == "round_robin"
 
     def test_example_10_complete_migration_workflow(self):
         """Example 10: Complete migration workflow from legacy to modern."""
-        from cryptofeed.backends.kafka.migration import translate_legacy_config, validate_migration
+        from cryptofeed.backends.kafka.migration import (
+            translate_legacy_config,
+            validate_migration,
+        )
         from cryptofeed.backends.kafka.health import KafkaHealthCheck
 
         # Step 1: Define legacy configuration
         legacy_config = {
-            "bootstrap_servers": ["kafka:9092"],
+            "bootstrap_servers": BOOTSTRAP,
             "topic_prefix": "production",
             "partition_strategy": "composite",
             "acks": "all",
@@ -245,7 +265,7 @@ class TestMigrationGuideExamples:
             pass
 
         # Migration complete - modern_config ready to use
-        assert modern_config.bootstrap_servers == ["kafka:9092"]
+        assert modern_config.bootstrap_servers == BOOTSTRAP
         assert modern_config.topic.prefix == "production"
 
 
@@ -300,8 +320,8 @@ class TestAPIReferenceExamples:
         """API Reference: KafkaConfig basic usage."""
         from cryptofeed.backends.kafka.callback import KafkaConfig
 
-        config = KafkaConfig(bootstrap_servers=["localhost:9092"])
-        assert config.bootstrap_servers == ["localhost:9092"]
+        config = KafkaConfig(bootstrap_servers=BOOTSTRAP)
+        assert config.bootstrap_servers == BOOTSTRAP
         assert config.acks == "all"  # Default
         assert config.idempotence is True  # Default
 
@@ -331,15 +351,17 @@ class TestAPIReferenceExamples:
         """API Reference: MigrationResult structure."""
         from cryptofeed.backends.kafka.migration import translate_legacy_config
 
-        result = translate_legacy_config({
-            "bootstrap_servers": ["localhost:9092"],
-            "unknown_key": "value",
-        })
+        result = translate_legacy_config(
+            {
+                "bootstrap_servers": BOOTSTRAP,
+                "unknown_key": "value",
+            }
+        )
 
         # MigrationResult has these fields
-        assert hasattr(result, 'modern_config')
-        assert hasattr(result, 'unmapped_options')
-        assert hasattr(result, 'warnings')
+        assert hasattr(result, "modern_config")
+        assert hasattr(result, "unmapped_options")
+        assert hasattr(result, "warnings")
 
         assert "unknown_key" in result.unmapped_options
 
@@ -348,16 +370,16 @@ class TestAPIReferenceExamples:
         from cryptofeed.backends.kafka.health import KafkaHealthCheck
 
         # Legacy config format
-        legacy = {"bootstrap_servers": ["localhost:9092"]}
+        legacy = {"bootstrap_servers": BOOTSTRAP}
 
         status = KafkaHealthCheck.check_legacy(legacy)
 
         # KafkaHealthStatus has these fields
-        assert hasattr(status, 'implementation')
-        assert hasattr(status, 'ok')
-        assert hasattr(status, 'latency_ms')
-        assert hasattr(status, 'error')
-        assert hasattr(status, 'details')
+        assert hasattr(status, "implementation")
+        assert hasattr(status, "ok")
+        assert hasattr(status, "latency_ms")
+        assert hasattr(status, "error")
+        assert hasattr(status, "details")
 
         assert status.implementation == "legacy"
         assert isinstance(status.ok, bool)
@@ -370,9 +392,9 @@ class TestAPIReferenceExamples:
         system = DeprecationWarningSystem()
 
         # API methods
-        assert hasattr(system, 'emit_class_warning')
-        assert hasattr(system, 'emit_import_warning')
-        assert hasattr(system, 'track_usage')
-        assert hasattr(system, 'get_usage_stats')
-        assert hasattr(system, 'get_usage_report')
-        assert hasattr(system, 'reset_usage_stats')
+        assert hasattr(system, "emit_class_warning")
+        assert hasattr(system, "emit_import_warning")
+        assert hasattr(system, "track_usage")
+        assert hasattr(system, "get_usage_stats")
+        assert hasattr(system, "get_usage_report")
+        assert hasattr(system, "reset_usage_stats")
