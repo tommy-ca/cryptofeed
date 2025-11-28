@@ -107,6 +107,12 @@ Recommended quick start for the proxy + Kafka path:
 python -m pytest tests/unit/test_proxy_mvp.py tests/integration/test_proxy_integration.py -v
 ```
 
+Kafka / Redpanda local workflow:
+- `make redpanda-up` starts Redpanda via `docker/infra/base.yml` (default port 19092, overridable with `REDPANDA_HOST_PORT`)
+- `make test-kafka-unit` runs the Kafka unit suite (no broker required)
+- `make test-kafka-e2e` runs Kafka integration tests (requires broker)
+- Bootstrap env for tests: `KAFKA_BOOTSTRAP_SERVERS` (comma-separated). Defaults to `localhost:${REDPANDA_HOST_PORT:-19092}`; tests fall back automatically via `tests/helpers/kafka_env.py`.
+
 Live exchange tests are available under `tests/integration/` and can be enabled with the appropriate credentials and `-m live_proxy`. See [docs/e2e/](docs/e2e/) for detailed guides. For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
 
 
