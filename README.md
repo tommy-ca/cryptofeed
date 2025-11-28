@@ -113,6 +113,11 @@ Kafka / Redpanda local workflow:
 - `make test-kafka-e2e` runs Kafka integration tests (requires broker)
 - Bootstrap env for tests: `KAFKA_BOOTSTRAP_SERVERS` (comma-separated). Defaults to `localhost:${REDPANDA_HOST_PORT:-19092}`; tests fall back automatically via `tests/helpers/kafka_env.py`.
 
+Python versions:
+- Supported: 3.10, 3.11, 3.12
+- Provisional: 3.13 (enable in CI; report issues)
+- Dropped: 3.9 (EOL)
+
 Live exchange tests are available under `tests/integration/` and can be enabled with the appropriate credentials and `-m live_proxy`. See [docs/e2e/](docs/e2e/) for detailed guides. For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
 
 
