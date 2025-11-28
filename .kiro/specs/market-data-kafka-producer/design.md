@@ -595,6 +595,23 @@ class MessageRouter:
         return topic, partition_key, serialized
 ```
 
+#### 3.4.3 Async Queue Semantics for Draining
+
+The Kafka backend uses internal `asyncio.Queue` instances to buffer messages before they are written to Kafka. To maintain correct synchronization semantics and avoid deadlocks or memory leaks, every successful `queue.get()` or `queue.get_nowait()` call in the draining paths MUST be paired with a matching `queue.task_done()` call.
+
+- Single-message drains (e.g., `_drain_once()`) follow the pattern:
+  - Await `queue.get()` to retrieve the next message.
+  - Process the message (including stop sentinels) inside a `try` block.
+  - Call `queue.task_done()` inside a `finally` block so it always runs, even on exceptions or early returns.
+- Batched drains (e.g., `_drain_batch()`) follow the same contract:
+  - Use `queue.get_nowait()` inside a loop until the batch size limit or `QueueEmpty` is reached.
+  - For each retrieved message, process it in a `try` block and call `queue.task_done()` in a `finally` block, including when a stop sentinel is encountered.
+
+This pattern ensures that:
+- `queue.join()` completes once all retrieved messages have been processed.
+- Internal queue counters remain consistent over the lifetime of the producer.
+- Runtime errors like the incident documented in `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md` cannot reoccur without failing regression tests.
+
 ### 3.5 Error Handling & Resilience
 
 #### 3.5.1 Error Classification

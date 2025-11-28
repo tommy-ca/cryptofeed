@@ -74,3 +74,18 @@ This specification addresses the maintenance and evolution of Cryptofeed's Kafka
 3. While the migration period is active, the system shall provide regular progress updates and usage statistics.
 4. If unexpected issues arise during migration, the system shall adjust timelines and communicate changes transparently.
 5. The system shall maintain a decision log recording all Kafka backend evolution choices and their rationale.
+
+### Requirement 8: Asyncio Queue Contract Compliance
+**Objective:** As a backend developer, I want the Kafka backend to correctly implement asyncio.Queue contracts, so that queue synchronization patterns work reliably in long-running pipelines.
+
+#### Acceptance Criteria
+1. When messages are retrieved via `queue.get()` or `queue.get_nowait()`, the system shall call `queue.task_done()` after processing completes.
+2. When message processing fails or returns early, the system shall still call `task_done()` via try/finally blocks.
+3. While batch drain is enabled, the batch processing path shall maintain the same queue contract as single-message processing.
+4. If `task_done()` itself fails, the system shall log the error without cascading failures to message processing.
+5. The system shall ensure `queue.join()` completes correctly after all retrieved messages are processed.
+
+#### Reference Documentation
+- Solution doc: `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md`
+- Fix commit: `9730d29e`
+- Affected code: `cryptofeed/backends/kafka/base.py` (`_drain_batch()` method)

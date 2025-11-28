@@ -88,6 +88,16 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Ensure the new tests reuse `_docker_compose_available()` or an equivalent check for Docker + `docker compose`.
   - Ensure network-related failures (e.g., connection refused, DNS errors) are handled as skip conditions with informative messages wherever reasonable, rather than as uncaught exceptions.
 
+- [ ] 4.2 Add Makefile targets for Redpanda and Kafka tests
+  - Introduce Makefile targets to manage the Redpanda lifecycle (`redpanda-up`, `redpanda-down`, `redpanda-health`) using `docker/infra/base.yml` and host port `19092` by default.
+  - Add convenience targets for Kafka test entrypoints (`test-kafka-e2e`, `test-kafka-binance`, `test-kafka-unit`, `test-kafka-perf`, `test-kafka-all`) that align with this specs FR1FR6.
+  - Ensure all targets fail fast with non-zero exit codes on test failure and are safe to run repeatedly in local development and CI.
+
+- [ ] 4.3 Guard port 19092 and conflicting Docker services
+  - Define a non-destructive Make target (e.g., `docker-ps-19092`) that lists any containers currently bound to host port 19092 so engineers can inspect conflicts.
+  - Define a guarded target (e.g., `docker-stop-19092`) that can stop conflicting containers, documenting in comments that it SHOULD be used only after manual review.
+  - Document these targets in the Kafka / Redpanda test documentation to reduce accidental disruption of unrelated services.
+
 ---
 
 ## Phase 5: Validation and Documentation
@@ -103,6 +113,16 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Add a brief reference to the new Binance E2E tests in existing Kafka docs (e.g., test section in `docs/kafka/user-guide.md` or `INTEGRATION_GUIDE.md`), noting how to opt-in to running them.
   - Ensure the spec name (`kafka-protobuf-binance-e2e`) is mentioned so readers can trace behavior back to this specification.
 
+- [ ] 5.2 Run Binance E2E suite via Makefile and Redpanda
+  - Start Redpanda using `make redpanda-up` and validate cluster health with `make redpanda-health`, skipping tests if the cluster is not reachable.
+  - Execute `make test-kafka-e2e`, `make test-kafka-binance`, and `make test-kafka-unit` as the primary validation entrypoints for this spec.
+  - Optionally run `make test-kafka-perf` when performance validation is in scope, treating it as non-blocking for functional readiness.
+
+- [ ] 5.3 Collect failing tests and promote them to traceable issues/tasks
+  - Capture the list of failing tests (module path + test name) from the Makefile-driven runs for this spec and related Kafka specs.
+  - For each distinct failing test, create a traceable task or issue summarizing the failure mode (e.g., connection error to `localhost:19092`, header assertion mismatch, Protobuf decode error) and link it back to this spec and any upstream owning spec.
+  - Re-run the relevant Make targets after fixes to confirm stability, marking the associated tasks as completed when tests pass reliably.
+
 ---
 
 ## Phase C: Governance & Spec Hygiene
@@ -114,6 +134,11 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
 - [ ] C.2 Document AI agent boundaries for this spec
   - Clarify in Requirements and Design which files and modules AI agents may modify when working under this spec (tests, fixtures, runbook notes) and which are owned by other specs (core backends, schemas, connectors).
   - Add explicit guidance that cross-spec changes require referencing and updating the owning spec before implementation.
+
+- [ ] C.3 Clarify ownership of Redpanda test harness and Makefile targets
+  - State in Requirements and Design that the Redpanda Docker configuration (`docker/infra/base.yml`) and Kafka E2E Makefile targets are part of this specs validation harness, in collaboration with `market-data-kafka-producer`.
+  - Clarify that changes to shared Kafka backend behavior, Protobuf serialization, or normalized schemas MUST be made under their owning specs, and that this spec only consumes those contracts via configuration and tests.
+  - Ensure AI agents and human contributors treat Makefile and test harness changes that affect multiple specs as cross-spec context requiring explicit coordination.
 
 ## Traceability
 

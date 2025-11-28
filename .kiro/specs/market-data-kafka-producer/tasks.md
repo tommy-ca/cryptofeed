@@ -286,6 +286,7 @@ Comprehensive task list for the market-data-kafka-producer specification across 
   - Verify topic auto-creation with correct configuration
   - Verify messages appear in topics with correct content
   - Test header presence in consumed messages
+  - Add regression coverage for internal asyncio queues used by the Kafka backend (single and batched drains), verifying that `queue.join()` completes when all messages are processed and that every `queue.get()`/`get_nowait()` is paired with `task_done()`.
   - _Requirements: FR1, FR2, FR3, FR4, FR5_
 
 - [x] 9.1 Test consolidated topic end-to-end flow
@@ -656,6 +657,7 @@ Comprehensive task list for the market-data-kafka-producer specification across 
 - [ ] G.2 Document AI agent boundaries for this spec
   - Clarify which modules and tests AI agents may modify under this spec (Kafka backend, config models, Kafka-specific docs) and which are owned by other specs (normalized schemas, serialization helpers, exchange connectors).
   - Add guidance that cross-spec changes require updating the relevant spec first and referencing it in implementation.
+  - Include explicit guidance that AI agents MUST preserve `asyncio.Queue` contracts in Kafka backend draining code (single-message and batched paths), and SHOULD consult `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md` when modifying queue-drain logic.
 
 ## Engineering Excellence Standards
 
