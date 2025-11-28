@@ -55,8 +55,8 @@ def test_modern_callback_produces_messages(monkeypatch, modern_callback):
 
     assert producer.produced
     produced_topic, _, _, _ = producer.produced[0]
-    # With consolidated strategy, TopicManager returns base topic without exchange/symbol
-    assert produced_topic == "cryptofeed.trades.binance.btc-usdt"
+    # With consolidated strategy, TopicManager returns base topic
+    assert produced_topic == "cryptofeed.trades"
 
 
 def test_translation_preserves_partition_strategy():

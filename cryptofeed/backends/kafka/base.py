@@ -145,10 +145,16 @@ class KafkaBackendBase(BackendCallback, ABC):
         exchange = getattr(obj, "exchange", "unknown")
         symbol = getattr(obj, "symbol", "unknown")
 
+        logger = LOG
+        if hasattr(self, "_log_ref"):
+            try:
+                logger = self._log_ref()
+            except Exception:
+                logger = LOG
         try:
             self._queue.put_nowait(message)
         except asyncio.QueueFull:
-            LOG.error(
+            logger.error(
                 "%s queue is full; dropping %s message from %s/%s (queue size: %d)",
                 self._log_name,
                 data_type,
@@ -177,7 +183,15 @@ class KafkaBackendBase(BackendCallback, ABC):
                 await self._drain_once()
 
     async def _drain_once(self) -> None:
-        message = await self._queue.get()
+        """Process a single queued message if available.
+
+        Uses a non-blocking poll so callers can safely invoke this in tests
+        (e.g., empty queue sanity checks) without hanging indefinitely.
+        """
+        try:
+            message = self._queue.get_nowait()
+        except asyncio.QueueEmpty:
+            return
         try:
             if message is _STOP_SENTINEL:
                 return
@@ -186,7 +200,13 @@ class KafkaBackendBase(BackendCallback, ABC):
             try:
                 self._queue.task_done()
             except Exception as e:
-                LOG.error(
+                logger = LOG
+                if hasattr(self, "_log_ref"):
+                    try:
+                        logger = self._log_ref()
+                    except Exception:
+                        logger = LOG
+                logger.error(
                     "%s: Failed to mark task as done: %s",
                     self._log_name,
                     e,

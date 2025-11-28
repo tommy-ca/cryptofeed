@@ -397,6 +397,9 @@ class KafkaCallback(KafkaBackendBase):
             metrics_exporter=metrics_exporter,
         )
 
+        # Provide a ref to module logger so tests can patch callback.LOG
+        self._log_ref = lambda: LOG
+
         # Handle KafkaConfig parameter (Task 4.2 - refactoring)
         if kafka_config is not None:
             # Load settings from KafkaConfig
@@ -669,6 +672,8 @@ class KafkaCallback(KafkaBackendBase):
                     message=message.obj,
                     data_type=data_type
                 )
+                # Ensure serialization-format and schema headers from payload/base are preserved
+                enriched_headers = self._merge_headers(base_headers, enriched_headers)
             except Exception as e:
                 LOG.warning(
                     "KafkaCallback: Header enrichment failed for %s/%s, using base headers: %s",
@@ -689,11 +694,7 @@ class KafkaCallback(KafkaBackendBase):
             # Step 5: Produce to Kafka
             try:
                 produce_start = time.perf_counter() if metrics else None
-                normalized_headers = [
-                    ((name.decode("utf-8") if isinstance(name, bytes) else str(name)), value)
-                    for name, value in enriched_headers
-                ]
-                self._producer.produce(topic, payload, key=key, headers=normalized_headers)
+                self._producer.produce(topic, payload, key=key, headers=enriched_headers)
                 self._producer.poll(0.0)
                 if metrics and produce_start is not None:
                     metrics.record_produce_latency(
@@ -747,6 +748,22 @@ class KafkaCallback(KafkaBackendBase):
             include_serialization_format=self._header_enricher._include_serialization_header,
         )
         return base_headers + optional
+
+    @staticmethod
+    def _merge_headers(base: list[tuple[bytes, bytes]], enriched: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
+        """Merge base and enriched headers, keeping first occurrence per key.
+
+        Ensures schema_version / serialization_format emitted by serializers are
+        retained alongside enriched mandatory headers.
+        """
+        result: list[tuple[bytes, bytes]] = []
+        seen = set()
+        for name, value in base + enriched:
+            if name in seen:
+                continue
+            seen.add(name)
+            result.append((name, value))
+        return result
 
     def _validate_schema_headers(
         self,

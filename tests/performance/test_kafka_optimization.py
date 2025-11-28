@@ -71,6 +71,7 @@ def _create_ticker(exchange: str, symbol: str, uid: int) -> Ticker:
 @dataclass
 class _TimedMessage:
     """Message with production timing for latency measurement."""
+
     topic: str
     key: Optional[bytes]
     value: bytes
@@ -94,7 +95,7 @@ class _TimingProducer:
         topic: str,
         payload: bytes,
         key: Optional[bytes] = None,
-        headers: Optional[List[tuple]] = None
+        headers: Optional[List[tuple]] = None,
     ) -> None:
         """Record message with timing."""
         produce_time = time.perf_counter() - self.start_time
@@ -105,7 +106,7 @@ class _TimingProducer:
                 value=payload,
                 headers=headers or [],
                 enqueue_time=self.start_time,
-                produce_time=produce_time
+                produce_time=produce_time,
             )
         )
 
@@ -146,7 +147,7 @@ def _create_test_callback(
         enable_partition_key_cache=enable_partition_key_cache,
         partition_key_cache_size=partition_key_cache_size,
         enable_header_precomputation=enable_header_precomputation,
-        producer_factory=_TimingProducer
+        producer_factory=_TimingProducer,
     )
     # Replace the producer with our test stub
     callback._producer = _TimingProducer({})
@@ -274,7 +275,7 @@ class TestPartitionKeyCaching:
         await asyncio.sleep(0.1)
 
         # Check cache stats if available
-        if hasattr(callback._partitioner, 'cache_hits'):
+        if hasattr(callback._partitioner, "cache_hits"):
             # Should have at least 2 hits (after first miss)
             assert callback._partitioner.cache_hits >= 1
         callback.stop()
@@ -363,6 +364,48 @@ class TestAsyncLoopOptimization:
         callback.stop()
 
 
+class TestQueueContract:
+    """Tests for asyncio.Queue contract semantics on Kafka backend draining."""
+
+    @pytest.mark.asyncio
+    async def test_queue_join_completes_after_single_drain(self):
+        """Ensure queue.join() completes after _drain_once drains all messages."""
+        callback = _create_test_callback(enable_batch_drain=False)
+
+        # Enqueue a small batch of messages directly onto the internal queue
+        for i in range(5):
+            trade = _create_trade("coinbase", "BTC-USD", i)
+            callback._queue_message("trade", trade)
+
+        async def _drain_all_once():
+            while callback.queue_size() > 0:
+                await callback._drain_once()
+
+        await asyncio.wait_for(_drain_all_once(), timeout=1.0)
+
+        # If every get() is paired with task_done(), join() will complete
+        await asyncio.wait_for(callback._queue.join(), timeout=1.0)
+
+    @pytest.mark.asyncio
+    async def test_queue_join_completes_after_batch_drain(self):
+        """Ensure queue.join() completes after _drain_batch drains all messages."""
+        callback = _create_test_callback(enable_batch_drain=True, batch_drain_size=10)
+
+        # Enqueue more messages than a single batch to exercise the loop
+        for i in range(25):
+            trade = _create_trade("coinbase", "BTC-USD", i)
+            callback._queue_message("trade", trade)
+
+        async def _drain_all_batches():
+            while callback.queue_size() > 0:
+                await callback._drain_batch()
+
+        await asyncio.wait_for(_drain_all_batches(), timeout=1.0)
+
+        # If every get_nowait() is paired with task_done(), join() will complete
+        await asyncio.wait_for(callback._queue.join(), timeout=1.0)
+
+
 # ============================================================================
 # Test Class: Header Pre-computation
 # ============================================================================
@@ -416,7 +459,7 @@ class TestThroughputOptimization:
             enable_batch_drain=True,
             batch_drain_size=100,
             enable_partition_key_cache=True,
-            enable_header_precomputation=True
+            enable_header_precomputation=True,
         )
         callback.start()
 
@@ -439,7 +482,7 @@ class TestThroughputOptimization:
         callback = _create_test_callback(
             enable_batch_drain=False,
             enable_partition_key_cache=False,
-            enable_header_precomputation=False
+            enable_header_precomputation=False,
         )
         callback.start()
 
@@ -527,8 +570,7 @@ class TestPerformanceRegression:
     async def test_backward_compatibility_defaults(self):
         """Verify optimizations are enabled by default."""
         callback = KafkaCallback(
-            bootstrap_servers=["localhost:9092"],
-            producer_factory=_TimingProducer
+            bootstrap_servers=["localhost:9092"], producer_factory=_TimingProducer
         )
 
         # Check defaults
@@ -552,7 +594,7 @@ class TestOptimizationCombinations:
         callback = _create_test_callback(
             enable_batch_drain=True,
             enable_partition_key_cache=False,
-            enable_header_precomputation=False
+            enable_header_precomputation=False,
         )
         callback.start()
 
@@ -570,7 +612,7 @@ class TestOptimizationCombinations:
         callback = _create_test_callback(
             enable_batch_drain=False,
             enable_partition_key_cache=True,
-            enable_header_precomputation=False
+            enable_header_precomputation=False,
         )
         callback.start()
 
@@ -590,7 +632,7 @@ class TestOptimizationCombinations:
             batch_drain_size=75,
             enable_partition_key_cache=True,
             partition_key_cache_size=500,
-            enable_header_precomputation=True
+            enable_header_precomputation=True,
         )
         callback.start()
 

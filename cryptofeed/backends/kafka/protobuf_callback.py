@@ -82,6 +82,8 @@ class KafkaProtobufCallback(KafkaCallback):
         payload = serialize_to_protobuf(obj)
         headers = [
             (b"content-type", b"application/x-protobuf"),
+            (b"schema_version", self._schema_version.encode("utf-8")),
+            (b"cf.serialization_format", b"protobuf"),
         ]
         return payload, headers
 

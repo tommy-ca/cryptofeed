@@ -16,7 +16,7 @@ Test Strategy:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -44,7 +44,7 @@ class SuccessCriterion:
     actual_value: str
     status: SuccessCriterionStatus
     validation_method: str
-    validated_at: datetime = field(default_factory=datetime.utcnow)
+    validated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     evidence: str = ""  # Supporting evidence (hash, metric value, etc.)
 
     def get_summary(self) -> Dict[str, Any]:
@@ -231,7 +231,7 @@ class SuccessCriteria:
             actual_value=f"{rollback_seconds:.0f}s",
             status=status,
             validation_method="Staged rollback test in production standby",
-            evidence=f"Tested and verified on {datetime.utcnow().date()}",
+            evidence=f"Tested and verified on {datetime.now(timezone.utc).date()}",
         )
 
     @staticmethod
@@ -422,10 +422,10 @@ class TestMigrationReportGeneration:
 
     def test_migration_report_initialization(self):
         """Test migration report initializes."""
-        start = datetime.utcnow() - timedelta(days=28)
-        end = datetime.utcnow()
+        start = datetime.now(timezone.utc) - timedelta(days=28)
+        end = datetime.now(timezone.utc)
         report = MigrationReport(
-            report_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
             migration_start_date=start,
             migration_end_date=end,
         )
@@ -436,9 +436,9 @@ class TestMigrationReportGeneration:
     def test_add_success_criteria_to_report(self):
         """Test adding success criteria to report."""
         report = MigrationReport(
-            report_date=datetime.utcnow(),
-            migration_start_date=datetime.utcnow() - timedelta(days=28),
-            migration_end_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
+            migration_start_date=datetime.now(timezone.utc) - timedelta(days=28),
+            migration_end_date=datetime.now(timezone.utc),
         )
 
         criterion = SuccessCriteria.validate_message_loss(1000000, 1000500)
@@ -450,9 +450,9 @@ class TestMigrationReportGeneration:
     def test_all_criteria_passed(self):
         """Test all criteria passed."""
         report = MigrationReport(
-            report_date=datetime.utcnow(),
-            migration_start_date=datetime.utcnow() - timedelta(days=28),
-            migration_end_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
+            migration_start_date=datetime.now(timezone.utc) - timedelta(days=28),
+            migration_end_date=datetime.now(timezone.utc),
         )
 
         # Add all 10 passing criteria
@@ -472,10 +472,11 @@ class TestMigrationReportGeneration:
 
     def test_partial_criteria_passed(self):
         """Test partial criteria passed."""
+        now = datetime.now(timezone.utc)
         report = MigrationReport(
-            report_date=datetime.utcnow(),
-            migration_start_date=datetime.utcnow() - timedelta(days=28),
-            migration_end_date=datetime.utcnow(),
+            report_date=now,
+            migration_start_date=now - timedelta(days=28),
+            migration_end_date=now,
         )
 
         # Add 8 passing and 2 failing criteria
@@ -495,10 +496,10 @@ class TestMigrationReportGeneration:
 
     def test_migration_duration_calculation(self):
         """Test migration duration calculation."""
-        start = datetime.utcnow() - timedelta(days=28)
-        end = datetime.utcnow()
+        start = datetime.now(timezone.utc) - timedelta(days=28)
+        end = datetime.now(timezone.utc)
         report = MigrationReport(
-            report_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
             migration_start_date=start,
             migration_end_date=end,
         )
@@ -531,7 +532,7 @@ class TeamSignOff:
     def approve(self, comment: str = "") -> None:
         """Approve migration."""
         self.approved = True
-        self.approval_date = datetime.utcnow()
+        self.approval_date = datetime.now(timezone.utc)
         self.comments = comment
 
     def get_summary(self) -> Dict[str, Any]:
@@ -548,7 +549,7 @@ class TeamSignOff:
 class SignOffGate:
     """Tracks all team sign-offs."""
     sign_offs: Dict[TeamRole, TeamSignOff] = field(default_factory=dict)
-    gate_created_at: datetime = field(default_factory=datetime.utcnow)
+    gate_created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def add_sign_off(self, role: TeamRole) -> TeamSignOff:
         """Add sign-off placeholder."""
@@ -642,9 +643,9 @@ class TestTask28EndToEnd:
         """Test complete validation workflow."""
         # 1. Validate all 10 success criteria
         report = MigrationReport(
-            report_date=datetime.utcnow(),
-            migration_start_date=datetime.utcnow() - timedelta(days=28),
-            migration_end_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
+            migration_start_date=datetime.now(timezone.utc) - timedelta(days=28),
+            migration_end_date=datetime.now(timezone.utc),
         )
 
         # Add all criteria (all passing)
@@ -687,9 +688,9 @@ class TestTask28EndToEnd:
     def test_post_migration_report_with_per_exchange_data(self):
         """Test post-migration report with per-exchange data."""
         report = MigrationReport(
-            report_date=datetime.utcnow(),
-            migration_start_date=datetime.utcnow() - timedelta(days=28),
-            migration_end_date=datetime.utcnow(),
+            report_date=datetime.now(timezone.utc),
+            migration_start_date=datetime.now(timezone.utc) - timedelta(days=28),
+            migration_end_date=datetime.now(timezone.utc),
         )
 
         # Record exchanges migrated

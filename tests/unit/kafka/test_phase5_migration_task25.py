@@ -16,11 +16,24 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
+import warnings
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
+
+# Silence deprecation warnings from datetime.utcnow used in legacy fixtures
+warnings.filterwarnings(
+    "ignore",
+    message=r".*utcnow\(\).*",
+    category=DeprecationWarning,
+)
+
+# Pytest-level filter for datetime.utcnow deprecation noise in legacy fixtures
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*utcnow\\(\\) is deprecated.*:DeprecationWarning"
+)
 
 
 
@@ -60,7 +73,7 @@ class PerExchangeChecklist:
     def check_item(self, item: MigrationChecklistItem, checked_by: str) -> None:
         """Mark a checklist item as complete."""
         self.checklist_items[item] = True
-        self.checked_at[item] = datetime.utcnow()
+        self.checked_at[item] = datetime.now(timezone.utc)
 
     def is_complete(self) -> bool:
         """Verify all 9 items checked."""

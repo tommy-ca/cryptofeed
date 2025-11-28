@@ -127,7 +127,7 @@ class TestKafkaTopicConfig:
             strategy="per_symbol",
             prefix="staging",
             partitions_per_topic=6,
-            replication_factor=2
+            replication_factor=2,
         )
         assert config.strategy == "per_symbol"
         assert config.prefix == "staging"
@@ -230,18 +230,14 @@ class TestKafkaProducerConfig:
         """Test all valid acks values."""
         for acks_val in ["0", "1", "all"]:
             config = KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                acks=acks_val
+                bootstrap_servers=["localhost:9092"], acks=acks_val
             )
             assert config.acks == acks_val
 
     def test_acks_invalid_value(self):
         """Test that invalid acks value raises error."""
         with pytest.raises(ValueError, match="acks must be"):
-            KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                acks="invalid"
-            )
+            KafkaProducerConfig(bootstrap_servers=["localhost:9092"], acks="invalid")
 
     def test_idempotence_default(self):
         """Test default idempotence is True."""
@@ -251,8 +247,7 @@ class TestKafkaProducerConfig:
     def test_idempotence_false(self):
         """Test idempotence can be disabled."""
         config = KafkaProducerConfig(
-            bootstrap_servers=["localhost:9092"],
-            idempotence=False
+            bootstrap_servers=["localhost:9092"], idempotence=False
         )
         assert config.idempotence is False
 
@@ -263,19 +258,13 @@ class TestKafkaProducerConfig:
 
     def test_retries_custom(self):
         """Test custom retries value."""
-        config = KafkaProducerConfig(
-            bootstrap_servers=["localhost:9092"],
-            retries=5
-        )
+        config = KafkaProducerConfig(bootstrap_servers=["localhost:9092"], retries=5)
         assert config.retries == 5
 
     def test_retries_negative_raises_error(self):
         """Test that negative retries raises error."""
         with pytest.raises(ValueError, match="retries must be >= 0"):
-            KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                retries=-1
-            )
+            KafkaProducerConfig(bootstrap_servers=["localhost:9092"], retries=-1)
 
     def test_retry_backoff_ms_default(self):
         """Test default retry backoff."""
@@ -285,8 +274,7 @@ class TestKafkaProducerConfig:
     def test_retry_backoff_ms_custom(self):
         """Test custom retry backoff."""
         config = KafkaProducerConfig(
-            bootstrap_servers=["localhost:9092"],
-            retry_backoff_ms=500
+            bootstrap_servers=["localhost:9092"], retry_backoff_ms=500
         )
         assert config.retry_backoff_ms == 500
 
@@ -294,8 +282,7 @@ class TestKafkaProducerConfig:
         """Test that negative retry backoff raises error."""
         with pytest.raises(ValueError, match="retry_backoff_ms must be >= 0"):
             KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                retry_backoff_ms=-1
+                bootstrap_servers=["localhost:9092"], retry_backoff_ms=-1
             )
 
     def test_batch_size_default(self):
@@ -306,18 +293,14 @@ class TestKafkaProducerConfig:
     def test_batch_size_custom(self):
         """Test custom batch size."""
         config = KafkaProducerConfig(
-            bootstrap_servers=["localhost:9092"],
-            batch_size=32768
+            bootstrap_servers=["localhost:9092"], batch_size=32768
         )
         assert config.batch_size == 32768
 
     def test_batch_size_positive_required(self):
         """Test that batch size must be positive."""
         with pytest.raises(ValueError, match="batch_size must be > 0"):
-            KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                batch_size=0
-            )
+            KafkaProducerConfig(bootstrap_servers=["localhost:9092"], batch_size=0)
 
     def test_linger_ms_default(self):
         """Test default linger time."""
@@ -326,19 +309,13 @@ class TestKafkaProducerConfig:
 
     def test_linger_ms_custom(self):
         """Test custom linger time."""
-        config = KafkaProducerConfig(
-            bootstrap_servers=["localhost:9092"],
-            linger_ms=50
-        )
+        config = KafkaProducerConfig(bootstrap_servers=["localhost:9092"], linger_ms=50)
         assert config.linger_ms == 50
 
     def test_linger_ms_negative_raises_error(self):
         """Test that negative linger_ms raises error."""
         with pytest.raises(ValueError, match="linger_ms must be >= 0"):
-            KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                linger_ms=-1
-            )
+            KafkaProducerConfig(bootstrap_servers=["localhost:9092"], linger_ms=-1)
 
     def test_compression_type_default(self):
         """Test default compression type."""
@@ -349,8 +326,7 @@ class TestKafkaProducerConfig:
         """Test all valid compression types."""
         for compression in ["none", "gzip", "snappy", "lz4", "zstd"]:
             config = KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                compression_type=compression
+                bootstrap_servers=["localhost:9092"], compression_type=compression
             )
             assert config.compression_type == compression
 
@@ -358,8 +334,7 @@ class TestKafkaProducerConfig:
         """Test that invalid compression type raises error."""
         with pytest.raises(ValueError, match="compression_type must be"):
             KafkaProducerConfig(
-                bootstrap_servers=["localhost:9092"],
-                compression_type="invalid"
+                bootstrap_servers=["localhost:9092"], compression_type="invalid"
             )
 
     def test_all_producer_settings_together(self):
@@ -372,7 +347,7 @@ class TestKafkaProducerConfig:
             retry_backoff_ms=200,
             batch_size=32768,
             linger_ms=20,
-            compression_type="gzip"
+            compression_type="gzip",
         )
         assert config.bootstrap_servers == ["kafka:9092"]
         assert config.acks == "1"
@@ -400,9 +375,7 @@ class TestKafkaConfig:
 
     def test_minimal_config(self):
         """Test minimal required configuration."""
-        config = KafkaConfig(
-            bootstrap_servers=["localhost:9092"]
-        )
+        config = KafkaConfig(bootstrap_servers=["localhost:9092"])
         assert config.bootstrap_servers == ["localhost:9092"]
         assert config.topic.strategy == "consolidated"
         assert config.partition.strategy == "composite"
@@ -411,7 +384,7 @@ class TestKafkaConfig:
         """Test that topic config is properly composed."""
         config = KafkaConfig(
             bootstrap_servers=["localhost:9092"],
-            topic=KafkaTopicConfig(strategy="per_symbol", prefix="prod")
+            topic=KafkaTopicConfig(strategy="per_symbol", prefix="prod"),
         )
         assert config.topic.strategy == "per_symbol"
         assert config.topic.prefix == "prod"
@@ -420,7 +393,7 @@ class TestKafkaConfig:
         """Test that partition config is properly composed."""
         config = KafkaConfig(
             bootstrap_servers=["localhost:9092"],
-            partition=KafkaPartitionConfig(strategy="symbol")
+            partition=KafkaPartitionConfig(strategy="symbol"),
         )
         assert config.partition.strategy == "symbol"
 
@@ -434,7 +407,7 @@ class TestKafkaConfig:
             batch_size=16384,
             compression_type="snappy",
             topic=KafkaTopicConfig(strategy="consolidated"),
-            partition=KafkaPartitionConfig(strategy="composite")
+            partition=KafkaPartitionConfig(strategy="composite"),
         )
         assert len(config.bootstrap_servers) == 2
         assert config.acks == "all"
@@ -444,9 +417,7 @@ class TestKafkaConfig:
 
     def test_from_dict_minimal(self):
         """Test from_dict() with minimal config."""
-        config_dict = {
-            "bootstrap_servers": ["localhost:9092"]
-        }
+        config_dict = {"bootstrap_servers": ["localhost:9092"]}
         config = KafkaConfig.from_dict(config_dict)
         assert config.bootstrap_servers == ["localhost:9092"]
 
@@ -465,11 +436,9 @@ class TestKafkaConfig:
                 "strategy": "consolidated",
                 "prefix": "cryptofeed",
                 "partitions_per_topic": 3,
-                "replication_factor": 3
+                "replication_factor": 3,
             },
-            "partition": {
-                "strategy": "composite"
-            }
+            "partition": {"strategy": "composite"},
         }
         config = KafkaConfig.from_dict(config_dict)
         assert config.bootstrap_servers == ["kafka:9092"]
@@ -484,8 +453,8 @@ class TestKafkaConfig:
             "topic": {
                 "strategy": "per_symbol",
                 "prefix": "production",
-                "partitions_per_topic": 12
-            }
+                "partitions_per_topic": 12,
+            },
         }
         config = KafkaConfig.from_dict(config_dict)
         assert config.topic.strategy == "per_symbol"
@@ -498,7 +467,7 @@ class TestKafkaConfig:
 bootstrap_servers:
   - localhost:9092
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             temp_path = f.name
@@ -533,7 +502,7 @@ topic:
 partition:
   strategy: composite
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             temp_path = f.name
@@ -560,7 +529,7 @@ bootstrap_servers:
   - localhost:9092
 invalid: [yaml: format
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             temp_path = f.name
@@ -577,7 +546,7 @@ invalid: [yaml: format
 bootstrap_servers:
   - localhost:9092
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             temp_path = f.name
@@ -594,7 +563,7 @@ bootstrap_servers:
             "bootstrap_servers": ["localhost:9092"],
             "topic": {
                 "strategy": "invalid"  # Invalid strategy
-            }
+            },
         }
         with pytest.raises(ValueError):
             KafkaConfig.from_dict(config_dict)
@@ -614,7 +583,7 @@ bootstrap_servers:
 class TestKafkaCallbackRefactoring:
     """Test KafkaCallback integration with new configuration."""
 
-    @patch("cryptofeed.kafka_callback.KafkaProducer")
+    @patch("cryptofeed.backends.kafka.callback.KafkaProducer")
     def test_kafka_callback_accepts_kafka_config(self, mock_producer_class):
         """Test that KafkaCallback accepts KafkaConfig."""
         from cryptofeed.kafka_callback import KafkaCallback
@@ -631,7 +600,7 @@ class TestKafkaCallbackRefactoring:
         assert callback.topic_config.strategy == "consolidated"
         assert callback.partition_config.strategy == "composite"
 
-    @patch("cryptofeed.kafka_callback.KafkaProducer")
+    @patch("cryptofeed.backends.kafka.callback.KafkaProducer")
     def test_kafka_callback_with_topic_config(self, mock_producer_class):
         """Test KafkaCallback with topic strategy configuration."""
         from cryptofeed.kafka_callback import KafkaCallback
@@ -641,13 +610,13 @@ class TestKafkaCallbackRefactoring:
 
         config = KafkaConfig(
             bootstrap_servers=["localhost:9092"],
-            topic=KafkaTopicConfig(strategy="consolidated")
+            topic=KafkaTopicConfig(strategy="consolidated"),
         )
         callback = KafkaCallback(kafka_config=config)
         assert callback is not None
         assert callback.topic_config.strategy == "consolidated"
 
-    @patch("cryptofeed.kafka_callback.KafkaProducer")
+    @patch("cryptofeed.backends.kafka.callback.KafkaProducer")
     def test_kafka_callback_with_partition_config(self, mock_producer_class):
         """Test KafkaCallback with partition strategy configuration."""
         from cryptofeed.kafka_callback import KafkaCallback
@@ -657,13 +626,13 @@ class TestKafkaCallbackRefactoring:
 
         config = KafkaConfig(
             bootstrap_servers=["localhost:9092"],
-            partition=KafkaPartitionConfig(strategy="symbol")
+            partition=KafkaPartitionConfig(strategy="symbol"),
         )
         callback = KafkaCallback(kafka_config=config)
         assert callback is not None
         assert callback.partition_config.strategy == "symbol"
 
-    @patch("cryptofeed.kafka_callback.KafkaProducer")
+    @patch("cryptofeed.backends.kafka.callback.KafkaProducer")
     def test_kafka_callback_backward_compatibility(self, mock_producer_class):
         """Test KafkaCallback backward compatibility with existing config."""
         from cryptofeed.kafka_callback import KafkaCallback
@@ -673,14 +642,12 @@ class TestKafkaCallbackRefactoring:
 
         # Old-style config should still work
         callback = KafkaCallback(
-            bootstrap_servers=["localhost:9092"],
-            acks="all",
-            enable_idempotence=True
+            bootstrap_servers=["localhost:9092"], acks="all", enable_idempotence=True
         )
         assert callback is not None
         assert callback.bootstrap_servers == ["localhost:9092"]
 
-    @patch("cryptofeed.kafka_callback.KafkaProducer")
+    @patch("cryptofeed.backends.kafka.callback.KafkaProducer")
     def test_kafka_callback_mixed_config(self, mock_producer_class):
         """Test KafkaCallback with both old and new config."""
         from cryptofeed.kafka_callback import KafkaCallback
@@ -709,7 +676,7 @@ class TestKafkaConfigIntegration:
             "bootstrap_servers": ["kafka:9092"],
             "acks": "all",
             "topic": {"strategy": "consolidated"},
-            "partition": {"strategy": "composite"}
+            "partition": {"strategy": "composite"},
         }
         config = KafkaConfig.from_dict(config_dict)
 
@@ -736,7 +703,7 @@ topic:
 partition:
   strategy: composite
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             f.flush()
             temp_path = f.name
@@ -796,7 +763,7 @@ class TestConfigValidation:
         original = KafkaConfig(
             bootstrap_servers=["kafka:9092"],
             acks="all",
-            topic=KafkaTopicConfig(strategy="consolidated")
+            topic=KafkaTopicConfig(strategy="consolidated"),
         )
         # Config should have to_dict() or similar
         if hasattr(original, "model_dump") or hasattr(original, "dict"):

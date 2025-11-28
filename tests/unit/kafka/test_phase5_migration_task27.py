@@ -17,11 +17,24 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
+import warnings
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import pytest
+
+# Silence deprecation warnings from datetime.utcnow in legacy fixtures
+warnings.filterwarnings(
+    "ignore",
+    message=r".*utcnow\(\).*",
+    category=DeprecationWarning,
+)
+
+# Pytest-level filter for datetime.utcnow deprecation warnings from legacy fixtures
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*utcnow\\(\\) is deprecated.*:DeprecationWarning"
+)
 
 
 # ============================================================================
