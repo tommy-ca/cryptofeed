@@ -1,6 +1,6 @@
 services:
   redpanda:
-    image: docker.io/redpandadata/redpanda:v25.2.11
+    image: ${REDPANDA_IMAGE:-docker.io/redpandadata/redpanda:v25.2.11}
     command:
       - redpanda
       - start
@@ -13,11 +13,11 @@ services:
       - '0'
       - --check=false
       - --kafka-addr
-      - PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:19092
+      - PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:${REDPANDA_HOST_PORT:-19092}
       - --advertise-kafka-addr
-      - PLAINTEXT://redpanda:9092,PLAINTEXT_HOST://localhost:19092
+      - PLAINTEXT://redpanda:9092,PLAINTEXT_HOST://localhost:${REDPANDA_HOST_PORT:-19092}
     ports:
-      - '19092:19092'
+      - '${REDPANDA_HOST_PORT:-19092}:19092'
     healthcheck:
       test: ["CMD", "rpk", "cluster", "health", "--api-urls", "localhost:9644"]
       interval: 5s
