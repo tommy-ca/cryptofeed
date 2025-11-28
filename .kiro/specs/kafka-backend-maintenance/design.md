@@ -141,6 +141,51 @@ flowchart TD
     ShowErrors --> End
 ```
 
+### Queue Synchronization Flow
+```mermaid
+sequenceDiagram
+    participant Writer as Writer Task
+    participant Queue as asyncio.Queue
+    participant Processor as Message Processor
+    participant Logger as Logger
+
+    Writer->>Queue: get() or get_nowait()
+    Queue-->>Writer: message
+    Writer->>Processor: _process_message(message)
+
+    alt Processing Success
+        Processor-->>Writer: return
+    else Processing Failure
+        Processor-->>Writer: raise Exception
+    end
+
+    Note over Writer: finally block always runs
+    Writer->>Queue: task_done()
+
+    alt task_done() Success
+        Queue-->>Writer: counter decremented
+    else task_done() Failure
+        Writer->>Logger: LOG.error(task_done_error)
+        Note over Writer: continue without cascading
+    end
+```
+
+**Queue Contract Pattern** (from solution doc `kafka-batch-drain-missing-task-done.md`):
+```python
+# CORRECT pattern - both _drain_once() and _drain_batch() must follow this
+async def _drain_once(self) -> None:
+    message = await self._queue.get()
+    try:
+        if message is _STOP_SENTINEL:
+            return
+        await self._process_message(message)
+    finally:
+        try:
+            self._queue.task_done()
+        except Exception as e:
+            LOG.error("%s: Failed to mark task as done: %s", self._log_name, e)
+```
+
 ## Requirements Traceability
 
 | Requirement | Summary | Components | Interfaces | Flows |
@@ -180,6 +225,11 @@ flowchart TD
 | 7.3 | Regular progress updates | Monitoring | Progress Reporting API | None |
 | 7.4 | Transparent timeline adjustments | MigrationTools | Communication API | None |
 | 7.5 | Decision log maintenance | MigrationTools | Documentation API | None |
+| 8.1 | Queue get/task_done pairing | KafkaBackendBase | Queue Contract | Queue Synchronization Flow |
+| 8.2 | try/finally for task_done | KafkaBackendBase | Queue Contract | Queue Synchronization Flow |
+| 8.3 | Batch drain queue contract | KafkaBackendBase | Queue Contract | Queue Synchronization Flow |
+| 8.4 | task_done error handling | KafkaBackendBase, Logger | Queue Contract | Queue Synchronization Flow |
+| 8.5 | queue.join() correctness | KafkaBackendBase | Queue Contract | Queue Synchronization Flow |
 
 ## Components and Interfaces
 
@@ -504,3 +554,5 @@ flowchart TD
 - Compatibility shim implementation: `cryptofeed/kafka_callback.py`
 - Existing test suites: `tests/unit/backends/test_legacy_kafka_backend.py`, `tests/unit/kafka/`
 - Market-data-kafka-producer specification: `.kiro/specs/market-data-kafka-producer/`
+- **Queue contract compliance solution doc**: `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md`
+- **Queue contract fix commit**: `9730d29e` (fix: mark batch drain tasks done and require pydantic by default)

@@ -150,3 +150,22 @@
   - Build knowledge transfer documentation for team handoff
   - Create success criteria validation and monitoring for maintenance procedures
   - _Requirements: 7.3, 7.4, 7.5_
+
+## Phase 7: Queue Contract Compliance
+
+- [x] 7. Ensure asyncio.Queue contract compliance across all message processing paths
+- [x] 7.1 Fix batch drain task_done() contract violation
+  - Wrap _drain_batch() processing in try/finally block
+  - Ensure task_done() is called for every get_nowait() retrieval
+  - Add error handling that logs task_done() failures without cascading
+  - Align batch path with existing _drain_once() pattern
+  - _Requirements: 8.1, 8.2, 8.3, 8.4_
+  - _Fix commit: 9730d29e_
+  - _Solution doc: docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md_
+
+- [x] 7.2 Document queue contract compliance patterns
+  - Create solution documentation capturing root cause and fix
+  - Add prevention guidance and code review checklist
+  - Include test guidance for queue.join() verification
+  - Cross-reference with Kafka architecture documentation
+  - _Requirements: 8.5_

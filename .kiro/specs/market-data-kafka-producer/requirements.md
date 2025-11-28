@@ -207,6 +207,8 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 - No message loss under normal operation (validation: ±0.1% tolerance)
 - Dead letter queue for failed messages (DLQHandler)
 - Exception boundaries: No silent failures
+- Internal asyncio queues used by the Kafka backend MUST preserve `asyncio.Queue` semantics: every `get()`/`get_nowait()` call is paired with a `task_done()` in a `finally` block so `queue.join()` can complete and queue state does not drift.
+- Violations of these queue contract semantics SHALL be treated as high-severity reliability defects and covered by regression tests (see `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md`).
 
 ### NFR3: Configuration
 - Pydantic-based configuration models (type-safe)

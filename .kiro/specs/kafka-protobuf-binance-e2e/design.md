@@ -9,7 +9,7 @@ This design describes how to validate an end-to-end pipeline from Binance public
   - Subscribes to public `TRADES` (and optionally `L2_BOOK`) channels
   - Normalizes raw messages into `cryptofeed.types` dataclasses
   - Routes events into the Kafka backend via `KafkaProtobufCallback`
-- Using a local Redpanda cluster (via `docker/redpanda.yml`) as the Kafka test environment
+- Using a local Redpanda cluster (via `docker/infra/base.yml`) as the Kafka test environment
 - Consuming produced messages using `confluent_kafka.Consumer` and decoding them with generated Protobuf bindings under `cryptofeed.proto_bindings`
 - Implementing pytest-based integration tests that are opt-in and robust to missing Docker/network prerequisites
 
@@ -87,7 +87,7 @@ KafkaProtobufCallback (cryptofeed.backends.kafka.protobuf_callback)
   - topic / partition strategy (per_symbol or consolidated)
       |
       v
-Redpanda (docker/redpanda.yml)
+Redpanda (docker/infra/base.yml)
       |
       v
 confluent_kafka.Consumer (test harness)
@@ -106,10 +106,10 @@ cryptofeed.proto_bindings.*_pb2
 
 The design reuses the Redpanda setup pattern from `tests/integration/kafka/test_kafka_protobuf_e2e.py`:
 
-- Compose file: `docker/redpanda.yml`
+- Compose file: `docker/infra/base.yml`
 - Helper `_docker_compose_available()` determines whether `docker compose` is installed
 - Session-scoped `redpanda` fixture:
-  - Runs `docker compose -f docker/redpanda.yml up -d`
+  - Runs `docker compose -f docker/infra/base.yml up -d`
   - Waits for `localhost:19092` to be reachable
   - Yields the bootstrap address (e.g. `"localhost:19092"`)
   - Tears down the environment with `docker compose down`
