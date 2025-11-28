@@ -11,6 +11,7 @@ from cryptofeed.backends.kafka.health import (
     start_periodic_health_checks,
 )
 from cryptofeed.backends.kafka.callback import KafkaConfig
+from tests.helpers.kafka_env import get_bootstrap_servers
 
 
 class DummyProducer:
@@ -30,11 +31,11 @@ class FailingProducer:
 
 def test_health_check_connectivity_success():
     status = KafkaHealthCheck.check_connectivity(
-        ["kafka:9092"], implementation="modern", producer_factory=DummyProducer
+        get_bootstrap_servers(), implementation="modern", producer_factory=DummyProducer
     )
     assert status.ok is True
     assert status.error is None
-    assert status.details["bootstrap"] == ["kafka:9092"]
+    assert status.details["bootstrap"] == get_bootstrap_servers()
 
 
 def test_health_check_connectivity_failure():
@@ -47,7 +48,7 @@ def test_health_check_connectivity_failure():
 
 
 def test_health_check_modern_uses_kafka_config():
-    config = KafkaConfig(bootstrap_servers=["k1:9092"], acks="all")
+    config = KafkaConfig(bootstrap_servers=get_bootstrap_servers(), acks="all")
     status = KafkaHealthCheck.check_modern(
         config, producer_factory=DummyProducer, timeout_ms=1000
     )

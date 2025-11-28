@@ -42,6 +42,7 @@ from cryptofeed.kafka_callback import (
     KafkaTopicConfig,
     KafkaPartitionConfig,
 )
+from tests.helpers.kafka_env import get_bootstrap_servers
 
 LOG = logging.getLogger("test_kafka_e2e")
 
@@ -100,13 +101,13 @@ def kafka_cluster() -> KafkaClusterInfo:
         except Exception as e:
             LOG.warning(f"Testcontainers Kafka failed: {e}, attempting docker-compose")
 
-    # Fallback: Expect local Kafka cluster (docker-compose or local installation)
-    bootstrap_servers = ["localhost:9092", "localhost:9093", "localhost:9094"]
+    # Fallback: Expect local Kafka cluster (docker-compose or env-configured)
+    bootstrap_servers = get_bootstrap_servers()
     LOG.info(f"Using local Kafka cluster: {bootstrap_servers}")
 
     yield KafkaClusterInfo(
         bootstrap_servers=bootstrap_servers,
-        broker_count=3,
+        broker_count=len(bootstrap_servers),
         topic_prefix="cryptofeed"
     )
 
