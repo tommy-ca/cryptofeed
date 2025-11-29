@@ -7,7 +7,9 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
-from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+from cryptofeed.backends.protobuf.bindings import (
+    SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION,
+)
 
 from .callback import KafkaCallback
 from .headers import HeaderEnricher
@@ -79,7 +81,18 @@ class KafkaProtobufCallback(KafkaCallback):
         )
 
     def _serialize_payload(self, obj: Any, receipt_timestamp: Optional[float]):
-        payload = serialize_to_protobuf(obj)
+        """Serialize to protobuf and attach required proto headers.
+
+        Notes:
+        - Keeps JSON path untouched (only used by this subclass).
+        - Ensures content-type, schema_version, and cf.serialization_format are always present.
+        """
+
+        try:
+            payload = serialize_to_protobuf(obj)
+        except Exception as exc:  # pragma: no cover - exercised in tests
+            raise ValueError(f"protobuf serialization failed: {exc}") from exc
+
         headers = [
             (b"content-type", b"application/x-protobuf"),
             (b"schema_version", self._schema_version.encode("utf-8")),

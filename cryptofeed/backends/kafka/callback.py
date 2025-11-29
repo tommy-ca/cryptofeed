@@ -567,6 +567,8 @@ class KafkaCallback(KafkaBackendBase):
         """Serialize message payload using configured format."""
         timestamp = receipt_timestamp if receipt_timestamp is not None else getattr(obj, "timestamp", None)
         if self.serialization_format == "protobuf":
+            # For protobuf, subclasses (KafkaProtobufCallback) override this method.
+            # Base path kept for backward compatibility but only sets content-type.
             from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
 
             payload = serialize_to_protobuf(obj)

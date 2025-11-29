@@ -155,3 +155,42 @@ async def test_protobuf_callback_skips_invalid_proto():
     assert producer.messages == [], "invalid messages should not be produced"
     assert stub_metrics.errors
     assert stub_metrics.errors[0][2] == "serialization_error"
+
+
+@pytest.mark.asyncio
+async def test_protobuf_callback_respects_schema_version_override():
+    factory = DummyProducerFactory()
+    callback = KafkaProtobufCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=factory,
+        schema_version="v2",
+    )
+
+    message = KafkaQueuedMessage(
+        data_type="trade",
+        obj=DummyData(),
+        receipt_timestamp=0.0,
+    )
+
+    await callback._process_message(message)
+
+    headers = {name: value for name, value in factory.last_producer.messages[0]["headers"]}
+    assert headers[b"schema_version"] == b"v2"
+
+
+@pytest.mark.asyncio
+async def test_protobuf_callback_emits_single_schema_and_format_headers():
+    factory = DummyProducerFactory()
+    callback = _create_callback(factory)
+
+    message = KafkaQueuedMessage(
+        data_type="trade",
+        obj=DummyData(),
+        receipt_timestamp=0.0,
+    )
+
+    await callback._process_message(message)
+
+    header_names = [name for name, _ in factory.last_producer.messages[0]["headers"]]
+    assert header_names.count(b"schema_version") == 1
+    assert header_names.count(b"cf.serialization_format") == 1
