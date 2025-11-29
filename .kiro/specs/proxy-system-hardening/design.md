@@ -1,9 +1,9 @@
 # Design: Proxy System Hardening
 
 ## Approach (Start Small)
-- Keep existing ProxyInjector/ProxyPool; add small extensions for health, retry, auth, metrics.
+- Keep existing ProxyInjector/ProxyPool; add minimal extensions for health, retry, auth, metrics.
 - Single retry on failure to avoid complexity; no circuit breaker.
-- Health checker: periodic async task owned by ProxyInjector; uses TCP/HTTP ping via existing TCPHealthChecker; marks (un)healthy in ProxyPool.
+- Health checker: periodic async task owned by ProxyInjector; uses TCP/HTTP ping via TCPHealthChecker; marks (un)healthy in ProxyPool.
 - Config loading: implement env/config/explicit precedence in `load_proxy_settings` + FeedHandler normalization; validate non-empty proxies when enabled.
 
 ## Components & Changes
@@ -13,16 +13,16 @@
 
 2) Health Checker
 - New `ProxyHealthService` in `proxy.py` started when settings.health.enabled.
-- Runs every `interval_seconds`: for each ProxyPool proxy, run TCPHealthChecker; mark unhealthy/healthy accordingly.
-- Expose hooks for tests to inject a stub health checker.
+- Runs every `interval_seconds` (default 30s, min 5s, max 300s): for each ProxyPool proxy, run TCPHealthChecker (timeout/retry from HealthCheckConfig); mark unhealthy/healthy accordingly.
+- Expose hooks for tests to inject a stub health checker and force single-pass execution.
 
 3) Retry/Fallback on Failure
-- HTTP: on session creation failure, mark proxy unhealthy, release, retry once with another proxy (if available); log and metric.
-- WS: on connect failure after leasing, mark unhealthy, release, retry once with another proxy; ensure release in finally.
+- HTTP: on session creation failure, mark proxy unhealthy, release, retry once with another proxy (if available); structured log + metric; fallback preserves legacy proxy kwarg when proxy system disabled.
+- WS: on connect failure after leasing, mark unhealthy, release, retry once with another proxy; ensure release in finally; error with guidance if no alternative proxy.
 
 4) Observability
 - Structured logs: lease/select/release, retry, health result (transport, exchange, proxy_url, status, reason).
-- Metrics (minimal counters/gauges): leases_total, lease_failures_total, retries_total, unhealthy_proxies, health_success_total, health_failure_total.
+- Metrics (minimal counters/gauges): `proxy_leases_total`, `proxy_lease_failures_total`, `proxy_retries_total`, `proxy_unhealthy_gauge`, `proxy_health_success_total`, `proxy_health_failure_total`.
 
 5) Auth & Scheme Validation
 - ProxyUrlConfig: add username/password optional; support http/https/socks4/socks4a/socks5/socks5h; error on unknown scheme with guidance.
@@ -34,4 +34,3 @@
 
 ## Out of Scope
 - External proxy manager, advanced circuit breaker, multi-region HA, GUI/CLI.
-
