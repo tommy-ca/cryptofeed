@@ -169,3 +169,14 @@
   - Include test guidance for queue.join() verification
   - Cross-reference with Kafka architecture documentation
   - _Requirements: 8.5_
+
+## Phase 8: Protobuf-Mode Cutoff and Enforcement
+
+- [ ] 8.1 Enforce protobuf publishing via `KafkaProtobufCallback`
+  - Emit DeprecationWarning when `KafkaCallback(serialization_format="protobuf")` is used (in code)
+  - Disable protobuf mode on `KafkaCallback` after 2026-01-31
+  - _Requirements: market-data-kafka-producer FR4; protobuf-callback-serialization Req 2.8/2.9_
+- [ ] 8.2 CI/QA guardrails
+  - Add lint/test gate to block new imports of legacy `cryptofeed.backends.kafka` outside designated shims
+  - Add test ensuring protobuf-mode cutoff date is enforced
+  - _Requirements: 8.1_
