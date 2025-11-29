@@ -55,7 +55,7 @@ jobs:
           buf generate --template buf.gen.yaml proto
           echo "✓ Protobuf bindings generated"
       - name: Run schema regression tests (min version)
-        if: matrix.python-version == '3.10'
+        if: matrix.python-version == '3.12'
         run: |
           uv run python tools/schema_regression.py \
             --events docs/schemas/examples/events/trades.jsonl \
@@ -63,9 +63,9 @@ jobs:
             --tolerance 1e-8 \
             --verbose
       - name: Run schema regression tests (latest)
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         run: |
-          python tools/schema_regression.py \
+          uv run python tools/schema_regression.py \
             --events docs/schemas/examples/events/trades.jsonl \
             --output reports/parity-ci-latest.json \
             --tolerance 1e-8 \
@@ -73,3 +73,4 @@ jobs:
       - name: Test with pytest
         run: |
           uv run pytest tests -v --tb=short
+          uv run pytest tests/unit/kafka/test_import_guards.py -q
