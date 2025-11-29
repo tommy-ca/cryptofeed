@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 from cryptofeed.types import Trade
 
 
