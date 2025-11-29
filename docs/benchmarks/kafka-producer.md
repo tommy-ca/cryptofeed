@@ -118,6 +118,15 @@ Performance benchmarking for the market-data-kafka-producer has established base
 - Queue memory: proportional to max pending messages
 - Producer buffer (Kafka): OS-level tuning (batch.size default 16KB)
 
+---
+
+## Proto Backend Readiness Checklist (operational)
+- Callback: `KafkaProtobufCallback` (not `KafkaCallback(serialization_format="protobuf")`)
+- Cutoff override: `CF_KAFKA_PROTOBUF_CUTOFF` / `KafkaConfig.protobuf_cutoff` (default disable generic protobuf after 2026-02-01)
+- Headers: single `content-type=application/x-protobuf`, `schema_version` from bindings, `cf.serialization_format` present once
+- Metrics: serialization latency, message size, produce latency, error counts exported
+- Partition/topic strategies: composite + consolidated defaults unless explicitly overridden
+
 **Estimate for Production**:
 - 1K pending messages: ~200KB
 - 10K pending messages: ~2MB
