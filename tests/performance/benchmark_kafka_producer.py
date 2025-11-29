@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Callable
 
 import pytest
 
-from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 from cryptofeed.json_utils import dumps_bytes
 from cryptofeed.types import Trade, Ticker, Candle
 
