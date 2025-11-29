@@ -1,0 +1,14 @@
+{
+  "name": "proxy-system-hardening",
+  "version": "0.1.0",
+  "status": "init",
+  "created": "2025-11-29",
+  "updated": "2025-11-29",
+  "description": "Hardening of proxy system: config precedence, health checks, retry/failover, observability",
+  "language": "en",
+  "approvals": {
+    "requirements": {"generated": false, "approved": false},
+    "design": {"generated": false, "approved": false},
+    "tasks": {"generated": false, "approved": false}
+  }
+}
