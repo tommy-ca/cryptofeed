@@ -6,6 +6,15 @@ This runbook provides operational procedures for managing the deprecation lifecy
 **Audience**: Platform engineers, SREs, DevOps teams
 **Estimated time**: 15-30 minutes per procedure
 **Prerequisites**: Access to production logs, monitoring dashboards, Kafka cluster
+**Cutoff (protobuf mode)**: `KafkaCallback(serialization_format="protobuf")` permitted until **2026-01-31**; migrate to `KafkaProtobufCallback` before this date.
+
+### Proto Backend Readiness Checklist
+- Using `KafkaProtobufCallback` (not `KafkaCallback(serialization_format="protobuf")`)
+- Cutoff override env: `CF_KAFKA_PROTOBUF_CUTOFF=YYYY-MM-DD` (default 2026-02-01); optional config field `protobuf_cutoff` on KafkaConfig mirrors this
+- `schema_version` header equals `cryptofeed.backends.protobuf.bindings.SCHEMA_VERSION`
+- `content-type` set to `application/x-protobuf`; `cf.serialization_format` present once
+- Partition strategy and topic strategy set per Spec (`Composite`/`consolidated` defaults)
+- Metrics enabled: serialization latency, message size, produce latency, error counts
 
 ## Table of Contents
 1. [Monitoring Deprecation Warnings](#monitoring-deprecation-warnings)
@@ -265,3 +274,4 @@ Safely rollback to legacy backend if critical production issues arise during mig
 
 ## Changelog
 - 2025-11-26: Initial runbook created (Task 6.3)
+- 2025-11-29: Added protobuf-mode cutoff date (2026-01-31) and migration reminder

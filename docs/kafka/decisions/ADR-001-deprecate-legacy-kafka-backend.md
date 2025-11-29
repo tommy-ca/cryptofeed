@@ -1,6 +1,6 @@
 # ADR-001: Deprecate Legacy Kafka Backend
 
-**Date:** 2025-11-26
+**Date:** 2025-11-26 (updated 2025-11-29)
 
 **Status:** accepted
 
@@ -35,7 +35,7 @@ We will deprecate the legacy Kafka backend (`cryptofeed.backends.kafka`) in favo
 4. Monitor usage statistics to determine removal timeline
 5. Remove legacy classes after 90 days of zero observed usage
 
-**Timeline:** Q2 2026 (subject to usage statistics)
+**Timeline:** Q2 2026 (subject to usage statistics) with an interim cutoff: protobuf mode on `KafkaCallback` will be removed after **January 31, 2026**; `KafkaProtobufCallback` is the supported path for protobuf payloads.
 
 ## Consequences
 

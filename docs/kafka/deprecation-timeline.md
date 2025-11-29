@@ -1,6 +1,6 @@
 # Kafka Backend Deprecation Timeline
 
-**Last Updated:** 2025-11-26
+**Last Updated:** 2025-11-29
 **Status:** In Progress (Phase 5: Documentation)
 
 This document outlines the deprecation timeline for Cryptofeed's legacy Kafka backend (`cryptofeed.backends.kafka`) and the `cryptofeed.kafka_callback` compatibility shim.
@@ -20,6 +20,8 @@ The legacy Kafka backend is being phased out in favor of a modern, modular imple
 | deprecation_warnings | Implement deprecation warning system for legacy classes | 2025-12-10 | ✅ complete | 100% |
 | migration_tools | Build configuration migration and validation system | 2025-12-24 | ✅ complete | 100% |
 | documentation | Create migration documentation and user guidance | 2026-01-07 | 🚧 in_progress | 90% |
+| protobuf_mode_cutoff | Disallow `KafkaCallback(serialization_format="protobuf")`; require `KafkaProtobufCallback` | 2026-01-31 | ⏳ scheduled | 0% |
+| ci_enforcement | Ensure guard tests run in CI (legacy import + protobuf-on-generic checks) | 2025-12-15 | ⏳ scheduled | 0% |
 | monitoring | Implement health monitoring and metrics collection | 2026-01-21 | ✅ complete | 100% |
 | shim_removal | Remove compatibility shim (kafka_callback.py) | 2026-05-12 | ⏸️ pending | 0% |
 | legacy_cleanup | Remove legacy Kafka backend classes | 2026-05-26 | ⏸️ pending | 0% |
@@ -73,6 +75,33 @@ The legacy Kafka backend is being phased out in favor of a modern, modular imple
 - Decision log (ADR) creation
 - Progress reporting automation
 - Final documentation review
+
+### Phase 4: Protobuf Mode Cutoff (⏳ Scheduled)
+
+**Duration:** Single milestone (Target: 2026-01-31)  
+**Completion:** 0%
+
+**Deliverables:**
+- Emit DeprecationWarning when `KafkaCallback(serialization_format="protobuf")` is used
+- Migration notice in runbooks/ADR pointing to `KafkaProtobufCallback`
+- Disable protobuf mode on `KafkaCallback` after cutoff
+
+**Validation:**
+- Warning emitted in unit/integration tests
+- Modern callback verified as functional replacement
+- Communication sent to operators two weeks before cutoff
+
+### Phase 5: CI Enforcement (⏳ Scheduled)
+
+**Duration:** Single milestone (Target: 2025-12-15)  
+**Completion:** 0%
+
+**Deliverables:**
+- Guard tests (`tests/unit/kafka/test_import_guards.py`) wired into CI required jobs
+- Optional lint/pre-commit mirror of guard checks
+
+**Validation:**
+- CI fails on new legacy imports or protobuf-on-generic usage outside allowed paths
 
 ### Phase 4: Monitoring (✅ Complete)
 
