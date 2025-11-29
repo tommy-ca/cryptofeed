@@ -71,3 +71,5 @@ jobs:
       - name: Test with pytest
         run: |
           pytest tests -v --tb=short
+          # Guard: legacy imports + protobuf on generic KafkaCallback
+          pytest tests/unit/kafka/test_import_guards.py -q
