@@ -8,12 +8,31 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional
+import warnings
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+
 
 from cryptofeed.json_utils import dumps_bytes
+from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+def _get_cutoff(override=None):
+    from datetime import datetime
+    import os
+    raw = override or os.environ.get("CF_KAFKA_PROTOBUF_CUTOFF", "2026-02-01")
+    if raw is None:
+        raw = "2026-02-01"
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except Exception:
+        return datetime(2026, 2, 1).date()
+
+
+def _protobuf_mode_allowed(cutoff_date):
+    from datetime import date
+    return date.today() < cutoff_date
 
 from .base import KafkaBackendBase, KafkaQueuedMessage
+from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 from .producer import KafkaProducer
 from .topic_manager import TopicManager
 from .partitioner import PartitionerFactory
@@ -24,320 +43,6 @@ from .metrics import PrometheusMetricsExporter
 LOG = logging.getLogger("feedhandler")
 
 
-class KafkaTopicConfig(BaseModel):
-    """Configuration for Kafka topic management.
-
-    Attributes:
-        strategy: Topic naming strategy ('consolidated' or 'per_symbol').
-                 Default: 'consolidated'
-        prefix: Topic name prefix (e.g., 'cryptofeed', 'production').
-               Whitespace-only prefixes default to 'cryptofeed'.
-               Default: 'cryptofeed'
-        partitions_per_topic: Number of partitions per topic.
-                             Must be > 0. Default: 3
-        replication_factor: Replication factor for topic.
-                           Must be > 0. Default: 3
-
-    Example:
-        >>> config = KafkaTopicConfig(
-        ...     strategy='consolidated',
-        ...     prefix='production',
-        ...     partitions_per_topic=12,
-        ...     replication_factor=3
-        ... )
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    strategy: str = Field(default="consolidated", description="Topic naming strategy")
-    prefix: str = Field(default="cryptofeed", description="Topic name prefix")
-    partitions_per_topic: int = Field(default=3, description="Partitions per topic")
-    replication_factor: int = Field(default=3, description="Replication factor")
-
-    @field_validator("strategy")
-    @classmethod
-    def validate_strategy(cls, v: str) -> str:
-        """Validate topic strategy is supported."""
-        if v not in {"consolidated", "per_symbol"}:
-            raise ValueError(
-                f"Invalid topic strategy: {v}. "
-                f"Must be 'consolidated' or 'per_symbol'"
-            )
-        return v
-
-    @field_validator("prefix", mode="before")
-    @classmethod
-    def normalize_prefix(cls, v: Optional[str]) -> str:
-        """Normalize prefix: whitespace-only becomes 'cryptofeed'."""
-        if v is None or (isinstance(v, str) and not v.strip()):
-            return "cryptofeed"
-        return v
-
-    @field_validator("partitions_per_topic")
-    @classmethod
-    def validate_partitions(cls, v: int) -> int:
-        """Validate partitions_per_topic is positive."""
-        if v <= 0:
-            raise ValueError("partitions_per_topic must be > 0")
-        return v
-
-    @field_validator("replication_factor")
-    @classmethod
-    def validate_replication(cls, v: int) -> int:
-        """Validate replication_factor is positive."""
-        if v <= 0:
-            raise ValueError("replication_factor must be > 0")
-        return v
-
-
-class KafkaPartitionConfig(BaseModel):
-    """Configuration for partition key strategies.
-
-    Attributes:
-        strategy: Partitioner strategy to use.
-                 Options: 'composite' (default), 'symbol', 'exchange', 'round_robin'
-                 - composite: Route by exchange-symbol (recommended)
-                 - symbol: Route by symbol only (cross-exchange analysis)
-                 - exchange: Route by exchange only (exchange-specific processing)
-                 - round_robin: No ordering (maximum parallelism)
-
-    Example:
-        >>> config = KafkaPartitionConfig(strategy='composite')
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    strategy: str = Field(default="composite", description="Partition key strategy")
-
-    @field_validator("strategy")
-    @classmethod
-    def validate_strategy(cls, v: str) -> str:
-        """Validate partition strategy is supported."""
-        valid_strategies = {"composite", "symbol", "exchange", "round_robin"}
-        if v.lower() not in valid_strategies:
-            raise ValueError(
-                f"Invalid partition strategy: {v}. "
-                f"Must be one of: {', '.join(sorted(valid_strategies))}"
-            )
-        return v.lower()
-
-
-class KafkaProducerConfig(BaseModel):
-    """Configuration for Kafka producer client.
-
-    Attributes:
-        bootstrap_servers: List of Kafka broker addresses (required).
-                          Example: ['kafka1:9092', 'kafka2:9092']
-        acks: Delivery guarantee ('0', '1', 'all'). Default: 'all'
-        idempotence: Enable idempotent producer (prevent duplicates). Default: True
-        retries: Number of retries on failure. Default: 3
-        retry_backoff_ms: Backoff time between retries in milliseconds. Default: 100
-        batch_size: Maximum batch size in bytes. Default: 16384
-        linger_ms: Time to wait before sending batch (ms). Default: 10
-        compression_type: Compression algorithm. Default: 'snappy'
-                         Options: 'none', 'gzip', 'snappy', 'lz4', 'zstd'
-
-    Example:
-        >>> config = KafkaProducerConfig(
-        ...     bootstrap_servers=['kafka:9092'],
-        ...     acks='all',
-        ...     compression_type='snappy'
-        ... )
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    bootstrap_servers: list[str] = Field(
-        description="Kafka broker addresses (required)"
-    )
-    acks: str = Field(default="all", description="Delivery guarantee")
-    idempotence: bool = Field(default=True, description="Enable idempotence")
-    retries: int = Field(default=3, description="Number of retries")
-    retry_backoff_ms: int = Field(default=100, description="Retry backoff (ms)")
-    batch_size: int = Field(default=16384, description="Batch size (bytes)")
-    linger_ms: int = Field(default=10, description="Linger time (ms)")
-    compression_type: str = Field(default="snappy", description="Compression type")
-
-    @field_validator("bootstrap_servers")
-    @classmethod
-    def validate_bootstrap_servers(cls, v: list[str]) -> list[str]:
-        """Validate bootstrap_servers is not empty."""
-        if not v:
-            raise ValueError("bootstrap_servers cannot be empty")
-        return v
-
-    @field_validator("acks")
-    @classmethod
-    def validate_acks(cls, v: str) -> str:
-        """Validate acks value."""
-        if v not in {"0", "1", "all"}:
-            raise ValueError(f"acks must be '0', '1', or 'all', got {v}")
-        return v
-
-    @field_validator("retries")
-    @classmethod
-    def validate_retries(cls, v: int) -> int:
-        """Validate retries is non-negative."""
-        if v < 0:
-            raise ValueError("retries must be >= 0")
-        return v
-
-    @field_validator("retry_backoff_ms")
-    @classmethod
-    def validate_retry_backoff(cls, v: int) -> int:
-        """Validate retry_backoff_ms is non-negative."""
-        if v < 0:
-            raise ValueError("retry_backoff_ms must be >= 0")
-        return v
-
-    @field_validator("batch_size")
-    @classmethod
-    def validate_batch_size(cls, v: int) -> int:
-        """Validate batch_size is positive."""
-        if v <= 0:
-            raise ValueError("batch_size must be > 0")
-        return v
-
-    @field_validator("linger_ms")
-    @classmethod
-    def validate_linger(cls, v: int) -> int:
-        """Validate linger_ms is non-negative."""
-        if v < 0:
-            raise ValueError("linger_ms must be >= 0")
-        return v
-
-    @field_validator("compression_type")
-    @classmethod
-    def validate_compression(cls, v: str) -> str:
-        """Validate compression_type is supported."""
-        valid = {"none", "gzip", "snappy", "lz4", "zstd"}
-        if v not in valid:
-            raise ValueError(
-                f"compression_type must be one of {valid}, got {v}"
-            )
-        return v
-
-
-class KafkaConfig(BaseModel):
-    """Top-level Kafka configuration combining all settings.
-
-    Combines producer, topic, and partition configurations into a single,
-    loadable configuration object. Supports loading from YAML files and
-    Python dictionaries.
-
-    Attributes:
-        bootstrap_servers: Kafka broker addresses (required).
-        topic: Topic configuration (nested KafkaTopicConfig).
-        partition: Partition configuration (nested KafkaPartitionConfig).
-        acks: Producer acks setting. Default: 'all'
-        idempotence: Enable idempotence. Default: True
-        retries: Retry count. Default: 3
-        retry_backoff_ms: Retry backoff. Default: 100
-        batch_size: Batch size. Default: 16384
-        linger_ms: Linger time. Default: 10
-        compression_type: Compression type. Default: 'snappy'
-
-    Example:
-        >>> # From dictionary
-        >>> config = KafkaConfig.from_dict({
-        ...     'bootstrap_servers': ['kafka:9092'],
-        ...     'acks': 'all',
-        ...     'topic': {'strategy': 'consolidated'},
-        ...     'partition': {'strategy': 'composite'}
-        ... })
-        >>>
-        >>> # From YAML file
-        >>> config = KafkaConfig.from_yaml('config/kafka.yaml')
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    bootstrap_servers: list[str] = Field(description="Kafka broker addresses")
-    topic: KafkaTopicConfig = Field(
-        default_factory=KafkaTopicConfig,
-        description="Topic configuration"
-    )
-    partition: KafkaPartitionConfig = Field(
-        default_factory=KafkaPartitionConfig,
-        description="Partition configuration"
-    )
-    acks: str = Field(default="all", description="Delivery guarantee")
-    idempotence: bool = Field(default=True, description="Enable idempotence")
-    retries: int = Field(default=3, description="Number of retries")
-    retry_backoff_ms: int = Field(default=100, description="Retry backoff (ms)")
-    batch_size: int = Field(default=16384, description="Batch size (bytes)")
-    linger_ms: int = Field(default=10, description="Linger time (ms)")
-    compression_type: str = Field(default="snappy", description="Compression type")
-
-    @field_validator("bootstrap_servers")
-    @classmethod
-    def validate_bootstrap_servers(cls, v: list[str]) -> list[str]:
-        """Validate bootstrap_servers is not empty."""
-        if not v:
-            raise ValueError("bootstrap_servers cannot be empty")
-        return v
-
-    @field_validator("acks")
-    @classmethod
-    def validate_acks(cls, v: str) -> str:
-        """Validate acks value."""
-        if v not in {"0", "1", "all"}:
-            raise ValueError(f"acks must be '0', '1', or 'all', got {v}")
-        return v
-
-    @field_validator("compression_type")
-    @classmethod
-    def validate_compression(cls, v: str) -> str:
-        """Validate compression_type."""
-        valid = {"none", "gzip", "snappy", "lz4", "zstd"}
-        if v not in valid:
-            raise ValueError(f"compression_type must be one of {valid}")
-        return v
-
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> KafkaConfig:
-        """Load configuration from dictionary.
-
-        Args:
-            config_dict: Configuration dictionary with bootstrap_servers,
-                        optional topic, partition, and producer settings.
-
-        Returns:
-            KafkaConfig instance
-
-        Raises:
-            ValueError: If configuration is invalid
-            KeyError: If required fields are missing
-        """
-        return cls(**config_dict)
-
-    @classmethod
-    def from_yaml(cls, yaml_path: str | Path) -> KafkaConfig:
-        """Load configuration from YAML file.
-
-        Args:
-            yaml_path: Path to YAML configuration file
-
-        Returns:
-            KafkaConfig instance
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If YAML is invalid or configuration is incomplete
-        """
-        import yaml
-
-        yaml_path = Path(yaml_path)
-        if not yaml_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {yaml_path}")
-
-        with open(yaml_path, 'r') as f:
-            config_dict = yaml.safe_load(f)
-
-        if config_dict is None:
-            raise ValueError(f"Configuration file is empty: {yaml_path}")
-
-        return cls.from_dict(config_dict)
 
 
 # Topic strategy helpers moved to cryptofeed.backends.kafka.topic_manager
@@ -380,7 +85,7 @@ class KafkaCallback(KafkaBackendBase):
         **config: Any,
     ) -> None:
         if not hasattr(self, "_schema_version"):
-            self._schema_version = "v1"
+            self._schema_version = DEFAULT_SCHEMA_VERSION
         if metrics_exporter is None:
             producer_id = metrics_producer_id or self.__class__.__name__
             metrics_exporter = PrometheusMetricsExporter(
@@ -414,6 +119,7 @@ class KafkaCallback(KafkaBackendBase):
             config.setdefault("compression_type", kafka_config.compression_type)
             config.setdefault("retries", kafka_config.retries)
             config.setdefault("retry_backoff_ms", kafka_config.retry_backoff_ms)
+            cutoff_override = getattr(kafka_config, "protobuf_cutoff", None)
         elif bootstrap_servers is not None:
             # Backward compatible: direct parameters
             self.bootstrap_servers = list(bootstrap_servers)
@@ -422,11 +128,14 @@ class KafkaCallback(KafkaBackendBase):
             # Create default configs for backward compatibility
             self.topic_config = KafkaTopicConfig()
             self.partition_config = KafkaPartitionConfig()
+            cutoff_override = None
         else:
             raise TypeError(
                 "Either 'bootstrap_servers' (direct parameters) or 'kafka_config' "
                 "(KafkaConfig object) must be provided"
             )
+
+        self._protobuf_cutoff = _get_cutoff(cutoff_override)
 
         self.connection_timeout_ms = connection_timeout_ms
         self.numeric_type = numeric_type
@@ -441,6 +150,16 @@ class KafkaCallback(KafkaBackendBase):
 
         if serialization_format is not None:
             self.set_serialization_format(serialization_format)
+            if (
+                serialization_format == "protobuf"
+                and self.__class__ is KafkaCallback
+            ):
+                if _protobuf_mode_allowed(self._protobuf_cutoff):
+                    _emit_protobuf_deprecation_warning(self._protobuf_cutoff)
+                else:
+                    raise RuntimeError(
+                        "KafkaCallback protobuf mode is disabled; use KafkaProtobufCallback"
+                    )
 
         # Instantiate topic manager with config strategy (Task 4.3)
         self._topic_manager = TopicManager()
@@ -569,7 +288,6 @@ class KafkaCallback(KafkaBackendBase):
         if self.serialization_format == "protobuf":
             # For protobuf, subclasses (KafkaProtobufCallback) override this method.
             # Base path kept for backward compatibility but only sets content-type.
-            from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
 
             payload = serialize_to_protobuf(obj)
             headers = [("content-type", b"application/x-protobuf")]
@@ -905,3 +623,9 @@ class HealthCheckDeterminer:
         if health_status == HealthStatus.HEALTHY.value:
             return 200
         return 503
+def _emit_protobuf_deprecation_warning(cutoff):
+    warnings.warn(
+        f"Use KafkaProtobufCallback for protobuf payloads; KafkaCallback protobuf mode will be removed after {cutoff}.",
+        DeprecationWarning,
+        stacklevel=3,
+    )

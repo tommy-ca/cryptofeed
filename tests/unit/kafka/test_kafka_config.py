@@ -19,17 +19,12 @@ import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-# Note: These imports will fail until classes are implemented
-# This is intentional for TDD - we write tests first
-try:
-    from cryptofeed.kafka_config import (
-        KafkaTopicConfig,
-        KafkaPartitionConfig,
-        KafkaProducerConfig,
-        KafkaConfig,
-    )
-except ImportError:
-    pytest.skip("kafka_config module not yet implemented", allow_module_level=True)
+from cryptofeed.backends.kafka.config import (
+    KafkaTopicConfig,
+    KafkaPartitionConfig,
+    KafkaProducerConfig,
+    KafkaConfig,
+)
 
 
 # ============================================================================

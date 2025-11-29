@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Callable, Dict, List, Optional
 
 from .deprecation_system import DeprecationWarningSystem, get_deprecation_warning_system
@@ -122,6 +122,27 @@ class DeprecationMonitoringBridge:
         LOG.info(f"Tracked legacy usage: {component} with context {context}")
 
         return IntegrationResult(success=True, events=events)
+
+
+# --------------------------------------------------------------------------- #
+# Protobuf mode cutoff helpers                                               #
+# --------------------------------------------------------------------------- #
+
+def get_cutoff_date(default: str = "2026-02-01") -> date:
+    """
+    Return cutoff date for disabling protobuf mode on KafkaCallback.
+    Environment override: CF_KAFKA_PROTOBUF_CUTOFF (YYYY-MM-DD).
+    """
+    raw = os.environ.get("CF_KAFKA_PROTOBUF_CUTOFF", default)
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except Exception:
+        return datetime.strptime(default, "%Y-%m-%d").date()
+
+
+def protobuf_mode_allowed(cutoff: date) -> bool:
+    """True if today is before cutoff date."""
+    return date.today() < cutoff
 
     def track_modern_usage(
         self, component: str, context: Dict[str, Any]

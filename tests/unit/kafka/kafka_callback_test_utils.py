@@ -8,22 +8,23 @@ import pytest
 
 
 # Import KafkaCallback and related components used across KafkaCallback tests
-kafka_module = pytest.importorskip("cryptofeed.kafka_callback")
-KafkaCallback = kafka_module.KafkaCallback
-TopicManager = kafka_module.TopicManager
-HeaderEnricher = kafka_module.HeaderEnricher
-MessageHeaders = kafka_module.MessageHeaders
-OptionalHeaders = kafka_module.OptionalHeaders
-Partitioner = kafka_module.Partitioner
-PartitionerFactory = kafka_module.PartitionerFactory
-SymbolPartitioner = kafka_module.SymbolPartitioner
-CompositePartitioner = kafka_module.CompositePartitioner
-ExchangePartitioner = kafka_module.ExchangePartitioner
-RoundRobinPartitioner = kafka_module.RoundRobinPartitioner
-KafkaConfig = kafka_module.KafkaConfig
-KafkaTopicConfig = kafka_module.KafkaTopicConfig
-KafkaPartitionConfig = kafka_module.KafkaPartitionConfig
-KafkaProducerConfig = kafka_module.KafkaProducerConfig
+from cryptofeed.backends.kafka.callback import KafkaCallback
+from cryptofeed.backends.kafka.topic_manager import TopicManager
+from cryptofeed.backends.kafka.headers import MessageHeaders, OptionalHeaders, HeaderEnricher
+from cryptofeed.backends.kafka.partitioner import (
+    Partitioner,
+    PartitionerFactory,
+    SymbolPartitioner,
+    CompositePartitioner,
+    ExchangePartitioner,
+    RoundRobinPartitioner,
+)
+from cryptofeed.backends.kafka.config import (
+    KafkaConfig,
+    KafkaTopicConfig,
+    KafkaPartitionConfig,
+    KafkaProducerConfig,
+)
 
 
 @dataclass

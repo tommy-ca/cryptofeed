@@ -37,7 +37,7 @@ try:
 except ImportError:
     HAS_KAFKA = False
 
-from cryptofeed.kafka_callback import (
+from cryptofeed.backends.kafka.config import (
     KafkaConfig,
     KafkaTopicConfig,
     KafkaPartitionConfig,
