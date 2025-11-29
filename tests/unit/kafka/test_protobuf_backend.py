@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
+import warnings
 
 import pytest
 
 from cryptofeed.backends.kafka.base import KafkaQueuedMessage
+from cryptofeed.backends.kafka.callback import KafkaCallback
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+from cryptofeed.backends.protobuf.validation import SchemaValidator
 
 
 class DummyProducer:
@@ -194,3 +197,80 @@ async def test_protobuf_callback_emits_single_schema_and_format_headers():
     header_names = [name for name, _ in factory.last_producer.messages[0]["headers"]]
     assert header_names.count(b"schema_version") == 1
     assert header_names.count(b"cf.serialization_format") == 1
+
+
+def test_kafka_callback_protobuf_mode_emits_warning():
+    factory = DummyProducerFactory()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DeprecationWarning)
+        KafkaCallback(
+            bootstrap_servers=["kafka:9092"],
+            producer_factory=factory,
+            serialization_format="protobuf",
+            metrics_exporter=StubMetrics(),
+        )
+    assert any(
+        issubclass(w.category, DeprecationWarning) for w in caught
+    ), "Expected DeprecationWarning when using KafkaCallback with protobuf serialization"
+
+
+def test_kafka_callback_uses_binding_schema_version_by_default():
+    factory = DummyProducerFactory()
+    cb = KafkaProtobufCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=factory,
+    )
+    assert cb._schema_version == DEFAULT_SCHEMA_VERSION
+
+
+def test_schema_version_matches_validator_default():
+    validator = SchemaValidator()
+    assert getattr(validator, "_expected_version", None) == DEFAULT_SCHEMA_VERSION
+
+
+@pytest.mark.asyncio
+async def test_metrics_recorded_with_protobuf_and_no_cache():
+    factory = DummyProducerFactory()
+    metrics = StubMetrics()
+    callback = KafkaProtobufCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=factory,
+        enable_header_precomputation=False,
+        enable_partition_key_cache=False,
+        metrics_exporter=metrics,
+    )
+    message = KafkaQueuedMessage(
+        data_type="trade",
+        obj=DummyData(),
+        receipt_timestamp=0.0,
+    )
+
+    await callback._process_message(message)
+
+    assert metrics.serialization_calls == 1
+    assert metrics.produce_latency_calls == 1
+    assert metrics.produced and metrics.produced[0][0] == "binance"
+
+
+@pytest.mark.asyncio
+async def test_protobuf_callback_headers_without_precompute_or_cache():
+    factory = DummyProducerFactory()
+    callback = KafkaProtobufCallback(
+        bootstrap_servers=["kafka:9092"],
+        producer_factory=factory,
+        enable_header_precomputation=False,
+        enable_partition_key_cache=False,
+    )
+    message = KafkaQueuedMessage(
+        data_type="trade",
+        obj=DummyData(),
+        receipt_timestamp=0.0,
+    )
+
+    await callback._process_message(message)
+
+    headers = factory.last_producer.messages[0]["headers"]
+    names = [name for name, _ in headers]
+    assert names.count(b"schema_version") == 1
+    assert names.count(b"cf.serialization_format") == 1
+    assert headers and headers[0][0] == b"content-type"

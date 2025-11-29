@@ -9,6 +9,7 @@ from google.protobuf.message import Message
 from cryptofeed.exceptions import ProtobufEncodeError, SerializationError
 
 from .bindings import (
+    SCHEMA_VERSION,
     trade_pb2,
     ticker_pb2,
     candle_pb2,
@@ -140,8 +141,7 @@ def _validate_registry(converters: Dict[str, Callable[[Any], Message]]) -> None:
 
 _CONVERTER_MAP, _SCHEMA_CLASS_MAP = _build_converter_registry()
 
-_DEFAULT_SCHEMA_VERSION = "v0.1.0"
-_SCHEMA_VALIDATOR = SchemaValidator(_DEFAULT_SCHEMA_VERSION)
+_SCHEMA_VALIDATOR = SchemaValidator(SCHEMA_VERSION)
 
 
 def _resolve_schema_name(schema_message: Message | None, type_name: str) -> str | None:
@@ -176,7 +176,7 @@ def _ensure_message(instance, type_name: str, context: str) -> Message:
         f"{context} returned non-protobuf instance; expected protobuf Message",
         data_type=type_name,
         schema_name=_resolve_schema_name(None, type_name),
-        schema_version=_DEFAULT_SCHEMA_VERSION,
+        schema_version=SCHEMA_VERSION,
     )
 
 
@@ -221,11 +221,11 @@ def serialize_to_protobuf(obj):
             raise ProtobufEncodeError(
                 "to_proto() raised an exception",
                 data_type=type_name,
-                schema_version=_DEFAULT_SCHEMA_VERSION,
+                schema_version=SCHEMA_VERSION,
             ) from exc
 
         proto_msg = _ensure_message(proto_msg, type_name, "to_proto()")
-        _SCHEMA_VALIDATOR.validate(proto_msg, schema_version=_DEFAULT_SCHEMA_VERSION)
+        _SCHEMA_VALIDATOR.validate(proto_msg, schema_version=SCHEMA_VERSION)
 
         try:
             return proto_msg.SerializeToString()
@@ -234,7 +234,7 @@ def serialize_to_protobuf(obj):
                 "SerializeToString() failed",
                 data_type=type_name,
                 schema_name=_resolve_schema_name(proto_msg, type_name),
-                schema_version=_DEFAULT_SCHEMA_VERSION,
+                schema_version=SCHEMA_VERSION,
             ) from exc
 
     # Otherwise, use the converter lookup
@@ -253,11 +253,11 @@ def serialize_to_protobuf(obj):
             "Converter raised an exception",
             data_type=type_name,
             schema_name=_resolve_schema_name(None, type_name),
-            schema_version=_DEFAULT_SCHEMA_VERSION,
+            schema_version=SCHEMA_VERSION,
         ) from exc
 
     proto_msg = _ensure_message(proto_msg, type_name, "converter")
-    _SCHEMA_VALIDATOR.validate(proto_msg, schema_version=_DEFAULT_SCHEMA_VERSION)
+    _SCHEMA_VALIDATOR.validate(proto_msg, schema_version=SCHEMA_VERSION)
 
     try:
         return proto_msg.SerializeToString()
@@ -266,7 +266,7 @@ def serialize_to_protobuf(obj):
             "SerializeToString() failed",
             data_type=type_name,
             schema_name=_resolve_schema_name(proto_msg, type_name),
-            schema_version=_DEFAULT_SCHEMA_VERSION,
+            schema_version=SCHEMA_VERSION,
         ) from exc
 
 
