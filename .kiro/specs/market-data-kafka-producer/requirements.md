@@ -120,6 +120,7 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 - Use `to_proto()` methods from Spec 1
 - Serialize all 20 data types (Trade, L2Book, Ticker, etc.)
 - Include schema version in message headers
+- Schema version MUST be sourced from `cryptofeed.backends.protobuf.bindings.SCHEMA_VERSION` (single authority; no hardcoded defaults in Kafka codepaths)
 - Support schema registry (Confluent or Buf)
 
 ### FR5: Delivery Guarantees
@@ -290,6 +291,7 @@ Consumer implements Spark Structured Streaming job aggregating trades into OHLCV
   - Restrict changes to Kafka backend code, configuration models, and tests scoped to this spec, and avoid modifying schemas or core serialization helpers unless the corresponding specs are explicitly updated.
   - Prefer extending existing patterns (topic strategies, partitioners, header enrichers, metrics) rather than introducing parallel implementations or one-off code paths.
   - Maintain the ingestion-layer-only boundary: no storage, query, or consumer business logic should be added to the Kafka backend.
+  - Use `KafkaProtobufCallback` for protobuf publishing; `KafkaCallback(serialization_format="protobuf")` is deprecated and will be removed after **January 31, 2026**.
 - When cross-stream behavior must change (e.g., schema fields, normalized types), agents SHALL:
   - Propose or update the relevant upstream spec (`normalized-data-schema-crypto`, `protobuf-callback-serialization`) and reference it in design/tasks before changing Kafka producer behavior.
 

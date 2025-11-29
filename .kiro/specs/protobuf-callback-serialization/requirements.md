@@ -86,6 +86,8 @@ This specification establishes the foundation for protobuf-native data serializa
 5. **WHEN** a callback receives a data object and the serialization format is protobuf **THEN** the callback SHALL call `.SerializeToString()` on the protobuf message to obtain binary bytes
 6. **WHEN** a callback receives a data object and the serialization format is JSON **THEN** the callback SHALL invoke existing `to_dict()` or dictionary conversion to obtain JSON-serializable structure
 7. **WHEN** both JSON and Protobuf formats are available **THEN** both serialization paths SHALL operate independently without interference or state coupling
+8. **WHEN** protobuf serialization occurs **THEN** the schema version used for headers and validation SHALL be read from the single authority `cryptofeed.backends.protobuf.bindings.SCHEMA_VERSION` (no duplicated defaults)
+9. **WHEN** protobuf serialization is requested via `KafkaCallback(serialization_format="protobuf")` **THEN** the system SHALL emit a deprecation warning directing operators to `KafkaProtobufCallback`, with removal scheduled after **January 31, 2026**
 
 ---
 
