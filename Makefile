@@ -6,7 +6,7 @@
 #############################################################################
 
 .PHONY: docker-ps-19092 docker-stop-19092 redpanda-up redpanda-down redpanda-health
-.PHONY: test-kafka-e2e test-kafka-unit test-kafka-perf test-kafka-all
+.PHONY: test-kafka-e2e test-kafka-binance test-kafka-unit test-kafka-perf test-kafka-all
 
 # Advanced / scoped targets (legacy, keep for reference)
 .PHONY: test-kafka-bisect test-kafka-files test-kafka-callback-integration
@@ -40,6 +40,9 @@ redpanda-health:
 test-kafka-e2e:
 	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/integration/kafka/test_kafka_protobuf_e2e.py -v
 
+test-kafka-binance:
+	CRYPTODATA_RUN_BINANCE_KAFKA_E2E=$(CRYPTODATA_RUN_BINANCE_KAFKA_E2E) KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v
+
 test-kafka-unit:
 	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/unit/kafka -v
 
@@ -70,7 +73,7 @@ test-kafka-files:
 		python -m pytest $$f -q --durations=5 || exit 1; \
 	done
 
-test-kafka-all: test-kafka-e2e test-kafka-unit test-kafka-perf
+test-kafka-all: test-kafka-e2e test-kafka-binance test-kafka-unit test-kafka-perf
 
 # Bisect Kafka unit tests to identify slow subsets
 

@@ -118,6 +118,15 @@ callback = KafkaCallback(
 )
 ```
 
+## Live Binance → Kafka Protobuf E2E Tests (Opt-In)
+
+- Start Redpanda locally: `make redpanda-up` (port defaults to 19092).
+- Enable the live Binance tests: `export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true`.
+- Run the suite: `make test-kafka-binance` (skips if Docker/compose or Binance network access are unavailable).
+- Stop Redpanda when finished: `make redpanda-down`.
+
+The tests produce real Binance trades through `FeedHandler` → `KafkaProtobufCallback` into Redpanda and decode protobuf payloads to verify headers, schema version, and routing metadata. They are guarded to avoid CI flakiness and remain out of the default test run.
+
 ## Topic Strategies
 
 ### Consolidated Topics (Recommended)
