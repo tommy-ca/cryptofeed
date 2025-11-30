@@ -141,8 +141,8 @@ class KafkaProducer:
     def close(self, timeout: Optional[float] = None) -> None:
         if self._producer is not None:
             try:
-                self._producer.flush(timeout)
+                flush_timeout = 5.0 if timeout is None else timeout
+                self._producer.flush(flush_timeout)
             finally:
                 self._producer = None
                 self._connected = False
-

@@ -394,6 +394,28 @@ class KafkaCallback(KafkaBackendBase):
                 )
                 # Ensure serialization-format and schema headers from payload/base are preserved
                 enriched_headers = self._merge_headers(base_headers, enriched_headers)
+                if not enriched_headers:
+                    LOG.warning(
+                        "KafkaCallback: missing headers after enrichment for %s/%s (%s); base=%s",
+                        exchange,
+                        symbol,
+                        data_type,
+                        base_headers,
+                        extra={
+                            "exchange": exchange,
+                            "symbol": symbol,
+                            "data_type": data_type,
+                            "error_type": "missing_headers",
+                        },
+                    )
+                else:
+                    LOG.debug(
+                        "KafkaCallback: headers for %s/%s (%s): %s",
+                        exchange,
+                        symbol,
+                        data_type,
+                        enriched_headers,
+                    )
             except Exception as e:
                 LOG.warning(
                     "KafkaCallback: Header enrichment failed for %s/%s, using base headers: %s",
@@ -413,8 +435,15 @@ class KafkaCallback(KafkaBackendBase):
 
             # Step 5: Produce to Kafka
             try:
+                def _to_bytes(val: Any) -> bytes:
+                    if isinstance(val, bytes):
+                        return val
+                    return str(val).encode()
+
+                normalized_headers = [(_to_bytes(k), _to_bytes(v)) for k, v in enriched_headers]
+
                 produce_start = time.perf_counter() if metrics else None
-                self._producer.produce(topic, payload, key=key, headers=enriched_headers)
+                self._producer.produce(topic, payload, key=key, headers=normalized_headers)
                 self._producer.poll(0.0)
                 if metrics and produce_start is not None:
                     metrics.record_produce_latency(

@@ -37,6 +37,9 @@ from .config import (  # noqa: F401
 )
 from .protobuf_callback import KafkaProtobufCallback  # noqa: F401
 
+# Deprecation helpers kept minimal to avoid heavy maintenance dependencies
+from .maintenance import emit_class_deprecation_warning, emit_import_deprecation_warning  # noqa: F401
+
 
 # Lightweight legacy shims to satisfy deprecation tests without circular imports
 class _LegacyStubProducer:
