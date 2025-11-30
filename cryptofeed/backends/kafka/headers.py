@@ -79,11 +79,20 @@ class MessageHeaders:
         symbol_str = symbol_str.replace("_", "-")
 
         # Build header list with consistent ordering
+        def _clean(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                if val.startswith(b"b'") and val.endswith(b"'"):
+                    return val[2:-1]
+                return val
+            if isinstance(val, str) and val.startswith("b'") and val.endswith("'"):
+                val = val[2:-1]
+            return str(val).encode("utf-8")
+
         headers: list[tuple[bytes, bytes]] = [
-            (b"content-type", content_type.encode("utf-8")),
-            (b"exchange", exchange_str.encode("utf-8")),
-            (b"symbol", symbol_str.encode("utf-8")),
-            (b"data_type", data_type.encode("utf-8")),
+            (b"content-type", _clean(content_type)),
+            (b"exchange", _clean(exchange_str)),
+            (b"symbol", _clean(symbol_str)),
+            (b"data_type", _clean(data_type)),
         ]
 
         return headers
@@ -148,29 +157,32 @@ class OptionalHeaders:
         """
         from datetime import datetime, timezone
 
+        def _clean(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                if val.startswith(b"b'") and val.endswith(b"'"):
+                    return val[2:-1]
+                return val
+            if isinstance(val, str) and val.startswith("b'") and val.endswith("'"):
+                val = val[2:-1]
+            return str(val).encode("utf-8")
+
         # Default producer version to package version (from setup.py)
         if producer_version is None:
             producer_version = "2.4.1"
 
         # Default timestamp to current UTC time in ISO8601 format
         if timestamp_generated is None:
-            # Note: datetime.now(timezone.utc).isoformat() already includes +00:00
-            # Don't add 'Z' since that's for naive UTC times
             iso_str = datetime.now(timezone.utc).isoformat()
-            # Replace the +00:00 suffix with Z for brevity (standard for UTC)
             timestamp_generated = iso_str.replace("+00:00", "Z")
 
-        # Build header list with consistent ordering
         headers: list[tuple[bytes, bytes]] = [
-            (b"schema_version", schema_version.encode("utf-8")),
-            (b"producer_version", producer_version.encode("utf-8")),
-            (b"timestamp_generated", timestamp_generated.encode("utf-8")),
+            (b"schema_version", _clean(schema_version)),
+            (b"producer_version", _clean(producer_version)),
+            (b"timestamp_generated", _clean(timestamp_generated)),
         ]
 
         if include_serialization_format:
-            headers.append(
-                (b"cf.serialization_format", serialization_format.encode("utf-8"))
-            )
+            headers.append((b"cf.serialization_format", _clean(serialization_format)))
 
         return headers
 
@@ -301,7 +313,21 @@ class HeaderEnricher:
         )
 
         # Combine all headers: mandatory first, then optional
-        return mandatory + optional
+        headers = mandatory + optional
+        return [self._normalize(k, v) for k, v in headers]
+
+    @staticmethod
+    def _normalize(name: Any, value: Any) -> tuple[bytes, bytes]:
+        def _coerce(x: Any) -> bytes:
+            if isinstance(x, bytes):
+                if x.startswith(b"b'") and x.endswith(b"'"):
+                    return x[2:-1]
+                return x
+            if isinstance(x, str) and x.startswith("b'") and x.endswith("'"):
+                x = x[2:-1]
+            return str(x).encode()
+
+        return _coerce(name), _coerce(value)
 
     def enrich_message(
         self,
