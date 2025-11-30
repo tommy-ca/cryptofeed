@@ -93,6 +93,16 @@ As a maintainer, I want the E2E tests to exercise existing production code paths
 - **normalized-data-schema-crypto**: Supplies the normalized Protobuf schemas referenced by `cryptofeed.proto_bindings`.
 - **schema-parity-hardening**: Defines parity expectations between dataclasses and Protobuf representations; Binance E2E tests SHALL be consistent with these expectations.
 
+## Compound Workstreams & Ownership (C.1)
+- Upstream contracts: schemas (normalized-data-schema-crypto), serialization helpers (protobuf-callback-serialization), Kafka backend topics/headers/partitioning (market-data-kafka-producer). This spec only **consumes** those contracts for validation.
+- Local ownership: Binance→Kafka Protobuf test harness (pytest modules under `tests/integration/kafka/`), shared Redpanda fixtures/helpers, Makefile targets for Kafka E2E, and lightweight docs describing how to run the suite.
+- Downstream consumers (QuixStreams, Flink, etc.) remain out of scope; their specs own storage/analytics.
+
+## AI Agent Boundaries (C.2)
+- Allowed edit surface for this spec: `tests/integration/kafka/*` (new/updated E2E tests, fixtures, helpers), `Makefile` (Kafka/Redpanda targets), and documentation snippets referencing how to run the opt-in E2E suite (e.g., `docs/kafka/user-guide.md`).
+- Disallowed without upstream spec change: core exchange normalization (`cryptofeed/exchanges/binance.py`), Kafka backend production code, protobuf schemas or serialization helpers. Any discovered defects must be linked to their owning spec before code changes.
+- No new public APIs for testing; use existing FeedHandler/callback surfaces and Redpanda docker compose stack. Skips must guard missing Docker/network/env.
+
 ## Compound Engineering Alignment
 
 - **Parallel Workstreams**:
