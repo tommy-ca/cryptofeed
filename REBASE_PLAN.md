@@ -20,11 +20,7 @@
    - Collapsed market-data-kafka-producer to canonical files
    - Updated `.kiro/` structure and templates
 
-3. **QuixStreams Spec** (commits 2cc17ef5 - d2188c68):
-   - New specification for cryptofeed-quixstreams-source
-   - Requirements, design, and tasks completed
-
-4. **Data Flow Architecture Spec** (commits 374b0ec0 - 411b05f6):
+3. **Data Flow Architecture Spec** (commits 374b0ec0 - 411b05f6):
    - New cryptofeed-data-flow-architecture specification
 
 ## Potential Conflicts
