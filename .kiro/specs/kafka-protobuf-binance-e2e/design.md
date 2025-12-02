@@ -169,7 +169,7 @@ A helper function similar to `_consume_one` in `test_kafka_protobuf_e2e.py` will
 - Steps:
   - Create a `Consumer` with:
     - `bootstrap.servers=bootstrap`
-    - `group.id` unique to the test suite (e.g. `"cf-e2e-binance-proto"`)
+    - `group.id` unique to the test suite (e.g. "cf-e2e-binance-proto")
     - `auto.offset.reset="earliest"`
   - Subscribe to `[topic]`
   - Poll until a message arrives or the timeout expires
@@ -179,7 +179,16 @@ A helper function similar to `_consume_one` in `test_kafka_protobuf_e2e.py` will
 
 This helper is **test-only** and scoped to Kafka integration tests under `tests/integration/kafka`.
 
+### 3.4 Proxy Configuration Layering (HTTP + WebSocket)
+
+- Tests SHALL allow proxy-enabled runs by loading `ProxySettings` (env prefix `CRYPTOFEED_PROXY_`, nested `__`) before FeedHandler startup; precedence remains env > YAML > programmatic.
+- Binance WS and REST transports SHALL use the existing proxy injector; when proxies are configured, tests MAY assert resolution via `get_proxy_injector().get_http_proxy_url('binance')` / WS equivalent to confirm routing without requiring live proxy endpoints.
+- Proxy pools (e.g., `...__POOL__PROXIES__0__URL`) SHALL be accepted; selection strategy (round_robin/default) must not crash, and a proxy entry MUST be returned for Binance when a pool is configured.
+- SOCKS WS paths REQUIRE `python-socks`; if missing and a SOCKS proxy is configured, tests SHALL skip with a clear reason instead of failing.
+- Direct path MUST remain the default when no proxy config is provided; proxy assertions MUST NOT break existing direct-mode runs.
+
 ## 4. Test Cases
+
 
 ### 4.1 Binance Trade Roundtrip (Live WS)
 

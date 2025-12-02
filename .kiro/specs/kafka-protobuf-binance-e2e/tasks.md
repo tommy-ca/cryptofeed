@@ -132,6 +132,24 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
 
 ---
 
+## Phase 6: Proxy-Aware Execution (FR7)
+
+- [ ] 6. Enable proxy-configured E2E runs
+  - Load `ProxySettings` from env (`CRYPTOFEED_PROXY_*`, nested `__`) in the Binance Kafka E2E harness; ensure precedence env > YAML > programmatic remains intact and direct mode still works by default.
+  - Add opt-in path to run the existing Binance E2E tests with Binance HTTP/WS proxy settings applied; skip with a clear message when proxies are configured but `python-socks` is missing for SOCKS WS.
+  - Keep metrics disabled and reuse existing Redpanda/Kafka wiring to avoid production code changes.
+
+- [ ] 6.1 Validate proxy/pool resolution
+  - Provide a test configuration (env or fixture) that sets Binance HTTP/WS proxies, including a pool example (e.g., `...__POOL__PROXIES__0__URL`).
+  - Assert proxy resolution via `get_proxy_injector()` (HTTP and WS) returns configured entries; ensure pool selection does not crash and returns at least one proxy.
+  - Confirm that when no proxy config is present, tests run direct and prior assertions remain unchanged.
+
+- [ ] 6.2 Document proxy-enabled runs
+  - Add brief docs or test module notes showing how to run the Binance Kafka E2E suite with proxies (env examples, pool pattern, dependency on `python-socks` for SOCKS WS).
+  - Reference spec name (`kafka-protobuf-binance-e2e`) and FR7 in the doc note so operators can trace behavior.
+
+---
+
 ## Phase C: Governance & Spec Hygiene
 
 - [x] C.1 Document compound workstreams and dependencies for this spec

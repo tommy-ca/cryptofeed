@@ -68,6 +68,16 @@ As a maintainer, I want the E2E tests to exercise existing production code paths
 2. IF minor test-only configuration overrides are required (e.g., per-symbol topic strategy, disabling metrics) THEN they SHALL be applied via configuration arguments or attribute overrides already used in existing tests (such as `test_kafka_protobuf_e2e.py`).
 3. WHILE this spec is implemented THEN it SHALL not introduce new public APIs solely for test control unless coordinated with `kafka-backend-maintenance` or `market-data-kafka-producer` specs.
 
+### FR7: Proxy-Aware Execution (HTTP + WebSocket)
+
+As an operator, I want the Binance E2E harness to honor the proxy system (including pools) so we can validate or reproduce proxy-routed runs without breaking the direct path.
+
+**Acceptance Criteria**
+1. WHEN `CRYPTOFEED_PROXY_*` env vars or `ProxySettings`/`FeedHandler(proxy_settings=...)` are provided THEN the E2E setup SHALL load them (env > YAML > programmatic) and apply them to Binance HTTP and WebSocket connections via the existing proxy injector.
+2. WHEN a SOCKS or HTTP proxy is configured for Binance WS/REST THEN the test harness SHALL assert proxy resolution (e.g., via `get_proxy_injector().get_http_proxy_url('binance')` / `get_websocket_proxy_url`) and skip with a clear message if the required dependency (`python-socks` for SOCKS WS) is unavailable.
+3. WHEN a proxy pool is provided (e.g., `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL=...`) THEN the harness SHALL accept it without crash and verify that a proxy entry is selected (round-robin or configured strategy) for Binance connections.
+4. IF no proxy configuration is provided THEN the E2E tests SHALL continue to run direct and MUST NOT regress existing direct-path behavior or skip conditions.
+
 ## Non-Functional Requirements
 
 ### NFR1: Test Stability and Repeatability
