@@ -4,7 +4,7 @@ import base64
 import pytest
 
 from cryptofeed.backends.redis import TradeRedis
-from cryptofeed.proto_bindings import trade_pb2, trade_side_pb2
+from cryptofeed.backends.protobuf.bindings import trade_pb2, trade_side_pb2
 
 
 class _DummyTrade:

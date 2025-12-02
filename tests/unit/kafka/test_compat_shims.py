@@ -16,7 +16,6 @@ SHIM_MODULES = [
     ("cryptofeed.kafka_config", "KafkaConfig"),
     ("cryptofeed.backends.kafka_metrics", "PrometheusMetricsExporter"),
     ("cryptofeed.backends.protobuf_helpers", "serialize_to_protobuf"),
-    ("cryptofeed.proto_bindings", "SCHEMA_VERSION"),
 ]
 
 
@@ -34,8 +33,9 @@ def test_shim_imports_emit_deprecation_warning(module_path: str, symbol: str) ->
 
     warning_types = [warning.category for warning in caught]
     assert warning_types, f"{module_path} did not emit any warnings"
-    assert any(issubclass(category, DeprecationWarning) for category in warning_types), \
-        f"{module_path} did not emit DeprecationWarning"
+    assert any(
+        issubclass(category, DeprecationWarning) for category in warning_types
+    ), f"{module_path} did not emit DeprecationWarning"
     if module_path.startswith("cryptofeed.kafka_callback"):
         # kafka_callback shim now emits multiple warnings (once per re-export). Ensure at least one DeprecationWarning.
         pass
@@ -63,8 +63,12 @@ def _stub_producer_factory(config):
 
 
 def _load_legacy_kafka_module():
-    legacy_path = Path(__file__).resolve().parents[3] / "cryptofeed" / "backends" / "kafka.py"
-    spec = importlib.util.spec_from_file_location("cryptofeed.backends.kafka_legacy", legacy_path)
+    legacy_path = (
+        Path(__file__).resolve().parents[3] / "cryptofeed" / "backends" / "kafka.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "cryptofeed.backends.kafka_legacy", legacy_path
+    )
     module = importlib.util.module_from_spec(spec)
     loader = spec.loader
     assert loader is not None
