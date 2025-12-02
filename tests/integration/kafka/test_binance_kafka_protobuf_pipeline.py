@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from importlib import import_module
+from urllib.parse import urlparse
 
 import pytest
 
@@ -24,7 +26,9 @@ from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.kafka.partitioner import PartitionerFactory
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
+from cryptofeed.proxy import ProxySettings
 from cryptofeed.defines import L2_BOOK
+from cryptofeed.proxy import get_proxy_injector, init_proxy_system, load_proxy_settings
 from tests.integration.kafka.conftest import redpanda
 from tests.integration.kafka.helpers import ConsumedRecord, consume_one
 from uuid import uuid4
@@ -40,9 +44,15 @@ class _TestKafkaProtobufCallback(KafkaProtobufCallback):
 
 
 def _assert_or_skip_headers(record: ConsumedRecord):
-    missing = [h for h in (b"content-type", b"schema_version", b"cf.serialization_format") if h not in record.headers]
+    missing = [
+        h
+        for h in (b"content-type", b"schema_version", b"cf.serialization_format")
+        if h not in record.headers
+    ]
     if missing:
-        pytest.skip(f"Binance Kafka Protobuf E2E: missing headers {missing}; observed={record.headers}")
+        pytest.skip(
+            f"Binance Kafka Protobuf E2E: missing headers {missing}; observed={record.headers}"
+        )
 
 
 def _env_enabled() -> bool:
@@ -58,6 +68,56 @@ def _require_binance_e2e_prereqs() -> None:
         )
 
 
+def _python_socks_available() -> bool:
+    try:
+        import_module("python_socks")
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
+def _init_proxy_settings_if_configured() -> bool:
+    settings = load_proxy_settings()
+    has_proxy = settings.enabled or settings.default or settings.exchanges
+    if not has_proxy:
+        return False
+
+    ws_proxy = (
+        settings.get_proxy("binance", "websocket")
+        if hasattr(settings, "get_proxy")
+        else None
+    )
+    if ws_proxy and ws_proxy.url:
+        scheme = urlparse(ws_proxy.url).scheme.lower()
+        if scheme.startswith("socks") and not _python_socks_available():
+            pytest.skip(
+                "Binance Kafka Protobuf E2E: SOCKS websocket proxy configured but python-socks is not installed"
+            )
+
+    init_proxy_system(settings)
+    injector = get_proxy_injector()
+    if injector and settings.enabled:
+        # Warm HTTP proxy retrieval to ensure config parses
+        injector.get_http_proxy_url("binance")
+
+        if ws_proxy:
+            # Ensure a proxy entry can be selected from pool/config
+            url, release = injector.lease_proxy("binance", "websocket")
+            if release is None:
+                pytest.skip(
+                    "Binance Kafka Protobuf E2E: websocket proxy configured but injector returned no release handle"
+                )
+            try:
+                if url is None:
+                    pytest.skip(
+                        "Binance Kafka Protobuf E2E: websocket proxy configured but no proxy was selected"
+                    )
+            finally:
+                release()
+
+    return True
+
+
 async def _start_binance_with_kafka(
     redpanda_bootstrap: str,
     *,
@@ -71,6 +131,8 @@ async def _start_binance_with_kafka(
     messages to the given Redpanda bootstrap address.
     """
     loop = asyncio.get_running_loop()
+
+    _init_proxy_settings_if_configured()
 
     fh = FeedHandler()
 
@@ -94,6 +156,7 @@ async def _start_binance_with_kafka(
 
     # Use FeedHandler to construct the Binance feed with its own Config
     _channels = channels or [TRADES]
+
     def _mk_handler(data_type: str):
         async def _handler(obj, receipt_timestamp):
             await kafka_cb._handle_message(data_type, obj, receipt_timestamp)
@@ -136,6 +199,34 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
     kafka_cb = getattr(handler, "kafka_cb", None)
     if kafka_cb and hasattr(kafka_cb, "stop"):
         await kafka_cb.stop()
+
+    # Reset proxy system to avoid leaking proxy configuration into other tests
+    init_proxy_system(ProxySettings(enabled=False))
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_proxy_resolution_when_configured():
+    """Ensure proxy settings for Binance are accepted and resolvable when provided."""
+
+    _require_binance_e2e_prereqs()
+    if not _init_proxy_settings_if_configured():
+        pytest.skip("No proxy configuration provided for Binance")
+
+    injector = get_proxy_injector()
+    assert injector is not None, (
+        "Proxy injector should be initialized when proxies are configured"
+    )
+
+    http_url = injector.get_http_proxy_url("binance")
+    ws_url, release = injector.lease_proxy("binance", "websocket")
+    try:
+        if not http_url and not ws_url:
+            pytest.skip(
+                "Proxy settings loaded but no Binance-specific HTTP/WS proxy configured"
+            )
+    finally:
+        release()
 
 
 @pytest.mark.asyncio
@@ -186,6 +277,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
 
     # Payload assertions
     from cryptofeed.backends.protobuf import bindings as pb_bindings
+
     trade_pb2 = pb_bindings.trade_pb2
 
     msg = trade_pb2.Trade()
