@@ -21,7 +21,7 @@
 - **Section 2**: Current Module Structure
   - cryptofeed/serializers/ (5 files, 258 LOC)
   - cryptofeed/proto_wrappers/ (16 files, 820 LOC)
-  - cryptofeed/proto_bindings/ (1 file, 80 LOC)
+  - cryptofeed/proto_bindings/ (removed; use cryptofeed/backends/protobuf/bindings.py)
   - Registry pattern explanation
 
 - **Section 3**: Backend Architecture
@@ -201,7 +201,7 @@ Lines 200-257: Recommendations and key insights
 |--------|-------|-----|--------|--------|
 | serializers/ | 5 | 258 | Excellent | KEEP |
 | proto_wrappers/ | 16 | 820 | Repetitive | CONSOLIDATE (optional) |
-| proto_bindings/ | 1 | 80 | Minimal | KEEP |
+| proto_bindings/ | removed | — | Legacy shim removed; use cryptofeed/backends/protobuf/bindings.py | N/A |
 | backends/ | 4 | 236 | Clean | KEEP |
 | **Total** | **26** | **1,394** | - | - |
 
