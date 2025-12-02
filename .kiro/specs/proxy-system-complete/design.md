@@ -31,9 +31,10 @@ graph TD
 - **Location**: `cryptofeed/proxy.py`
 - **Responsibilities**:
   - Environment variable hydration with CRYPTOFEED_PROXY_ prefix
+  - Configuration precedence: env vars override YAML `proxy:` blocks; explicit `ProxySettings` / `FeedHandler(proxy_settings=...)` act as fallback when env is absent
   - Boolean `enabled` flag, optional `default` proxies, per-exchange overrides
-  - `get_proxy(exchange_id, connection_type)` resolution: disabled → override → default → none
-  - Double-underscore nesting delimiter for complex configurations
+  - `get_proxy(exchange_id, connection_type)` resolution: disabled → exchange override → default → none
+  - Double-underscore nesting delimiter for complex configurations, including pool lists (`...__POOL__PROXIES__0__URL`)
 
 ### ConnectionProxies and ProxyConfig (Data Layer)
 - **Purpose**: Type-safe proxy configuration models
