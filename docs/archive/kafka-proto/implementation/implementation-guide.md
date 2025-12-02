@@ -5,6 +5,8 @@
 **Date**: October 31, 2025
 **Test Coverage**: **71/71 tests passing** ✅
 
+> Note: Legacy `cryptofeed.backends.protobuf.bindings` imports were removed; use `cryptofeed.backends.protobuf.bindings` for generated message modules.
+
 ---
 
 ## Executive Summary
@@ -296,7 +298,7 @@ book_backend = BookKafka(
 
 ```python
 from kafka import KafkaConsumer
-from cryptofeed.proto_bindings import trade_pb2
+from cryptofeed.backends.protobuf.bindings import trade_pb2
 
 # Create consumer
 consumer = KafkaConsumer(
@@ -383,10 +385,10 @@ func main() {
 
 ### Python Bindings
 
-All protobuf message classes are available via `cryptofeed.proto_bindings`:
+All protobuf message classes are available via `cryptofeed.backends.protobuf.bindings`:
 
 ```python
-from cryptofeed.proto_bindings import (
+from cryptofeed.backends.protobuf.bindings import (
     trade_pb2,
     ticker_pb2,
     orderbook_pb2,
@@ -491,7 +493,7 @@ timestamp_seconds = proto.timestamp / 1_000_000.0
 Side (buy/sell) uses protobuf enums:
 
 ```python
-from cryptofeed.proto_bindings import trade_side_pb2
+from cryptofeed.backends.protobuf.bindings import trade_side_pb2
 
 # Buy
 proto.side = trade_side_pb2.TRADE_SIDE_BUY
@@ -529,7 +531,7 @@ for message in consumer:
     price = data['price']
 
 # After (Protobuf consumer)
-from cryptofeed.proto_bindings import trade_pb2
+from cryptofeed.backends.protobuf.bindings import trade_pb2
 for message in consumer:
     trade = trade_pb2.Trade()
     trade.ParseFromString(message.value)

@@ -325,7 +325,7 @@ message OrderBook {
 
 2. **Delta Field Missing**: Python has `delta` dict for incremental updates
    - **Impact**: Cannot represent L2 deltas, only snapshots
-   - **Recommendation**: Emit `Level2Delta` messages via `cryptofeed.proto_mappers.level2_delta_from_order_book` to serialize incremental updates
+   - **Recommendation**: Proto mappers were removed; use `cryptofeed.backends.protobuf.converters.orderbook_to_proto` for snapshots and add Level2Delta mapping in the consolidated protobuf helpers if needed.
 
 3. **Timestamp Optionality**: ✅ Resolved (proto now marks timestamp optional)
 

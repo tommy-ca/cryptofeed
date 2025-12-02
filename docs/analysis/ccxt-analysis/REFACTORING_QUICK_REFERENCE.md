@@ -5,7 +5,7 @@
 ### Module Counts & LOC
 - **serializers/**: 5 files, 258 LOC (WELL DESIGNED - KEEP AS-IS)
 - **proto_wrappers/**: 16 files, 820 LOC (CONSOLIDATION CANDIDATE)
-- **proto_bindings/**: 1 file, 80 LOC (MINIMAL - KEEP AS-IS)
+- **proto_bindings/**: removed; use `cryptofeed/backends/protobuf/bindings.py` for generated modules
 - **backends/**: 4 files, 236 LOC (CORE - KEEP AS-IS)
 - **Tests**: 21+ files, 144+ test functions, 1,165+ LOC
 
@@ -80,7 +80,7 @@ After:
 ### Phase 2-4: Keep Everything Else (NO CHANGES)
 
 - ✓ **serializers/** - Already well-designed, preserve abstraction
-- ✓ **proto_bindings/** - Minimal wrapper, keep as-is
+- ✗ **proto_bindings/** - Legacy shim removed; use `cryptofeed/backends/protobuf/bindings.py`
 - ✓ **backends/** - Core integration, keep as-is
 
 ## Critical Test Coverage
@@ -113,7 +113,7 @@ pytest tests/benchmarks/ -v                # Performance
 ## Files to Not Touch
 
 - `cryptofeed/serializers/` (keep all 5 files)
-- `cryptofeed/proto_bindings/__init__.py` (keep as-is)
+- `cryptofeed/backends/protobuf/bindings.py` (authoritative bindings; legacy `cryptofeed/proto_bindings` removed)
 - `cryptofeed/backends/backend.py` (keep as-is)
 - `cryptofeed/backends/kafka.py`, `redis.py`, `zmq.py` (keep as-is)
 

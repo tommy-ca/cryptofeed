@@ -2,6 +2,8 @@
 
 **Goal**: Define a deterministic transformation from Python `OrderBook.delta` payloads to the `cryptofeed.normalized.v1.Level2Delta` protobuf message.
 
+> Note: The legacy `cryptofeed.proto_mappers` helpers were removed; any Level2Delta mapper should live alongside the consolidated protobuf helpers under `cryptofeed/backends/protobuf/`.
+
 ## Current Python Shape
 
 ```python
