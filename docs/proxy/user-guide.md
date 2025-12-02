@@ -474,6 +474,63 @@ settings = get_proxy_settings()
 init_proxy_system(settings)
 ```
 
+## Mullvad SOCKS5 relays (Binance E2E example)
+
+You can use Mullvad’s public SOCKS5 relay list to run the Binance → Kafka Protobuf E2E tests through EU/AP proxies without hardcoding endpoints.
+
+- Fetch the list (verify checksum):
+  ```bash
+  curl -s https://raw.githubusercontent.com/mullvad/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt | tee /tmp/mullvad-relays.txt | head
+  sha256sum /tmp/mullvad-relays.txt
+  ```
+- Sample EU/AP relays (pick any that are healthy):
+  - EU: `socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080`, `socks5://nl-ams-wg-socks5-201.relays.mullvad.net:1080`
+  - AP: `socks5://sg-sin-wg-socks5-101.relays.mullvad.net:1080`, `socks5://jp-tyo-wg-socks5-201.relays.mullvad.net:1080`
+- Binance WebSocket pool env example (round-robin):
+  ```bash
+  export CRYPTOFEED_PROXY_ENABLED=true
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL="socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__1__URL="socks5://nl-ams-wg-socks5-201.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__2__URL="socks5://sg-sin-wg-socks5-101.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__3__URL="socks5://jp-tyo-wg-socks5-201.relays.mullvad.net:1080"
+  ```
+- Probe and filter relays (REST + WS reachability/latency):
+  ```bash
+  python tools/binance_proxy_probe.py --regions eu ap --limit 3 --list-sha256 "<sha256 from above>"
+  ```
+  Requires `python-socks`, `aiohttp`, and `websockets`; outputs per-proxy REST/WS status and timing.
+- Requirements:
+  - Install `python-socks` for SOCKS WebSocket tunneling: `pip install python-socks`.
+  - E2E tests remain opt-in: `CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true` and Docker/Redpanda available. Tests live at `tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py`.
+  - If no proxy envs are set, tests run direct; proxy assertions skip when python-socks is missing for SOCKS URLs.
+
+### Route HTTP + WebSocket over SOCKS5 (Binance E2E)
+
+To force both REST and WS paths through SOCKS5 proxies for Binance during the Kafka Protobuf E2E:
+
+```bash
+export CRYPTOFEED_PROXY_ENABLED=true
+
+# HTTP over SOCKS5 (single endpoint)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL="socks5://<host>:<port>"
+
+# WebSocket over SOCKS5 (pool, round-robin example)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL="socks5://<host1>:<port>"
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__1__URL="socks5://<host2>:<port>"
+
+# Alternatively, provide the pool as a JSON list (avoids env parsing quirks):
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+
+# Run the E2E
+CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v
+```
+
+Notes:
+- `python-socks` is required for WS SOCKS tunneling.
+- If no proxies are configured or a SOCKS dependency is missing, the test suite will skip the proxy-specific assertions.
+
 ## Troubleshooting
 
 ### Common Issues
