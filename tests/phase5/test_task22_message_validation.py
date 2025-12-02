@@ -31,32 +31,44 @@ class TestTask22MessageValidation:
     def test_sample_100_messages_from_consolidated_topics(self):
         """AC1: Sample 100 messages from consolidated topics."""
         # Test: Should successfully read and sample 100 messages
-        pytest.skip("Requires running Kafka cluster - will execute during staging validation")
+        pytest.skip(
+            "Requires running Kafka cluster - will execute during staging validation"
+        )
 
     def test_verify_all_4_mandatory_headers_present(self):
         """AC2: Verify all 4 mandatory headers present in 100% of messages."""
         # Test: exchange, symbol, data_type, schema_version must be in all messages
-        pytest.skip("Requires integration test - will execute during staging validation")
+        pytest.skip(
+            "Requires integration test - will execute during staging validation"
+        )
 
     def test_verify_protobuf_deserialization_working(self):
         """AC3: Verify protobuf deserialization working."""
         # Test: Should successfully deserialize protobuf messages
-        pytest.skip("Requires integration test - will execute during staging validation")
+        pytest.skip(
+            "Requires integration test - will execute during staging validation"
+        )
 
     def test_verify_message_size_reduction_63_percent(self):
         """AC4: Verify message size reduction (63% vs JSON baseline)."""
         # Test: Protobuf messages should be ~63% smaller than JSON
-        pytest.skip("Requires integration test - will execute during staging validation")
+        pytest.skip(
+            "Requires integration test - will execute during staging validation"
+        )
 
     def test_test_consumer_offset_management(self):
         """AC5: Test consumer offset management."""
         # Test: Consumer offsets should be managed correctly
-        pytest.skip("Requires integration test - will execute during staging validation")
+        pytest.skip(
+            "Requires integration test - will execute during staging validation"
+        )
 
     def test_zero_message_loss_in_1000_message_test(self):
         """AC6: Zero message loss in 1000 message test."""
         # Test: Produce and consume 1000 messages, verify 0 loss
-        pytest.skip("Requires integration test - will execute during staging validation")
+        pytest.skip(
+            "Requires integration test - will execute during staging validation"
+        )
 
 
 class TestMessageHeaderValidation:
@@ -73,7 +85,9 @@ class TestMessageHeaderValidation:
 
         # Act & Assert
         for i, msg in enumerate(messages):
-            assert "exchange" in msg["headers"], f"Message {i} missing 'exchange' header"
+            assert "exchange" in msg["headers"], (
+                f"Message {i} missing 'exchange' header"
+            )
             assert msg["headers"]["exchange"] is not None
 
     def test_all_messages_have_symbol_header(self):
@@ -101,7 +115,9 @@ class TestMessageHeaderValidation:
 
         # Act & Assert
         for i, msg in enumerate(messages):
-            assert "data_type" in msg["headers"], f"Message {i} missing 'data_type' header"
+            assert "data_type" in msg["headers"], (
+                f"Message {i} missing 'data_type' header"
+            )
             assert msg["headers"]["data_type"] is not None
 
     def test_all_messages_have_schema_version_header(self):
@@ -115,7 +131,9 @@ class TestMessageHeaderValidation:
 
         # Act & Assert
         for i, msg in enumerate(messages):
-            assert "schema_version" in msg["headers"], f"Message {i} missing 'schema_version' header"
+            assert "schema_version" in msg["headers"], (
+                f"Message {i} missing 'schema_version' header"
+            )
             assert msg["headers"]["schema_version"] is not None
 
     def test_header_value_types_bytes(self):
@@ -130,7 +148,9 @@ class TestMessageHeaderValidation:
 
         # Act & Assert
         for header_name, header_value in headers.items():
-            assert isinstance(header_value, bytes), f"Header {header_name} should be bytes"
+            assert isinstance(header_value, bytes), (
+                f"Header {header_name} should be bytes"
+            )
 
     def test_header_values_not_empty(self):
         """Unit: Header values should not be empty."""
@@ -178,12 +198,12 @@ class TestProtobufDeserializationValidation:
     def test_protobuf_message_deserializes_without_error(self):
         """Unit: Protobuf messages should deserialize without errors."""
         # Arrange - simulating a protobuf trade message
-        from cryptofeed.backends import protobuf_helpers
-        from cryptofeed.proto_bindings import trade_pb2
+        from cryptofeed.backends.protobuf import helpers as protobuf_helpers
+        from cryptofeed.backends.protobuf.bindings import trade_pb2
 
         # This would deserialize an actual protobuf message in integration test
         # Unit test confirms protobuf helpers and types are available
-        assert hasattr(protobuf_helpers, 'trade_to_proto')
+        assert hasattr(protobuf_helpers, "trade_to_proto")
         assert trade_pb2 is not None
 
     def test_protobuf_required_fields_present_after_deserialization(self):
@@ -235,6 +255,7 @@ class TestProtobufDeserializationValidation:
         """Unit: Timestamps should be valid and reasonable."""
         # Arrange
         import time
+
         current_timestamp = time.time()
         reasonable_past = current_timestamp - (365 * 24 * 3600)  # 1 year ago
 
@@ -310,7 +331,9 @@ class TestMessageOrderingAndLossDetection:
         difference_pct = difference / legacy_message_count
 
         # Assert
-        assert difference_pct <= tolerance, f"Message count difference {difference_pct * 100}% exceeds tolerance"
+        assert difference_pct <= tolerance, (
+            f"Message count difference {difference_pct * 100}% exceeds tolerance"
+        )
 
 
 class TestConsumerOffsetManagement:
@@ -356,8 +379,8 @@ class TestConsumerOffsetManagement:
         # Arrange
         reset_strategies = [
             "earliest",  # Read from beginning
-            "latest",    # Read from end
-            "none",      # Fail if no committed offset
+            "latest",  # Read from end
+            "none",  # Fail if no committed offset
         ]
 
         # Assert
@@ -373,7 +396,9 @@ class TestConsumerOffsetManagement:
         }
 
         # Assert
-        assert groups["consumer-group-1"]["offset"] != groups["consumer-group-2"]["offset"]
+        assert (
+            groups["consumer-group-1"]["offset"] != groups["consumer-group-2"]["offset"]
+        )
 
 
 class TestMessageFormatValidation:
@@ -392,6 +417,7 @@ class TestMessageFormatValidation:
         """Unit: Message should have timestamp."""
         # Arrange
         import time
+
         message = {
             "timestamp": time.time(),
             "value": b"test",
@@ -420,6 +446,7 @@ class TestMessageFormatValidation:
 
     def test_message_partition_consistent_for_symbol(self):
         """Unit: Same symbol should always go to same partition."""
+
         # Arrange
         def hash_func(s):
             return hash(s) % 12  # 12 partitions
@@ -441,13 +468,15 @@ class TestMessageSizeValidation:
     def test_protobuf_message_size_63_percent_of_json(self):
         """Unit: Protobuf should be ~63% of JSON size."""
         # Arrange
-        json_message = json.dumps({
-            "symbol": "BTC-USD",
-            "exchange": "coinbase",
-            "price": 45000.123456,
-            "amount": 0.5,
-            "timestamp": 1699881600.123456,
-        }).encode()
+        json_message = json.dumps(
+            {
+                "symbol": "BTC-USD",
+                "exchange": "coinbase",
+                "price": 45000.123456,
+                "amount": 0.5,
+                "timestamp": 1699881600.123456,
+            }
+        ).encode()
 
         # Protobuf would be smaller (estimate)
         protobuf_size = int(len(json_message) * 0.63)
@@ -468,7 +497,9 @@ class TestMessageSizeValidation:
         """Unit: Orderbook message size should be reasonable."""
         # Arrange
         # Orderbooks can be larger (multiple levels)
-        estimated_orderbook_size = 10000  # bytes for protobuf orderbook with many levels
+        estimated_orderbook_size = (
+            10000  # bytes for protobuf orderbook with many levels
+        )
 
         # Assert - should be less than 100KB
         assert estimated_orderbook_size < 100 * 1024, "Orderbook message too large"

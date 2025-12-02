@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
-from cryptofeed.proto_bindings import (
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
+from cryptofeed.backends.protobuf.bindings import (
     balance_pb2,
     candle_pb2,
     fill_pb2,

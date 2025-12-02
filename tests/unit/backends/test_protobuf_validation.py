@@ -5,7 +5,7 @@ import pytest
 from cryptofeed.backends.protobuf.serialization import serialize_to_protobuf
 from cryptofeed.backends.protobuf.validation import SchemaValidator
 from cryptofeed.exceptions import ProtobufEncodeError
-from cryptofeed.proto_bindings import trade_pb2
+from cryptofeed.backends.protobuf.bindings import trade_pb2
 
 
 class Trade:

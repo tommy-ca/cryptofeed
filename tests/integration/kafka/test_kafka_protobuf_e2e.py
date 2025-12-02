@@ -16,6 +16,7 @@ from tests.integration.kafka.helpers import ConsumedRecord, consume_one
 
 # ---------------------------------------------------------------------------
 
+
 async def _produce_trade(bootstrap: str, trade: Trade) -> None:
     cb = KafkaProtobufCallback(
         bootstrap_servers=[bootstrap],
@@ -60,7 +61,7 @@ async def test_kafka_protobuf_trade_roundtrip(redpanda):
     assert record.headers[b"data_type"] == b"trade"
 
     # Payload
-    from cryptofeed.proto_bindings import trade_pb2
+    from cryptofeed.backends.protobuf.bindings import trade_pb2
 
     msg = trade_pb2.Trade()
     msg.ParseFromString(record.value)
