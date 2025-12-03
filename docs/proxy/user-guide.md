@@ -523,6 +523,12 @@ export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__1__URL="so
 # Alternatively, provide the pool as a JSON list (avoids env parsing quirks):
 export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
 
+# Use the same SOCKS5 proxies for HTTP + WS (pool for both)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+
 # Run the E2E
 CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v
 ```
