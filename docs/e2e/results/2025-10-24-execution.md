@@ -209,7 +209,7 @@ psutil==7.1.1
 
 ```bash
 # 1. Create environment
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 
 # 2. Activate
 source .venv-e2e/bin/activate

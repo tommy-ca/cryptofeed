@@ -98,7 +98,7 @@ pytest tests/integration/test_live_ccxt_backpack.py -v -m live_proxy
 
 Anyone can reproduce the exact environment:
 ```bash
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 source .venv-e2e/bin/activate
 uv pip install -r tests/e2e/requirements-e2e-lock.txt
 ```

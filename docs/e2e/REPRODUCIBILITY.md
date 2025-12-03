@@ -44,7 +44,7 @@ pytest tests/unit/test_proxy_mvp.py -v
 
 ```bash
 # Step 1: Create virtual environment
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 
 # Step 2: Activate
 source .venv-e2e/bin/activate
@@ -265,7 +265,7 @@ git commit -m "chore(e2e): add/update dependency lock"
 ```bash
 # Before committing updated lock file
 rm -rf .venv-e2e
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 source .venv-e2e/bin/activate
 uv pip install -r tests/e2e/requirements-e2e-lock.txt
 pytest tests/unit/ tests/integration/ -v
