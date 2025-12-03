@@ -1,11 +1,15 @@
 # E2E Testing Guide
 
-**Quick Start** | [Test Plan](TEST_PLAN.md) | [Reproducibility Guide](REPRODUCIBILITY.md) | [Results Archive](results/)
+```bash
+uv venv --python 3.12
+source .venv-e2e/bin/activate
+uv pip install -r tests/e2e/requirements-e2e-lock.txt
+# run tests normally (activation means no uv prefix needed)
+pytest tests/unit/test_proxy_mvp.py -v
+```
 
----
-
-## Overview
-
+- If uv is missing: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- If you prefer not to activate, you can use `uv run pytest …`, but activation keeps commands simple.
 Comprehensive end-to-end testing infrastructure for validating proxy system, CCXT exchange integrations, and native exchange implementations with reproducible environments.
 
 ### Key Features
