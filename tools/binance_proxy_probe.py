@@ -94,6 +94,11 @@ REGION_PREFIXES = {
 }
 
 
+def _extract_country(proxy_url: str) -> str:
+    host = urlparse(proxy_url).hostname or ""
+    return host.split("-")[0] if host else ""
+
+
 def _verify_sha256(text: str, expected: str | None) -> None:
     """Raise ValueError if expected hash is provided and does not match."""
 
@@ -127,18 +132,25 @@ async def _fetch_proxy_list(url: str, expected_sha256: str | None = None) -> Lis
 
 
 def _filter_regions(
-    proxies: Iterable[str], regions: List[str], limit: int
+    proxies: Iterable[str], regions: List[str], limit: int, per_country: bool
 ) -> List[str]:
     selected: List[str] = []
     per_region = max(1, limit)
     region_sets = {r: [] for r in regions}
+    seen_country_per_region: dict[tuple[str, str], bool] = {}
     for proxy in proxies:
         host = urlparse(proxy).hostname or ""
+        country = _extract_country(proxy)
         for region in regions:
             prefixes = REGION_PREFIXES.get(region, ())
             if host.startswith(prefixes):
+                key = (region, country)
+                if per_country and seen_country_per_region.get(key):
+                    break
                 if len(region_sets[region]) < per_region:
                     region_sets[region].append(proxy)
+                    if per_country:
+                        seen_country_per_region[key] = True
                 break
     for region in regions:
         selected.extend(region_sets[region][:per_region])
@@ -220,15 +232,16 @@ async def probe_proxy(
 def _format_row(
     proxy: str, rest_status: str, rest_latency: float, ws_status: str, ws_latency: float
 ) -> str:
+    country = _extract_country(proxy)
     return (
-        f"{proxy:60} REST={rest_status:<12} {rest_latency * 1000:7.1f}ms "
+        f"{country:3} {proxy:56} REST={rest_status:<12} {rest_latency * 1000:7.1f}ms "
         f"WS={ws_status:<14} {ws_latency * 1000:7.1f}ms"
     )
 
 
 async def main(args: argparse.Namespace) -> None:
     proxies = await _fetch_proxy_list(args.list_url, expected_sha256=args.list_sha256)
-    targets = _filter_regions(proxies, args.regions, args.limit)
+    targets = _filter_regions(proxies, args.regions, args.limit, args.per_country)
     if not targets:
         raise SystemExit("No proxies selected; adjust --regions or --limit")
 
@@ -266,6 +279,11 @@ if __name__ == "__main__":
         type=int,
         default=3,
         help="Proxies per region to test (per-region, not global)",
+    )
+    parser.add_argument(
+        "--per-country",
+        action="store_true",
+        help="Select at most one proxy per country (after region filter)",
     )
     parser.add_argument(
         "--rest-timeout", type=float, default=5.0, help="REST timeout seconds"
