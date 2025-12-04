@@ -103,7 +103,11 @@ def _init_proxy_settings_if_configured() -> bool:
     injector = get_proxy_injector()
     if injector and settings.enabled:
         # Warm HTTP proxy retrieval to ensure config parses
-        injector.get_http_proxy_url("binance")
+        http_proxy_url = injector.get_http_proxy_url("binance")
+        if http_proxy_url:
+            # Ensure requests-based REST calls (symbol_mapping) are proxied too
+            os.environ["HTTPS_PROXY"] = http_proxy_url
+            os.environ["HTTP_PROXY"] = http_proxy_url
 
         if ws_proxy:
             # Ensure a proxy entry can be selected from pool/config
