@@ -34,6 +34,9 @@ from uuid import uuid4
 BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
 BINANCE_INFO_URL = "https://api.binance.com/api/v3/exchangeInfo"
 
+# Track original env to restore after tests
+_env_cache: dict[str, str | None] = {}
+
 # Proxy env examples (JSON form for pools is preferred by ProxySettings):
 #   CRYPTOFEED_PROXY_ENABLED=true
 #   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=socks5://user:pass@host:1080
@@ -123,6 +126,10 @@ def _python_socks_available() -> bool:
 
 
 def _init_proxy_settings_if_configured() -> bool:
+    # Preserve prior env so we can restore after test in _shutdown_feeds
+    _env_cache["HTTP_PROXY"] = os.environ.get("HTTP_PROXY")
+    _env_cache["HTTPS_PROXY"] = os.environ.get("HTTPS_PROXY")
+
     settings = load_proxy_settings()
     has_proxy = settings.enabled or settings.default or settings.exchanges
     if not has_proxy:
@@ -251,6 +258,13 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
     kafka_cb = getattr(handler, "kafka_cb", None)
     if kafka_cb and hasattr(kafka_cb, "stop"):
         await kafka_cb.stop()
+
+    # Restore original HTTP proxy envs (set in _init_proxy_settings_if_configured)
+    for key, value in _env_cache.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
     # Reset proxy system to avoid leaking proxy configuration into other tests
     init_proxy_system(ProxySettings(enabled=False))
