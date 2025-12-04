@@ -142,6 +142,50 @@ proxy:
 | **YAML Files** | Production deployments | `proxy: {enabled: true, ...}` |
 | **Python Code** | Dynamic configuration | `ProxySettings(enabled=True, ...)` |
 
+### Environment Examples (Binance HTTP + WebSocket)
+
+**Single SOCKS5 proxy**
+- `CRYPTOFEED_PROXY_ENABLED=true`
+- `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=socks5://user:pass@host:1080`
+- `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=socks5://user:pass@host:1080`
+
+**Proxy pools (JSON form, preferred for correct parsing)**
+- `CRYPTOFEED_PROXY_ENABLED=true`
+- HTTP pool (optional):
+  - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'`
+- WebSocket pool:
+  - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'`
+- Supported strategies: `round_robin` (default), `random`, `least_connections`
+
+**JSON parsing tips**
+- Use single quotes around the JSON string in shell to avoid escaping double quotes.
+- Keep JSON on one line; no trailing commas.
+- Pydantic will parse the JSON string into the pool config; per-exchange settings override defaults.
+
+**Notes**
+- SOCKS WebSocket support requires `python-socks`; SOCKS HTTP requires `aiohttp-socks`.
+- JSON strings must be single-line and quoted as shown (no trailing commas).
+- Defaults can be set with `CRYPTOFEED_PROXY_DEFAULT__HTTP__URL` / `CRYPTOFEED_PROXY_DEFAULT__WEBSOCKET__URL`; per-exchange settings take precedence.
+
+### Selecting Relay Proxies (Mullvad helper)
+
+Use the provided probe script to fetch Mullvad SOCKS relays and test Binance access:
+
+```bash
+# Install deps
+python -m pip install python-socks aiohttp websockets
+
+# Probe a few EU/AP relays (binance REST/WS) from the curated relay list
+python tools/binance_proxy_probe.py --regions eu ap --limit 3
+
+# Output shows status per proxy (OK, GEOBLOCK, TIMEOUT, etc.) and latency.
+# Choose the OK entries and plug them into the pool JSON envs above.
+```
+
+The probe script pulls relays from Mullvad’s published list with checksum verification
+(`tools/binance_proxy_probe.py`), then tests both REST ping and WS trade stream through
+each proxy.
+
 ## Requirements
 
 **Core Dependencies:**
