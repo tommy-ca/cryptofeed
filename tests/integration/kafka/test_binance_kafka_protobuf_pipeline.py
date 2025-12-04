@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import time
 from importlib import import_module
 from urllib.parse import urlparse
 
@@ -29,7 +28,6 @@ from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.proxy import ProxySettings
 from cryptofeed.defines import L2_BOOK
 from cryptofeed.proxy import get_proxy_injector, init_proxy_system, load_proxy_settings
-from tests.integration.kafka.conftest import redpanda
 from tests.integration.kafka.helpers import ConsumedRecord, consume_one
 from uuid import uuid4
 
