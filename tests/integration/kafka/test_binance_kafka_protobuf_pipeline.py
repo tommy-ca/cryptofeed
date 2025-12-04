@@ -32,6 +32,7 @@ from tests.integration.kafka.helpers import ConsumedRecord, consume_one
 from uuid import uuid4
 
 BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
+BINANCE_INFO_URL = "https://api.binance.com/api/v3/exchangeInfo"
 
 # Proxy env examples (JSON form for pools is preferred by ProxySettings):
 #   CRYPTOFEED_PROXY_ENABLED=true
@@ -77,6 +78,40 @@ def _require_binance_e2e_prereqs() -> None:
             f"Binance Kafka Protobuf E2E tests disabled. "
             f"Set {BINANCE_E2E_ENV}=true to enable."
         )
+
+
+async def _preflight_rest_through_proxy() -> None:
+    """Fetch exchangeInfo via configured proxy; skip if unavailable.
+
+    Symbol mapping runs before WS start; if REST is geoblocked the test would
+    otherwise skip later after long waits. This makes the failure explicit.
+    """
+
+    settings = load_proxy_settings()
+    proxy_url = None
+    if settings and (settings.enabled or settings.default or settings.exchanges):
+        injector = get_proxy_injector()
+        if injector:
+            proxy_url = injector.get_http_proxy_url("binance")
+
+    if not proxy_url:
+        return  # no proxy configured; use direct path
+
+    try:
+        import aiohttp
+    except ImportError:
+        pytest.skip("aiohttp not available for REST preflight")
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(BINANCE_INFO_URL, proxy=proxy_url, timeout=12) as resp:
+                if resp.status != 200:
+                    pytest.skip(
+                        f"Binance REST exchangeInfo via proxy failed (status {resp.status});"
+                        " REST geoblocked or proxy blocked."
+                    )
+        except Exception as exc:  # noqa: BLE001
+            pytest.skip(f"Binance REST exchangeInfo via proxy failed: {exc}")
 
 
 def _python_socks_available() -> bool:
@@ -288,6 +323,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
     shared `redpanda` fixture.
     """
     _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
 
     fh: FeedHandler | None = None
     topic = "cryptofeed.trade.binance.btc-usdt"
@@ -342,6 +378,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
 @pytest.mark.live_binance
 async def test_binance_kafka_protobuf_trade_roundtrip_round_robin(redpanda):
     """Validate round-robin partitioning produces keyless records for Binance trades."""
+    await _preflight_rest_through_proxy()
     _require_binance_e2e_prereqs()
 
     fh: FeedHandler | None = None
