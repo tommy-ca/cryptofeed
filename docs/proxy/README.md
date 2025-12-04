@@ -166,6 +166,7 @@ proxy:
 - SOCKS WebSocket support requires `python-socks`; SOCKS HTTP requires `aiohttp-socks`.
 - JSON strings must be single-line and quoted as shown (no trailing commas).
 - Defaults can be set with `CRYPTOFEED_PROXY_DEFAULT__HTTP__URL` / `CRYPTOFEED_PROXY_DEFAULT__WEBSOCKET__URL`; per-exchange settings take precedence.
+- Binance REST symbol metadata (used before WS starts) uses `requests`; set `HTTP_PROXY`/`HTTPS_PROXY` to the leased Binance HTTP proxy in test environments to ensure `exchangeInfo` is not geoblocked.
 
 ### Selecting Relay Proxies (Mullvad helper)
 
