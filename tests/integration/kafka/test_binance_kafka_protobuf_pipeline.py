@@ -35,6 +35,13 @@ from uuid import uuid4
 
 BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
 
+# Proxy env examples (JSON form for pools is preferred by ProxySettings):
+#   CRYPTOFEED_PROXY_ENABLED=true
+#   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=socks5://user:pass@host:1080
+#   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=socks5://user:pass@host:1080
+#   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'
+#   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'
+
 
 class _TestKafkaProtobufCallback(KafkaProtobufCallback):
     """Test shim that accepts the multiprocess kwarg used by FeedHandler.start."""
@@ -112,6 +119,8 @@ def _init_proxy_settings_if_configured() -> bool:
                     pytest.skip(
                         "Binance Kafka Protobuf E2E: websocket proxy configured but no proxy was selected"
                     )
+                # Log-friendly assertion that a concrete proxy URL was resolved
+                assert urlparse(url).scheme, "Binance proxy resolution must return a scheme"
             finally:
                 release()
 
@@ -225,6 +234,37 @@ def test_binance_proxy_resolution_when_configured():
             pytest.skip(
                 "Proxy settings loaded but no Binance-specific HTTP/WS proxy configured"
             )
+        if http_url:
+            assert urlparse(http_url).scheme, "HTTP proxy must include a scheme"
+        if ws_url:
+            assert urlparse(ws_url).scheme, "WS proxy must include a scheme"
+    finally:
+        release()
+
+
+@pytest.mark.integration
+def test_binance_proxy_pool_selection_without_live():
+    """Validate proxy pool entries can be leased without hitting Binance/Redpanda."""
+
+    pool_env_prefix = "CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__"
+    pool_json_env = "CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL"
+
+    has_pool = any(key.startswith(pool_env_prefix) for key in os.environ) or pool_json_env in os.environ
+    if not has_pool:
+        pytest.skip("No Binance proxy pool configuration provided")
+
+    settings = load_proxy_settings()
+    if not (settings.enabled or settings.default or settings.exchanges):
+        pytest.skip("Proxy settings not enabled; pool lease not applicable")
+
+    init_proxy_system(settings)
+    injector = get_proxy_injector()
+    assert injector is not None, "Proxy injector should be initialized for pool test"
+
+    ws_url, release = injector.lease_proxy("binance", "websocket")
+    try:
+        assert ws_url, "Proxy pool should yield a websocket proxy URL"
+        assert urlparse(ws_url).scheme, "Pooled proxy URL must include a scheme"
     finally:
         release()
 
