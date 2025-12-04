@@ -187,6 +187,24 @@ The probe script pulls relays from Mullvad’s published list with checksum veri
 (`tools/binance_proxy_probe.py`), then tests both REST ping and WS trade stream through
 each proxy.
 
+### Running Binance Kafka E2E with proxies (repro checklist)
+
+1) **Probe relays**: `python tools/binance_proxy_probe.py --regions eu ap --limit 3` and pick a relay with REST=OK and WS=OK (e.g., `socks5://at-vie-wg-socks5-101.relays.mullvad.net:1080`).
+2) **Set envs** (single proxy example):
+   - `CRYPTOFEED_PROXY_ENABLED=true`
+   - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=<relay>`
+   - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=<relay>`
+   - `CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true`
+3) **Start Redpanda and create topics**:
+   - `docker compose -f docker/infra/base.yml up -d`
+   - `docker compose -f docker/infra/base.yml exec redpanda rpk topic create cryptofeed.trade.binance.btc-usdt cryptofeed.l2_book.binance.btc-usdt`
+4) **Run tests**: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "trade_roundtrip" -vv -s --maxfail=1`
+5) **Teardown**: `docker compose -f docker/infra/base.yml down`
+
+Notes:
+- REST symbol lookup uses `requests`; the E2E test exports `HTTP_PROXY`/`HTTPS_PROXY` from the leased Binance HTTP proxy so `exchangeInfo` is proxied (avoids geoblocks).
+- A REST preflight in the test skips early with a clear message if `exchangeInfo` via the proxy is blocked.
+
 ## Requirements
 
 **Core Dependencies:**
