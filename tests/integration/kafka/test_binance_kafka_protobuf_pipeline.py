@@ -39,6 +39,12 @@ BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
 #   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=socks5://user:pass@host:1080
 #   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'
 #   CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'
+#
+# Note on REST proxying:
+# Binance feed loads symbol metadata via REST before WS starts. If REST is
+# geoblocked, the test will skip without producing to Kafka. We therefore set
+# HTTP(S)_PROXY to the leased Binance HTTP proxy inside _init_proxy_settings_if_configured
+# to ensure symbol_mapping uses the same proxy as WS.
 
 
 class _TestKafkaProtobufCallback(KafkaProtobufCallback):
