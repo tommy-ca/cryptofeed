@@ -78,13 +78,29 @@ As an operator, I want the Binance E2E harness to honor the proxy system (includ
 3. WHEN a proxy pool is provided (e.g., `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL=...`) THEN the harness SHALL accept it without crash and verify that a proxy entry is selected (round-robin or configured strategy) for Binance connections.
 4. IF no proxy configuration is provided THEN the E2E tests SHALL continue to run direct and MUST NOT regress existing direct-path behavior or skip conditions.
 
+### FR8: Topic Auto-Provision for E2E
+
+As an engineer, I want the Binance Kafka E2E harness to auto-provision required Kafka topics in Redpanda so runs are reproducible without manual setup.
+
+**Acceptance Criteria**
+1. GIVEN a Redpanda/Kafka bootstrap address WHEN the E2E starts THEN it SHALL idempotently ensure the expected topics exist (per-symbol or consolidated based on the configured strategy) before producing.
+2. WHEN topic creation fails (insufficient permissions or broker offline) THEN the tests SHALL skip with a clear message, not hang or partially run.
+3. Partitions/replication SHALL be configurable via env/fixture defaults (sane defaults acceptable for local Redpanda: partitions≥1, replication=1).
+4. Topic names SHALL align with the configured topic strategy (per_symbol by default) and match assertions in the tests.
+
 ## Non-Functional Requirements
 
-### NFR1: Test Stability and Repeatability
+### NFR1: Opt-in, Skippable, Deterministic
+
+As an engineer, I want the Binance Kafka E2E tests to be opt-in, deterministic, and skip when prerequisites are missing, to avoid flaky CI and developer frustration.
 
 1. The Binance E2E tests SHALL include deterministic timeouts and robust skip conditions, so that intermittent external issues (network blips, rate limits) degrade into skipped tests rather than flakiness.
 2. The E2E tests SHOULD minimize the amount of data required (e.g., succeed after a small number of messages) to reduce load on Binance and execution time in CI.
 3. The E2E tests SHOULD avoid assumptions about specific trade activity beyond “at least one message arrives within the timeout window”.
+
+**Notes**
+- Proxies, Redpanda, and Binance WS all need to be reachable for the test to pass; missing dependencies should cause skips, not failures.
+- REST symbol metadata uses `requests`; when proxies are configured, `HTTP_PROXY` / `HTTPS_PROXY` MUST be set so REST bootstrap (exchangeInfo) is proxied consistently with WS.
 
 ### NFR2: Alignment with Existing Specs and Docs
 

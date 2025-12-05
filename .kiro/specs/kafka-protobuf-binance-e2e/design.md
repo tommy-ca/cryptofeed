@@ -212,6 +212,19 @@ This helper is **test-only** and scoped to Kafka integration tests under `tests/
   - `@pytest.mark.kafka`
   - `@pytest.mark.binance_live`
 
+### 4.1.1 Topic Auto-Provisioning (New)
+
+**Objective**: Ensure required topics exist before producing, idempotently, so E2E runs are reproducible without manual setup.
+
+- A lightweight helper (fixture or function) will:
+  - Accept bootstrap, topic names, partitions, replication (env/kwargs with defaults: partitions=1, replication=1 for Redpanda).
+  - Use `rpk topic create` (via docker compose exec) or a Kafka admin client to create topics if missing; succeed if already exists.
+  - On failure (no broker, permissions), emit a clear skip message and abort the test early.
+- Topic list derives from the configured topic strategy:
+  - `per_symbol` default: `cryptofeed.trade.binance.btc-usdt` (and `l2_book` if enabled).
+  - `consolidated`: `cryptofeed.trade`, `cryptofeed.l2_book`.
+- Provisioner runs before feed start and consumer poll; it is safe to run multiple times and should be isolated to the E2E harness (no production code changes).
+
 ### 4.2 Binance Trade Roundtrip with Round-Robin Partitioner
 
 **Objective**: Validate that round-robin partitioning works with `KafkaProtobufCallback` in the Binance pipeline and produces `None` keys.
@@ -291,3 +304,9 @@ The design is considered successfully implemented when:
 2. Kafka headers and payload fields observed in Binance E2E tests match the expectations already validated by `test_kafka_protobuf_e2e.py` and Kafka backend specs.
 3. Binance E2E tests are fully opt-in, clearly marked, and skip cleanly when prerequisites (Docker, network, env var) are not met.
 4. No changes to core production paths (Binance connector, Kafka backend) are required beyond configuration and test wiring.
+
+## Dependencies
+
+- **Redpanda Docker Stack**: `docker/infra/base.yml` for local Kafka-compatible cluster (single broker, replication=1).
+- **Topic Provisioning Tooling (rpk / Kafka Admin)**: Needed to create topics idempotently before E2E runs; defaults must align with the topic strategy under test.
+- **Schema Parity Tooling (schema-parity-hardening)**: Provides parity checks between dataclasses and protobuf schemas; reused for assertions.
