@@ -127,9 +127,28 @@ async def _preflight_rest_through_proxy() -> None:
     except ImportError:
         pytest.skip("aiohttp not available for REST preflight")
 
-    async with aiohttp.ClientSession() as session:
+    connector = None
+    try:
+        scheme = urlparse(proxy_url).scheme.lower()
+        if scheme.startswith("socks"):
+            try:
+                from aiohttp_socks import ProxyConnector  # type: ignore
+
+                connector = ProxyConnector.from_url(proxy_url)
+            except ModuleNotFoundError:
+                pytest.skip(
+                    "Binance REST exchangeInfo via SOCKS proxy requires aiohttp-socks; "
+                    "install it or use HTTP proxy"
+                )
+    except Exception:
+        connector = None
+
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         try:
-            async with session.get(BINANCE_INFO_URL, proxy=proxy_url, timeout=12) as resp:
+            async with session.get(
+                BINANCE_INFO_URL, proxy=None if connector else proxy_url
+            ) as resp:
                 if resp.status != 200:
                     pytest.skip(
                         f"Binance REST exchangeInfo via proxy failed (status {resp.status});"
