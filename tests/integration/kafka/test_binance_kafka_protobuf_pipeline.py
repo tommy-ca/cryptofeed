@@ -31,6 +31,7 @@ from cryptofeed.proxy import get_proxy_injector, init_proxy_system, load_proxy_s
 from tests.integration.kafka.helpers import ConsumedRecord, consume_one
 from tests.integration.kafka.topic_provision import ensure_topics_exist
 from uuid import uuid4
+import contextlib
 
 BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
 BINANCE_INFO_URL = "https://api.binance.com/api/v3/exchangeInfo"
@@ -272,15 +273,22 @@ async def _start_binance_with_kafka(
         else:  # pragma: no cover - future channels
             callbacks[channel] = [_mk_handler(channel.lower())]
 
+    symbols = ["BTC-USDT"]
+    if topic_strategy == "consolidated":
+        symbols.append("ETH-USDT")  # improve early message likelihood
+
     fh.add_feed(
         "BINANCE",
-        symbols=["BTC-USDT"],
+        symbols=symbols,
         channels=_channels,
         callbacks=callbacks,
     )
 
     for feed in fh.feeds:
         feed.start(loop)
+
+    # Allow feeds a moment to establish before consuming (helps L2 snapshot over proxies)
+    await asyncio.sleep(2)
 
     # Return both handler and backend for explicit teardown
     fh.kafka_cb = kafka_cb  # type: ignore[attr-defined]
@@ -295,6 +303,16 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
         shutdown_tasks.append(feed.shutdown())
     if shutdown_tasks:
         await asyncio.gather(*shutdown_tasks)
+
+    # Ensure connection handler background tasks are stopped to avoid pending-task warnings
+    conn = getattr(handler, "conn", None)
+    if conn and hasattr(conn, "close"):
+        await conn.close()
+        watcher = getattr(conn, "_watcher_task", None)
+        if watcher and hasattr(watcher, "cancel") and not watcher.done():
+            watcher.cancel()
+            with contextlib.suppress(Exception):
+                await watcher
 
     kafka_cb = getattr(handler, "kafka_cb", None)
     if kafka_cb and hasattr(kafka_cb, "stop"):
@@ -417,7 +435,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
     assert record.headers[b"schema_version"] == SCHEMA_VERSION.encode()
     assert record.headers[b"cf.serialization_format"] == b"protobuf"
     assert record.headers[b"exchange"] == b"binance"
-    assert record.headers[b"symbol"] == b"BTC-USDT"
+    assert record.headers[b"symbol"] in {b"BTC-USDT", b"ETH-USDT"}
     assert record.headers[b"data_type"] == b"trade"
 
     # Payload assertions
@@ -428,7 +446,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
     msg = trade_pb2.Trade()
     msg.ParseFromString(record.value)
     assert msg.exchange.lower() == "binance"
-    assert msg.symbol == "BTC-USDT"
+    assert msg.symbol in {"BTC-USDT", "ETH-USDT"}
     # Basic sanity checks: non-empty numeric fields
     assert msg.amount not in ("", "0", "0.0")
     assert msg.price not in ("", "0", "0.0")
@@ -504,7 +522,7 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
                 consume_one,
                 redpanda,
                 topic,
-                timeout_s=90.0,
+                timeout_s=150.0,
                 group_id=f"cf-e2e-binance-proto-{uuid4().hex}",
                 offset_reset="latest",
             )
