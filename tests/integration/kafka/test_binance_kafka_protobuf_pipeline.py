@@ -22,7 +22,7 @@ import pytest
 
 from cryptofeed.defines import TRADES
 from cryptofeed.feedhandler import FeedHandler
-from cryptofeed.kafka_callback import KafkaProtobufCallback
+from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.kafka.partitioner import PartitionerFactory
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.proxy import ProxySettings
