@@ -29,10 +29,32 @@ from cryptofeed.proxy import ProxySettings
 from cryptofeed.defines import L2_BOOK
 from cryptofeed.proxy import get_proxy_injector, init_proxy_system, load_proxy_settings
 from tests.integration.kafka.helpers import ConsumedRecord, consume_one
+from tests.integration.kafka.topic_provision import ensure_topics_exist
 from uuid import uuid4
 
 BINANCE_E2E_ENV = "CRYPTODATA_RUN_BINANCE_KAFKA_E2E"
 BINANCE_INFO_URL = "https://api.binance.com/api/v3/exchangeInfo"
+TOPIC_STRATEGY_ENV = "KAFKA_E2E_TOPIC_STRATEGY"
+
+
+def _topic_strategy() -> str:
+    value = os.getenv(TOPIC_STRATEGY_ENV, "per_symbol").lower()
+    return "consolidated" if value == "consolidated" else "per_symbol"
+
+
+def _topic_name(channel: str, strategy: str) -> str:
+    if strategy == "consolidated":
+        if channel == TRADES:
+            return "cryptofeed.trade"
+        if channel == L2_BOOK:
+            return "cryptofeed.l2_book"
+    # per_symbol default
+    if channel == TRADES:
+        return "cryptofeed.trade.binance.btc-usdt"
+    if channel == L2_BOOK:
+        return "cryptofeed.l2_book.binance.btc-usdt"
+    return f"cryptofeed.{channel.lower()}.binance.btc-usdt"
+
 
 # Track original env to restore after tests
 _env_cache: dict[str, str | None] = {}
@@ -182,6 +204,7 @@ async def _start_binance_with_kafka(
     *,
     partition_strategy: str | None = None,
     channels: list[str] | None = None,
+    topic_strategy: str = "per_symbol",
 ) -> FeedHandler:
     """Configure and start a Binance feed wired to KafkaProtobufCallback.
 
@@ -201,8 +224,7 @@ async def _start_binance_with_kafka(
         metrics_exporter=None,
         metrics_enabled=False,
     )
-    # Route per-symbol to get predictable topic names
-    kafka_cb._topic_strategy = "per_symbol"
+    kafka_cb._topic_strategy = topic_strategy
     kafka_cb._enable_partition_key_cache = False
 
     if partition_strategy is not None:
@@ -339,11 +361,17 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
     _require_binance_e2e_prereqs()
     await _preflight_rest_through_proxy()
 
+    strategy = _topic_strategy()
+    topic = _topic_name(TRADES, strategy)
+    await ensure_topics_exist(redpanda, [topic])
+
     fh: FeedHandler | None = None
-    topic = "cryptofeed.trade.binance.btc-usdt"
 
     try:
-        fh = await _start_binance_with_kafka(redpanda_bootstrap=redpanda)
+        fh = await _start_binance_with_kafka(
+            redpanda_bootstrap=redpanda,
+            topic_strategy=strategy,
+        )
 
         # Consume one record from Kafka without blocking the event loop
         try:
@@ -395,13 +423,17 @@ async def test_binance_kafka_protobuf_trade_roundtrip_round_robin(redpanda):
     await _preflight_rest_through_proxy()
     _require_binance_e2e_prereqs()
 
+    strategy = _topic_strategy()
+    topic = _topic_name(TRADES, strategy)
+    await ensure_topics_exist(redpanda, [topic])
+
     fh: FeedHandler | None = None
-    topic = "cryptofeed.trade.binance.btc-usdt"
 
     try:
         fh = await _start_binance_with_kafka(
             redpanda_bootstrap=redpanda,
             partition_strategy="round_robin",
+            topic_strategy=strategy,
         )
 
         try:
@@ -435,13 +467,17 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
 
     _require_binance_e2e_prereqs()
 
+    strategy = _topic_strategy()
+    topic = _topic_name(L2_BOOK, strategy)
+    await ensure_topics_exist(redpanda, [topic])
+
     fh: FeedHandler | None = None
-    topic = "cryptofeed.l2_book.binance.btc-usdt"
 
     try:
         fh = await _start_binance_with_kafka(
             redpanda_bootstrap=redpanda,
             channels=[L2_BOOK],
+            topic_strategy=strategy,
         )
 
         try:
