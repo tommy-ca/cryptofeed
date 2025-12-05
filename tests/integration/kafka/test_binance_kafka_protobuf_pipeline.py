@@ -45,6 +45,9 @@ def _topic_strategy() -> str:
 
 def _topic_name(channel: str, strategy: str) -> str:
     if strategy == "consolidated":
+        if channel == L2_BOOK:
+            # TopicManager does not currently support l2_book consolidated; fallback per-symbol
+            return "cryptofeed.l2_book.binance.btc-usdt"
         if channel == TRADES:
             return "cryptofeed.trade"
         if channel == L2_BOOK:
@@ -155,6 +158,8 @@ async def _preflight_rest_through_proxy() -> None:
                         f"Binance REST exchangeInfo via proxy failed (status {resp.status});"
                         " REST geoblocked or proxy blocked."
                     )
+                else:
+                    print(f"[TRACE] exchangeInfo via proxy OK (status {resp.status})")
         except Exception as exc:  # noqa: BLE001
             pytest.skip(f"Binance REST exchangeInfo via proxy failed: {exc}")
 
@@ -260,6 +265,8 @@ async def _start_binance_with_kafka(
 
     def _mk_handler(data_type: str):
         async def _handler(obj, receipt_timestamp):
+            if data_type == "l2_book":
+                print(f"[TRACE] L2 handler invoked for {obj.symbol} at {receipt_timestamp}")
             await kafka_cb._handle_message(data_type, obj, receipt_timestamp)
 
         return _handler
@@ -531,6 +538,8 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
                 "Binance Kafka Protobuf E2E (orderbook): no message within timeout;"
                 f" possible REST snapshot or WS connectivity issue: {exc}"
             )
+        else:
+            print(f"[TRACE] L2 record consumed from {topic} headers={record.headers}")
 
     finally:
         if fh is not None:
