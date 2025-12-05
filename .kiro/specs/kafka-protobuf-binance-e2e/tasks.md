@@ -98,6 +98,22 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Define a guarded target (e.g., `docker-stop-19092`) that can stop conflicting containers, documenting in comments that it SHOULD be used only after manual review.
   - Document these targets in the Kafka / Redpanda test documentation to reduce accidental disruption of unrelated services.
 
+- [ ] 4.3 Add clear skip conditions for missing Docker/Redpanda/Binance
+  - Ensure skips occur when `docker compose` is unavailable, Redpanda fails to start, or Binance endpoints are unreachable within timeouts.
+
+- [ ] 4.4 Implement topic auto-provision helper (FR8)
+  - Create an idempotent helper/fixture that ensures required topics exist based on the configured topic strategy (per_symbol default, consolidated optional).
+  - Support configurable partitions/replication via env/kwargs (defaults: partitions=1, replication=1 for local Redpanda).
+  - On failure to create topics, skip with a clear message; do not proceed to feed start.
+
+- [ ] 4.5 Wire auto-provision into Binance E2E
+  - Invoke the provisioning helper before starting `FeedHandler` and before consumer poll in the Binance trade/L2 tests.
+  - Keep behavior isolated to tests; no production Kafka code changes.
+
+- [ ] 4.6 Document proxy and topic setup in test module/README
+  - Update test module notes or supporting docs to describe proxy envs, REST proxying via HTTP(S)_PROXY, and the new auto-provision behavior.
+  - Include rpk/Kafka admin command examples for manual verification.
+
 ---
 
 ## Phase 5: Validation and Documentation
