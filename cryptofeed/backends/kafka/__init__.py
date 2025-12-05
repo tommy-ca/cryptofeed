@@ -1,30 +1,9 @@
-"""DEPRECATION NOTICE
+"""Kafka backend (canonical).
 
-This module remains for backward compatibility only. Migrate to
-`cryptofeed.kafka_callback.KafkaCallback` and `cryptofeed.backends.kafka.callback`
-for the unified implementation.
-
-Migration Guide highlights:
-- TopicManager, HeaderEnricher, Partitioner now live under cryptofeed.backends.kafka
-- Use KafkaConfig/KafkaTopicConfig/KafkaPartitionConfig for configuration
-- Legacy classes (TradeKafka, BookKafka, etc.) are deprecated shims and emit
-  warnings on import/instantiation.
-- Error handling, schema headers, and serialization are improved in the new
-  callback (see TopicManager, HeaderEnricher, Partitioner, and error handling sections).
+This package contains the current Kafka producer/callback implementations.
+`cryptofeed.kafka_callback` remains as a legacy shim and emits its own
+deprecation warning on import.
 """
-
-import warnings
-
-def _emit_module_deprecation_warning():
-    warnings.warn(
-        "cryptofeed.backends.kafka is deprecated; use cryptofeed.kafka_callback / "
-        "cryptofeed.backends.kafka.callback instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-
-_emit_module_deprecation_warning()
 
 from .base import KafkaBackendBase, KafkaQueuedMessage  # noqa: F401
 from .callback import KafkaCallback  # noqa: F401
