@@ -187,23 +187,45 @@ The probe script pulls relays from Mullvad’s published list with checksum veri
 (`tools/binance_proxy_probe.py`), then tests both REST ping and WS trade stream through
 each proxy.
 
-### Running Binance Kafka E2E with proxies (repro checklist)
+### Binance → Kafka Protobuf E2E via Mullvad relays
 
-1) **Probe relays**: `python tools/binance_proxy_probe.py --regions eu ap --limit 3` and pick a relay with REST=OK and WS=OK (e.g., `socks5://at-vie-wg-socks5-101.relays.mullvad.net:1080`).
-2) **Set envs** (single proxy example):
-   - `CRYPTOFEED_PROXY_ENABLED=true`
-   - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=<relay>`
-   - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=<relay>`
-   - `CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true`
-3) **Start Redpanda and create topics**:
-   - `docker compose -f docker/infra/base.yml up -d`
-   - `docker compose -f docker/infra/base.yml exec redpanda rpk topic create cryptofeed.trade.binance.btc-usdt cryptofeed.l2_book.binance.btc-usdt`
-4) **Run tests**: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "trade_roundtrip" -vv -s --maxfail=1`
-5) **Teardown**: `docker compose -f docker/infra/base.yml down`
+1) **Fetch relay list + checksum** (public artifact):
+   ```bash
+   curl -s https://raw.githubusercontent.com/tommy-ca/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt \
+     -o /tmp/mullvad-relays.txt
+   sha256sum /tmp/mullvad-relays.txt
+   # expected: c0975acd3fe2d28a8f8e1c8fd0cf20a74feef63b1864d438b3ae7a60151e51c8
+   ```
+2) **Probe relays for Binance REST/WS** (pick OK entries):
+   ```bash
+   python tools/binance_proxy_probe.py \
+     --list-url https://raw.githubusercontent.com/tommy-ca/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt \
+     --list-sha256 c0975acd3fe2d28a8f8e1c8fd0cf20a74feef63b1864d438b3ae7a60151e51c8 \
+     --regions eu ap --limit 3 --per-country
+   ```
+   Example OK pool used in tests: `socks5://al-tia-wg-socks5-003.relays.mullvad.net:1080`, `socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080`.
+3) **Set proxy + E2E envs** (pool example):
+   ```bash
+   export CRYPTOFEED_PROXY_ENABLED=true
+   export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://al-tia-wg-socks5-003.relays.mullvad.net:1080"},{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+   export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL=$CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL
+   export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true
+   # topic strategy: per_symbol (default) or consolidated
+   export KAFKA_E2E_TOPIC_STRATEGY=consolidated   # or per_symbol
+   ```
+4) **Start Redpanda** (topics auto-provisioned by tests):
+   ```bash
+   make redpanda-up
+   ```
+5) **Run E2E tests**:
+   - Per-symbol trade + orderbook: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v -s`
+   - Orderbook only: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "orderbook_snapshot_roundtrip" -v -s`
+6) **Teardown**: `make redpanda-down`
 
 Notes:
-- REST symbol lookup uses `requests`; the E2E test exports `HTTP_PROXY`/`HTTPS_PROXY` from the leased Binance HTTP proxy so `exchangeInfo` is proxied (avoids geoblocks).
-- A REST preflight in the test skips early with a clear message if `exchangeInfo` via the proxy is blocked.
+- REST `exchangeInfo` preflight now supports SOCKS via `aiohttp_socks`; failures skip early.
+- Consolidated strategy now produces L2 to `cryptofeed.l2_book` (TopicManager supports `l2_book`).
+- Topic provisioning is handled by the test helper; no manual `rpk topic create` needed.
 
 ## Requirements
 
