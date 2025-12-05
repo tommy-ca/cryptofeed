@@ -524,7 +524,7 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
                 topic,
                 timeout_s=150.0,
                 group_id=f"cf-e2e-binance-proto-{uuid4().hex}",
-                offset_reset="latest",
+                offset_reset="earliest",
             )
         except AssertionError as exc:
             pytest.skip(
