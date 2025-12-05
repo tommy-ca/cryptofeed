@@ -23,6 +23,7 @@ class TopicManager:
         "trade",
         "trades",  # plural form supported for backward compatibility
         "orderbook",
+        "l2_book",
         "ticker",
         "candle",
         "funding",
