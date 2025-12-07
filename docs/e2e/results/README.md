@@ -4,6 +4,17 @@ This directory contains historical test execution reports and detailed results.
 
 ---
 
+## 2025-12-07 Binance → Kafka (Mullvad relays)
+
+- **Scope**: Binance REST/WS through Mullvad SOCKS5 relays into Kafka Protobuf backend (Redpanda)
+- **Result**: 5/5 tests passed (trade, trade RR, orderbook, proxy resolution, pool selection)
+- **Proxy Pool**: at-vie-wg-socks5-001, be-bru-wg-socks5-101, hk-hkg-wg-socks5-201
+- **Topic Strategy**: consolidated
+- **Duration**: 56.57s
+- **Report**: [Full details](2025-12-07-binance-kafka-mullvad.md)
+
+---
+
 ## 2025-10-24 Execution
 
 ### Summary
