@@ -10,7 +10,6 @@ ccxt>=4.5.9
 pyyaml
 PyNaCl>=1.5
 pyscn>=0.6.0
-requests>=2.18.4
 uvloop; platform_system!="Windows"
 websockets>=14.1
 orjson>=3.10.0

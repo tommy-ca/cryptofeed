@@ -20,7 +20,7 @@ _BASE_REQUIREMENTS = [
     "cython",
     "order_book>=0.6.1",
     "pyyaml",
-    "requests>=2.18.4",
+    # requests no longer required at runtime; aiohttp used for HTTP paths
     "websockets>=14.1",
     "orjson>=3.10.0",
     "pydantic>=2.0.0",
