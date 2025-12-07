@@ -556,6 +556,73 @@ async def test_binance_kafka_protobuf_ticker_roundtrip(redpanda):
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.live_binance
+async def test_binance_kafka_protobuf_multi_channel_roundtrip(redpanda):
+    """Multi-channel path: trades + orderbook + ticker via consolidated/per-symbol topics."""
+
+    _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
+
+    strategy = _topic_strategy()
+    channels = [TRADES, L2_BOOK, TICKER]
+    topics = [_topic_name(ch, strategy) for ch in channels]
+    await ensure_topics_exist(redpanda, topics)
+
+    fh: FeedHandler | None = None
+
+    try:
+        fh = await _start_binance_with_kafka(
+            redpanda_bootstrap=redpanda,
+            channels=channels,
+            topic_strategy=strategy,
+        )
+
+        records = {}
+        timeouts = {TRADES: 60.0, L2_BOOK: 120.0, TICKER: 60.0}
+        for ch, topic in zip(channels, topics):
+            try:
+                records[ch] = await asyncio.to_thread(
+                    consume_one,
+                    redpanda,
+                    topic,
+                    timeout_s=timeouts[ch],
+                    group_id=f"cf-e2e-binance-proto-{ch}-{uuid4().hex}",
+                    offset_reset="latest",
+                )
+            except AssertionError as exc:
+                pytest.skip(
+                    f"Binance Kafka Protobuf E2E ({ch}): no message consumed within timeout: {exc}"
+                )
+
+    finally:
+        if fh is not None:
+            await _shutdown_feeds(fh)
+
+    for ch, record in records.items():
+        _assert_or_skip_headers(record)
+        assert record.headers[b"data_type"] == ch.encode()
+
+    from cryptofeed.backends.protobuf import bindings as pb_bindings
+
+    trade_pb2 = pb_bindings.trade_pb2
+    l2_pb2 = pb_bindings.order_book_pb2
+    ticker_pb2 = pb_bindings.ticker_pb2
+
+    msg_trade = trade_pb2.Trade()
+    msg_trade.ParseFromString(records[TRADES].value)
+    assert msg_trade.symbol
+
+    msg_book = l2_pb2.Level2Book()
+    msg_book.ParseFromString(records[L2_BOOK].value)
+    assert msg_book.bids or msg_book.asks
+
+    msg_ticker = ticker_pb2.Ticker()
+    msg_ticker.ParseFromString(records[TICKER].value)
+    assert msg_ticker.bid or msg_ticker.ask
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+@pytest.mark.live_binance
 async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
     """Order book snapshot+delta path: Binance L2 → Kafka Protobuf → decode."""
 
