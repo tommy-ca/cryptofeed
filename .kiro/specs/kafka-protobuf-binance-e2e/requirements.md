@@ -77,6 +77,7 @@ As an operator, I want the Binance E2E harness to honor the proxy system (includ
 2. WHEN a SOCKS or HTTP proxy is configured for Binance WS/REST THEN the test harness SHALL assert proxy resolution (e.g., via `get_proxy_injector().get_http_proxy_url('binance')` / `get_websocket_proxy_url`) and skip with a clear message if the required dependency (`python-socks` for SOCKS WS) is unavailable.
 3. WHEN a proxy pool is provided (e.g., `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL=...`) THEN the harness SHALL accept it without crash and verify that a proxy entry is selected (round-robin or configured strategy) for Binance connections.
 4. IF no proxy configuration is provided THEN the E2E tests SHALL continue to run direct and MUST NOT regress existing direct-path behavior or skip conditions.
+5. Symbol metadata bootstrap (`exchangeInfo` / `symbol_mapping`) and private listen-key acquisition/refresh MUST honor ProxySettings and use non-blocking, timeout-bound HTTP calls (aiohttp or equivalent); sync `requests` fallbacks that bypass the ProxyInjector are disallowed for Binance paths.
 
 ### FR8: Topic Auto-Provision for E2E
 
