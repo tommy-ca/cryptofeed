@@ -12,7 +12,6 @@ import asyncio
 import base64
 import hmac
 import logging
-import requests
 import time
 
 from cryptofeed.connection import AsyncConnection, RestEndpoint, Routes, WebsocketEndpoint
@@ -22,6 +21,8 @@ from cryptofeed.feed import Feed
 from cryptofeed.exceptions import BadChecksum
 from cryptofeed.symbols import Symbol
 from cryptofeed.types import OrderBook, Trade, Ticker, Funding, OpenInterest, Liquidation, OrderInfo, Candle
+from cryptofeed.exchange import _fetch_json_via_proxy, _run_async_fetch, ExchangeRuntimeSettings
+from cryptofeed.proxy import get_proxy_injector
 
 
 LOG = logging.getLogger("feedhandler")
@@ -486,11 +487,25 @@ class OKX(Feed, OKXRestMixin):
 
     def _get_server_time(self):
         endpoint = "public/time"
-        response = requests.get(self.api + endpoint)
-        if response.status_code == 200:
-            return response.json()['data'][0]['ts']
-        else:
+        injector = get_proxy_injector()
+        proxy_url = None
+        release = lambda: None
+        if injector:
+            proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
+        try:
+            data = _run_async_fetch(
+                _fetch_json_via_proxy(
+                    self.api + endpoint,
+                    proxy_url,
+                    timeout=ExchangeRuntimeSettings().symbol_fetch_timeout,
+                    headers=None,
+                )
+            )
+            return data.get('data', [{}])[0].get('ts', "")
+        except Exception:
             return ""
+        finally:
+            release()
 
     def _server_timestamp(self):
         server_time = self._get_server_time()
