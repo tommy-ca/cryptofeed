@@ -44,3 +44,13 @@ def test_no_kafka_callback_protobuf_usage_in_code():
         if 'serialization_format="protobuf"' in text or "serialization_format='protobuf'" in text:
             violations.append(rel)
     assert not violations, f"KafkaCallback protobuf usage found in code: {violations}"
+
+
+def test_no_kafka_callback_shim_imports_in_code():
+    violations = []
+    for rel, path in _iter_code_files():
+        text = path.read_text(encoding="utf-8")
+        if "cryptofeed.kafka_callback" in text:
+            violations.append(rel)
+
+    assert not violations, f"Legacy shim imports found outside allowed paths: {violations}"
