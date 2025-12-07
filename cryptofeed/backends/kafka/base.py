@@ -40,6 +40,7 @@ _SUPPORTED_METHODS: Dict[str, str] = {
     "nbbo": "top_of_book",
     "l2_delta": "l2_delta",
     "level2_delta": "l2_delta",
+    "candles": "candle",
 }
 
 

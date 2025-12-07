@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from cryptofeed.defines import TRADES, TICKER
+from cryptofeed.defines import TRADES, TICKER, CANDLES
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.kafka.partitioner import PartitionerFactory
@@ -51,6 +51,8 @@ def _topic_name(channel: str, strategy: str) -> str:
             return "cryptofeed.l2_book"
         if channel == TICKER:
             return "cryptofeed.ticker"
+        if channel == CANDLES:
+            return "cryptofeed.candle"
     # per_symbol default
     if channel == TRADES:
         return "cryptofeed.trade.binance.btc-usdt"
@@ -58,6 +60,8 @@ def _topic_name(channel: str, strategy: str) -> str:
         return "cryptofeed.l2_book.binance.btc-usdt"
     if channel == TICKER:
         return "cryptofeed.ticker.binance.btc-usdt"
+    if channel == CANDLES:
+        return "cryptofeed.candle.binance.btc-usdt"
     return f"cryptofeed.{channel.lower()}.binance.btc-usdt"
 
 
@@ -551,6 +555,61 @@ async def test_binance_kafka_protobuf_ticker_roundtrip(redpanda):
     assert msg.exchange.lower() == "binance"
     assert msg.symbol
     assert msg.bid or msg.ask
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+@pytest.mark.live_binance
+async def test_binance_kafka_protobuf_candle_roundtrip(redpanda):
+    """Candle path: Binance kline → Kafka Protobuf → decode."""
+
+    _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
+
+    strategy = _topic_strategy()
+    topic = _topic_name(CANDLES, strategy)
+    await ensure_topics_exist(redpanda, [topic])
+
+    fh: FeedHandler | None = None
+
+    try:
+        fh = await _start_binance_with_kafka(
+            redpanda_bootstrap=redpanda,
+            channels=[CANDLES],
+            topic_strategy=strategy,
+        )
+
+        try:
+            record: ConsumedRecord = await asyncio.to_thread(
+                consume_one,
+                redpanda,
+                topic,
+                timeout_s=180.0,  # candle updates can be slower
+                group_id=f"cf-e2e-binance-proto-candle-{uuid4().hex}",
+                offset_reset="latest",
+            )
+        except AssertionError as exc:
+            pytest.skip(
+                f"Binance Kafka Protobuf E2E (candle): "
+                f"no message consumed within timeout: {exc}"
+            )
+
+    finally:
+        if fh is not None:
+            await _shutdown_feeds(fh)
+
+    _assert_or_skip_headers(record)
+    assert record.headers[b"data_type"] == b"candle"
+
+    from cryptofeed.backends.protobuf import bindings as pb_bindings
+
+    candle_pb2 = pb_bindings.candle_pb2
+    msg = candle_pb2.Candle()
+    msg.ParseFromString(record.value)
+    assert msg.exchange.lower() == "binance"
+    assert msg.symbol
+    # at least one price field present
+    assert msg.open or msg.close or msg.high or msg.low
 
 
 @pytest.mark.asyncio
