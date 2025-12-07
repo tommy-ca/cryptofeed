@@ -21,6 +21,7 @@ from urllib.parse import urljoin
 
 import grpc
 import requests
+import os
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError, Timeout, RequestException
@@ -120,6 +121,19 @@ class SchemaRegistryConfig(BaseModel):
         return v
 
 
+def _schema_registry_http_settings():
+    timeout = float(
+        os.getenv("CRYPTOFEED_SCHEMA_REGISTRY_TIMEOUT")
+        or os.getenv("CF_SCHEMA_REGISTRY_TIMEOUT")
+        or 10
+    )
+    proxy = os.getenv("CRYPTOFEED_SCHEMA_REGISTRY_PROXY") or os.getenv(
+        "CF_SCHEMA_REGISTRY_PROXY"
+    )
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    return timeout, proxies
+
+
 # ============================================================================
 # Exception Classes
 # ============================================================================
@@ -168,6 +182,7 @@ class SchemaRegistry(ABC):
             config: SchemaRegistryConfig with registry connection details
         """
         self.config = config
+        self._http_timeout, self._http_proxies = _schema_registry_http_settings()
         self.cache_size = config.cache_size
         self.cache_ttl_seconds = config.cache_ttl_seconds
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -385,7 +400,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
-                timeout=30,
+                timeout=self._http_timeout,
+                proxies=self._http_proxies,
             )
 
             if response.status_code == 200:
@@ -448,7 +464,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             response = requests.get(
                 url,
                 auth=self._auth,
-                timeout=30,
+                timeout=self._http_timeout,
+                proxies=self._http_proxies,
             )
 
             if response.status_code == 200:
@@ -491,7 +508,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             response = requests.get(
                 url,
                 auth=self._auth,
-                timeout=30,
+                timeout=self._http_timeout,
+                proxies=self._http_proxies,
             )
 
             if response.status_code == 200:
@@ -541,7 +559,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
-                timeout=30,
+                timeout=self._http_timeout,
+                proxies=self._http_proxies,
             )
 
             if response.status_code == 200:
@@ -581,7 +600,8 @@ class ConfluentSchemaRegistry(SchemaRegistry):
                 url,
                 json=payload,
                 auth=self._auth,
-                timeout=30,
+                timeout=self._http_timeout,
+                proxies=self._http_proxies,
             )
 
             if response.status_code == 200:
