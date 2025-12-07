@@ -599,7 +599,11 @@ async def test_binance_kafka_protobuf_multi_channel_roundtrip(redpanda):
 
     for ch, record in records.items():
         _assert_or_skip_headers(record)
-        assert record.headers[b"data_type"] == ch.encode()
+        expected = ch.encode()
+        # trades channel maps to data_type 'trade'
+        if ch == TRADES:
+            expected = b"trade"
+        assert record.headers[b"data_type"] == expected
 
     from cryptofeed.backends.protobuf import bindings as pb_bindings
 
