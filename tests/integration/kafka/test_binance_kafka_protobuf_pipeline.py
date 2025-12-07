@@ -113,12 +113,11 @@ async def _preflight_rest_through_proxy() -> None:
     otherwise skip later after long waits. This makes the failure explicit.
     """
 
-    settings = load_proxy_settings()
+    _init_proxy_settings_if_configured()
     proxy_url = None
-    if settings and (settings.enabled or settings.default or settings.exchanges):
-        injector = get_proxy_injector()
-        if injector:
-            proxy_url = injector.get_http_proxy_url("binance")
+    injector = get_proxy_injector()
+    if injector:
+        proxy_url = injector.get_http_proxy_url("binance")
 
     if not proxy_url:
         return  # no proxy configured; use direct path
