@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import os
 import warnings
 
 import pytest
@@ -212,6 +213,21 @@ def test_kafka_callback_protobuf_mode_emits_warning():
     assert any(
         issubclass(w.category, DeprecationWarning) for w in caught
     ), "Expected DeprecationWarning when using KafkaCallback with protobuf serialization"
+
+
+def test_kafka_callback_protobuf_mode_disallowed_after_cutoff(monkeypatch):
+    factory = DummyProducerFactory()
+    monkeypatch.setenv("CF_KAFKA_PROTOBUF_CUTOFF", "2020-01-01")
+
+    with pytest.raises(RuntimeError, match="protobuf mode is disabled after"):
+        KafkaCallback(
+            bootstrap_servers=["kafka:9092"],
+            producer_factory=factory,
+            serialization_format="protobuf",
+            metrics_exporter=StubMetrics(),
+        )
+
+    monkeypatch.delenv("CF_KAFKA_PROTOBUF_CUTOFF", raising=False)
 
 
 def test_kafka_callback_uses_binding_schema_version_by_default():

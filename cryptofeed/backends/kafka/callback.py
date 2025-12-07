@@ -14,21 +14,32 @@ import warnings
 
 from cryptofeed.json_utils import dumps_bytes
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+DEFAULT_PROTOBUF_CUTOFF = "2026-02-01"
+
+
 def _get_cutoff(override=None):
     from datetime import datetime
     import os
-    raw = override or os.environ.get("CF_KAFKA_PROTOBUF_CUTOFF", "2026-02-01")
+
+    raw = override or os.environ.get("CF_KAFKA_PROTOBUF_CUTOFF", DEFAULT_PROTOBUF_CUTOFF)
     if raw is None:
-        raw = "2026-02-01"
+        raw = DEFAULT_PROTOBUF_CUTOFF
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
     except Exception:
-        return datetime(2026, 2, 1).date()
+        return datetime.strptime(DEFAULT_PROTOBUF_CUTOFF, "%Y-%m-%d").date()
 
 
 def _protobuf_mode_allowed(cutoff_date):
     from datetime import date
+
     return date.today() < cutoff_date
+
+
+def _format_disable_date(cutoff_date):
+    from datetime import timedelta
+
+    return (cutoff_date - timedelta(days=1)).isoformat()
 
 from .base import KafkaBackendBase, KafkaQueuedMessage
 from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
@@ -158,7 +169,7 @@ class KafkaCallback(KafkaBackendBase):
                     _emit_protobuf_deprecation_warning(self._protobuf_cutoff)
                 else:
                     raise RuntimeError(
-                        "KafkaCallback protobuf mode is disabled; use KafkaProtobufCallback"
+                        f"KafkaCallback protobuf mode is disabled after {_format_disable_date(self._protobuf_cutoff)}; use KafkaProtobufCallback"
                     )
 
         # Instantiate topic manager with config strategy (Task 4.3)
@@ -654,7 +665,10 @@ class HealthCheckDeterminer:
         return 503
 def _emit_protobuf_deprecation_warning(cutoff):
     warnings.warn(
-        f"Use KafkaProtobufCallback for protobuf payloads; KafkaCallback protobuf mode will be removed after {cutoff}.",
+        (
+            "Use KafkaProtobufCallback for protobuf payloads; "
+            f"KafkaCallback protobuf mode will be removed after {_format_disable_date(cutoff)}."
+        ),
         DeprecationWarning,
         stacklevel=3,
     )
