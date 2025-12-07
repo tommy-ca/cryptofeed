@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from cryptofeed.defines import TRADES
+from cryptofeed.defines import TRADES, TICKER
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.kafka.partitioner import PartitionerFactory
@@ -49,11 +49,15 @@ def _topic_name(channel: str, strategy: str) -> str:
             return "cryptofeed.trade"
         if channel == L2_BOOK:
             return "cryptofeed.l2_book"
+        if channel == TICKER:
+            return "cryptofeed.ticker"
     # per_symbol default
     if channel == TRADES:
         return "cryptofeed.trade.binance.btc-usdt"
     if channel == L2_BOOK:
         return "cryptofeed.l2_book.binance.btc-usdt"
+    if channel == TICKER:
+        return "cryptofeed.ticker.binance.btc-usdt"
     return f"cryptofeed.{channel.lower()}.binance.btc-usdt"
 
 
@@ -493,6 +497,60 @@ async def test_binance_kafka_protobuf_trade_roundtrip_round_robin(redpanda):
 
     _assert_or_skip_headers(record)
     assert record.key is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+@pytest.mark.live_binance
+async def test_binance_kafka_protobuf_ticker_roundtrip(redpanda):
+    """Ticker path: Binance 24h ticker → Kafka Protobuf → decode."""
+
+    _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
+
+    strategy = _topic_strategy()
+    topic = _topic_name(TICKER, strategy)
+    await ensure_topics_exist(redpanda, [topic])
+
+    fh: FeedHandler | None = None
+
+    try:
+        fh = await _start_binance_with_kafka(
+            redpanda_bootstrap=redpanda,
+            channels=[TICKER],
+            topic_strategy=strategy,
+        )
+
+        try:
+            record: ConsumedRecord = await asyncio.to_thread(
+                consume_one,
+                redpanda,
+                topic,
+                timeout_s=60.0,
+                group_id=f"cf-e2e-binance-proto-{uuid4().hex}",
+                offset_reset="latest",
+            )
+        except AssertionError as exc:
+            pytest.skip(
+                f"Binance Kafka Protobuf E2E (ticker): "
+                f"no message consumed within timeout: {exc}"
+            )
+
+    finally:
+        if fh is not None:
+            await _shutdown_feeds(fh)
+
+    _assert_or_skip_headers(record)
+    assert record.headers[b"data_type"] == b"ticker"
+
+    from cryptofeed.backends.protobuf import bindings as pb_bindings
+
+    ticker_pb2 = pb_bindings.ticker_pb2
+    msg = ticker_pb2.Ticker()
+    msg.ParseFromString(record.value)
+    assert msg.exchange.lower() == "binance"
+    assert msg.symbol
+    assert msg.bid or msg.ask
 
 
 @pytest.mark.asyncio
