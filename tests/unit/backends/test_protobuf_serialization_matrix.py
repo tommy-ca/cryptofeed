@@ -159,6 +159,26 @@ OBJECTS = {
         amount=Decimal("50"),
         timestamp=1700000000.0,
     ),
+    "TopOfBook": lambda: _make(
+        "TopOfBook",
+        exchange="ex",
+        symbol="BTC-USD",
+        bid_price=Decimal("100"),
+        bid_size=Decimal("1.2"),
+        ask_price=Decimal("100.5"),
+        ask_size=Decimal("0.8"),
+        timestamp=1700000000.0,
+    ),
+    "Level2Delta": lambda: _make(
+        "Level2Delta",
+        exchange="ex",
+        symbol="BTC-USD",
+        bids=[(Decimal("100"), Decimal("1.0"))],
+        asks=[(Decimal("100.5"), Decimal("0.5"))],
+        timestamp=1700000000.0,
+        sequence=123,
+        checksum="abc",
+    ),
 }
 
 

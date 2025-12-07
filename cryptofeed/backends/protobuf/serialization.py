@@ -24,6 +24,8 @@ from .bindings import (
     order_info_pb2,
     order_pb2,
     transaction_pb2,
+    top_of_book_pb2,
+    level2_delta_pb2,
     REQUIRED_MODULES,
 )
 
@@ -47,6 +49,8 @@ PROTO_MODULES: Dict[str, Any] = {
     "order_info_pb2": order_info_pb2,
     "order_pb2": order_pb2,
     "transaction_pb2": transaction_pb2,
+    "top_of_book_pb2": top_of_book_pb2,
+    "level2_delta_pb2": level2_delta_pb2,
 }
 
 TYPE_NAME_OVERRIDES = {
