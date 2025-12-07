@@ -16,6 +16,8 @@ from .bindings import (
     order_info_pb2,
     order_pb2,
     transaction_pb2,
+    top_of_book_pb2,
+    level2_delta_pb2,
 )
 
 
@@ -389,5 +391,68 @@ def transaction_to_proto(transaction_obj) -> transaction_pb2.Transaction:
         proto.amount = str(transaction_obj.amount)
     if transaction_obj.timestamp is not None:
         proto.timestamp = int(transaction_obj.timestamp * 1_000_000)
+
+    return proto
+
+
+def top_of_book_to_proto(tob_obj) -> top_of_book_pb2.TopOfBook:
+    """
+    Convert TopOfBook (best bid/ask) to protobuf.
+
+    Expected attributes:
+    - exchange, symbol
+    - bid_price, bid_size, ask_price, ask_size (Decimal → string)
+    - timestamp (float seconds → int64 microseconds)
+    """
+    proto = top_of_book_pb2.TopOfBook()
+    proto.exchange = getattr(tob_obj, "exchange", "") or ""
+    proto.symbol = getattr(tob_obj, "symbol", "") or ""
+
+    if getattr(tob_obj, "bid_price", None) is not None:
+        proto.bid_price = str(tob_obj.bid_price)
+    if getattr(tob_obj, "bid_size", None) is not None:
+        proto.bid_size = str(tob_obj.bid_size)
+    if getattr(tob_obj, "ask_price", None) is not None:
+        proto.ask_price = str(tob_obj.ask_price)
+    if getattr(tob_obj, "ask_size", None) is not None:
+        proto.ask_size = str(tob_obj.ask_size)
+    if getattr(tob_obj, "timestamp", None) is not None:
+        proto.timestamp = int(tob_obj.timestamp * 1_000_000)
+
+    return proto
+
+
+def level2_delta_to_proto(delta_obj) -> level2_delta_pb2.Level2Delta:
+    """
+    Convert Level2Delta to protobuf.
+
+    Expected attributes:
+    - exchange, symbol
+    - bids, asks: iterable of (price, quantity) Decimal pairs
+    - timestamp (float seconds → int64 microseconds)
+    - sequence (optional int)
+    - checksum (optional str)
+    """
+    proto = level2_delta_pb2.Level2Delta()
+    proto.exchange = getattr(delta_obj, "exchange", "") or ""
+    proto.symbol = getattr(delta_obj, "symbol", "") or ""
+
+    def _populate(levels, target):
+        for price, qty in levels or []:
+            lvl = target.add()
+            if price is not None:
+                lvl.price = str(price)
+            if qty is not None:
+                lvl.quantity = str(qty)
+
+    _populate(getattr(delta_obj, "bids", None), proto.bids)
+    _populate(getattr(delta_obj, "asks", None), proto.asks)
+
+    if getattr(delta_obj, "timestamp", None) is not None:
+        proto.timestamp = int(delta_obj.timestamp * 1_000_000)
+    if getattr(delta_obj, "sequence", None) is not None:
+        proto.sequence = int(delta_obj.sequence)
+    if getattr(delta_obj, "checksum", None):
+        proto.checksum = str(delta_obj.checksum)
 
     return proto

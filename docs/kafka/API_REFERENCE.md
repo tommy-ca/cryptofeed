@@ -284,6 +284,7 @@ f.run()
 - ~63% smaller message size
 - ~2.1µs serialization latency
 - Requires protobuf schema definitions
+- Supported protobuf data types: Trade, Ticker, Candle, Level2Book, Level2Delta, TopOfBook, Liquidation, Funding, OpenInterest, IndexPrice, Balance, Position, Fill, OrderInfo, Order, Transaction.
 
 ---
 

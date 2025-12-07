@@ -36,6 +36,10 @@ _SUPPORTED_METHODS: Dict[str, str] = {
     "indices": "index",
     "position": "position",
     "positions": "position",
+    "top_of_book": "top_of_book",
+    "nbbo": "top_of_book",
+    "l2_delta": "l2_delta",
+    "level2_delta": "l2_delta",
 }
 
 

@@ -104,6 +104,8 @@ prod_callback = KafkaProtobufCallback(
 )
 ```
 
+**Protobuf data types supported:** Trade, Ticker, Candle, Level2Book, Level2Delta, TopOfBook, Liquidation, Funding, OpenInterest, IndexPrice, Balance, Position, Fill, OrderInfo, Order, Transaction.
+
 ### Environment-Based Configuration
 
 ```python
