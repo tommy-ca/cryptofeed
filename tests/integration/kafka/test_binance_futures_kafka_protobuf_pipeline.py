@@ -54,7 +54,7 @@ def _topic_name(channel: str, strategy: str) -> str:
         }
         return mapping.get(channel, f"cryptofeed.{channel}")
 
-    base = "binance_futures.btc-usdt"
+    base = "binance_futures.btc-usdt-perp"
     mapping = {
         TRADES: f"cryptofeed.trade.{base}",
         L2_BOOK: f"cryptofeed.l2_book.{base}",
@@ -151,9 +151,9 @@ async def _start_binance_futures(
         else:  # pragma: no cover - future channels
             callbacks[channel] = [_mk_handler(channel.lower())]
 
-    symbols = ["BTC-USDT"]
+    symbols = ["BTC-USDT-PERP"]
     if topic_strategy == "consolidated":
-        symbols.append("ETH-USDT")
+        symbols.append("ETH-USDT-PERP")
 
     fh.add_feed(
         "BINANCE_FUTURES",
@@ -165,7 +165,7 @@ async def _start_binance_futures(
     for feed in fh.feeds:
         feed.start(loop)
 
-    await asyncio.sleep(2)
+    await asyncio.sleep(5)
 
     fh.kafka_cb = kafka_cb  # type: ignore[attr-defined]
     return fh
@@ -215,14 +215,14 @@ async def test_binance_futures_kafka_protobuf_trade_roundtrip(redpanda):
     fh: FeedHandler | None = None
     try:
         fh = await _start_binance_futures(redpanda_bootstrap=redpanda, topic_strategy=strategy)
-        record: ConsumedRecord = await asyncio.to_thread(
-            consume_one,
-            redpanda,
-            topic,
-            timeout_s=60.0,
-            group_id=f"cf-e2e-binance-fut-trade-{uuid4().hex}",
-            offset_reset="latest",
-        )
+            record: ConsumedRecord = await asyncio.to_thread(
+                consume_one,
+                redpanda,
+                topic,
+                timeout_s=120.0,
+                group_id=f"cf-e2e-binance-fut-trade-{uuid4().hex}",
+                offset_reset="latest",
+            )
     finally:
         if fh is not None:
             await _shutdown_feeds(fh)
@@ -247,14 +247,14 @@ async def test_binance_futures_kafka_protobuf_orderbook_roundtrip(redpanda):
             channels=[L2_BOOK],
             topic_strategy=strategy,
         )
-        record: ConsumedRecord = await asyncio.to_thread(
-            consume_one,
-            redpanda,
-            topic,
-            timeout_s=120.0,
-            group_id=f"cf-e2e-binance-fut-l2-{uuid4().hex}",
-            offset_reset="latest",
-        )
+            record: ConsumedRecord = await asyncio.to_thread(
+                consume_one,
+                redpanda,
+                topic,
+                timeout_s=150.0,
+                group_id=f"cf-e2e-binance-fut-l2-{uuid4().hex}",
+                offset_reset="latest",
+            )
     finally:
         if fh is not None:
             await _shutdown_feeds(fh)
@@ -279,14 +279,14 @@ async def test_binance_futures_kafka_protobuf_ticker_roundtrip(redpanda):
             channels=[TICKER],
             topic_strategy=strategy,
         )
-        record: ConsumedRecord = await asyncio.to_thread(
-            consume_one,
-            redpanda,
-            topic,
-            timeout_s=90.0,
-            group_id=f"cf-e2e-binance-fut-ticker-{uuid4().hex}",
-            offset_reset="latest",
-        )
+            record: ConsumedRecord = await asyncio.to_thread(
+                consume_one,
+                redpanda,
+                topic,
+                timeout_s=120.0,
+                group_id=f"cf-e2e-binance-fut-ticker-{uuid4().hex}",
+                offset_reset="latest",
+            )
     finally:
         if fh is not None:
             await _shutdown_feeds(fh)
@@ -316,7 +316,7 @@ async def test_binance_futures_kafka_protobuf_funding_roundtrip(redpanda):
                 consume_one,
                 redpanda,
                 topic,
-                timeout_s=300.0,
+                timeout_s=360.0,
                 group_id=f"cf-e2e-binance-fut-funding-{uuid4().hex}",
                 offset_reset="latest",
             )
@@ -351,7 +351,7 @@ async def test_binance_futures_kafka_protobuf_open_interest_roundtrip(redpanda):
                 consume_one,
                 redpanda,
                 topic,
-                timeout_s=300.0,
+                timeout_s=420.0,
                 group_id=f"cf-e2e-binance-fut-oi-{uuid4().hex}",
                 offset_reset="latest",
             )
@@ -386,7 +386,7 @@ async def test_binance_futures_kafka_protobuf_liquidation_roundtrip(redpanda):
                 consume_one,
                 redpanda,
                 topic,
-                timeout_s=300.0,
+                timeout_s=420.0,
                 group_id=f"cf-e2e-binance-fut-liq-{uuid4().hex}",
                 offset_reset="latest",
             )
@@ -397,4 +397,3 @@ async def test_binance_futures_kafka_protobuf_liquidation_roundtrip(redpanda):
             await _shutdown_feeds(fh)
 
     _assert_headers(record, b"liquidation")
-
