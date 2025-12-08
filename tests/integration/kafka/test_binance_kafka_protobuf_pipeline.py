@@ -53,6 +53,18 @@ def _topic_name(channel: str, strategy: str) -> str:
             return "cryptofeed.ticker"
         if channel == CANDLES:
             return "cryptofeed.candle"
+        if channel == "top_of_book":
+            return "cryptofeed.top_of_book"
+        if channel == "l2_delta":
+            return "cryptofeed.level2_delta"
+        if channel == "index":
+            return "cryptofeed.index"
+        if channel == "funding":
+            return "cryptofeed.funding"
+        if channel == "open_interest":
+            return "cryptofeed.open_interest"
+        if channel == "liquidation":
+            return "cryptofeed.liquidation"
     # per_symbol default
     if channel == TRADES:
         return "cryptofeed.trade.binance.btc-usdt"
@@ -62,6 +74,18 @@ def _topic_name(channel: str, strategy: str) -> str:
         return "cryptofeed.ticker.binance.btc-usdt"
     if channel == CANDLES:
         return "cryptofeed.candle.binance.btc-usdt"
+    if channel == "top_of_book":
+        return "cryptofeed.top_of_book.binance.btc-usdt"
+    if channel == "l2_delta":
+        return "cryptofeed.level2_delta.binance.btc-usdt"
+    if channel == "index":
+        return "cryptofeed.index.binance.btc-usdt"
+    if channel == "funding":
+        return "cryptofeed.funding.binance.btc-usdt"
+    if channel == "open_interest":
+        return "cryptofeed.open_interest.binance.btc-usdt"
+    if channel == "liquidation":
+        return "cryptofeed.liquidation.binance.btc-usdt"
     return f"cryptofeed.{channel.lower()}.binance.btc-usdt"
 
 
@@ -610,6 +634,42 @@ async def test_binance_kafka_protobuf_candle_roundtrip(redpanda):
     assert msg.symbol
     # at least one price field present
     assert msg.open or msg.close or msg.high or msg.low
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_top_of_book_placeholder():
+    pytest.skip("Binance spot feed does not currently emit top_of_book objects; waiting for emitter support.")
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_level2_delta_placeholder():
+    pytest.skip("Level2Delta emission not wired for Binance spot; pending feed support.")
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_index_price_placeholder():
+    pytest.skip("Index price channel not available on Binance spot; add when feed emits index data.")
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_funding_placeholder():
+    pytest.skip("Funding applies to futures/perps; add when Binance futures feed is included in this suite.")
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_open_interest_placeholder():
+    pytest.skip("Open interest applies to derivatives; add when Binance futures feed is included.")
+
+
+@pytest.mark.integration
+@pytest.mark.live_binance
+def test_binance_kafka_protobuf_liquidations_placeholder():
+    pytest.skip("Liquidations are derivatives-only; add when Binance futures feed is included.")
 
 
 @pytest.mark.asyncio
