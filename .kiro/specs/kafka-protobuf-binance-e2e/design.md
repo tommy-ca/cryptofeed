@@ -5,10 +5,14 @@
 This design describes how to validate an end-to-end pipeline from Binance public market data (REST + WebSocket) through Cryptofeed normalization into Kafka Protobuf topics, using the existing Kafka backend and normalized Protobuf schemas.
 
 **In Scope**
-- Orchestrating a `FeedHandler` with a Binance feed that:
+- Orchestrating a `FeedHandler` with Binance **spot** and **USDⓈ-M futures** feeds that:
   - Subscribes to public `TRADES` (and optionally `L2_BOOK`) channels
   - Normalizes raw messages into `cryptofeed.types` dataclasses
   - Routes events into the Kafka backend via `KafkaProtobufCallback`
+- Extending the same harness to Binance **USDⓈ-M futures** public market data, including:
+  - High-frequency channels: `TRADES`, `L2_BOOK`, `TICKER`
+  - Derivatives-specific channels: `FUNDING` (mark price), `OPEN_INTEREST` (REST poll), `LIQUIDATIONS` (force orders)
+  - Proxy-aware execution (HTTP + WebSocket) via `ProxySettings` and the global proxy injector
 - Using a local Redpanda cluster (via `docker/infra/base.yml`) as the Kafka test environment
 - Consuming produced messages using `confluent_kafka.Consumer` and decoding them with generated Protobuf bindings under `cryptofeed.proto_bindings`
 - Implementing pytest-based integration tests that are opt-in and robust to missing Docker/network prerequisites
@@ -43,10 +47,14 @@ The E2E tests will exercise the following path:
 1. **Binance WebSocket / REST**
    - WebSocket: depth, trades, and other channels according to Binance’s public API
    - REST: order book snapshot for `L2_BOOK` via `_snapshot()` in `Binance`
-2. **Cryptofeed Exchange Connector** (`cryptofeed/exchanges/binance.py`)
-   - Parses raw JSON messages
-   - Normalizes into `cryptofeed.types.Trade`, `OrderBook`, etc.
-   - Calls `self.callback(channel, dataclass, timestamp)` / `book_callback` for books
+2. **Cryptofeed Exchange Connectors**
+   - Spot: `cryptofeed/exchanges/binance.py`
+     - Parses raw JSON messages
+     - Normalizes into `cryptofeed.types.Trade`, `OrderBook`, etc.
+     - Calls `self.callback(channel, dataclass, timestamp)` / `book_callback` for books
+   - Futures: `cryptofeed/exchanges/binance_futures.py` (accessed via the `"BINANCE_FUTURES"` feed id)
+     - Subscribes to USDⓈ-M perpetual instruments (e.g., `BTC-USDT-PERP`, `ETH-USDT-PERP`)
+     - Produces the same normalized dataclasses (trades, books, funding, open interest, liquidations)
 3. **FeedHandler and Callback Wiring** (`cryptofeed/feedhandler.py`)
    - `FeedHandler` is initialized with its own `Config`
    - A `Binance` feed is added with a callbacks mapping that includes `KafkaProtobufCallback` for relevant channels
@@ -63,7 +71,7 @@ The E2E tests will exercise the following path:
      - Consume one or more messages within a timeout
      - Collect headers, key, topic, and value bytes
 6. **Protobuf Decoding and Assertions**
-   - Tests decode payloads using generated bindings (e.g. `trade_pb2.Trade`)
+   - Tests decode payloads using generated bindings (e.g. `trade_pb2.Trade`, `order_book_pb2.Level2Book`, `ticker_pb2.Ticker`, `funding_pb2.Funding`, `open_interest_pb2.OpenInterest`, `liquidation_pb2.Liquidation`)
    - Tests assert on header values (`exchange`, `symbol`, `data_type`, `schema_version`, `content-type`, `cf.serialization_format`)
    - Tests assert on selected payload fields that must match normalized dataclasses
 
@@ -98,6 +106,8 @@ confluent_kafka.Consumer (test harness)
 cryptofeed.proto_bindings.*_pb2
   - ParseFromString
   - field assertions
+
+For Binance USDⓈ-M futures the same flow applies, substituting the `BINANCE_FUTURES` connector and futures-specific channels while preserving the Kafka and Protobuf contracts.
 ```
 
 ## 3. Test Harness Design
@@ -186,6 +196,39 @@ This helper is **test-only** and scoped to Kafka integration tests under `tests/
 - Proxy pools (e.g., `...__POOL__PROXIES__0__URL`) SHALL be accepted; selection strategy (round_robin/default) must not crash, and a proxy entry MUST be returned for Binance when a pool is configured.
 - SOCKS WS paths REQUIRE `python-socks`; if missing and a SOCKS proxy is configured, tests SHALL skip with a clear reason instead of failing.
 - Direct path MUST remain the default when no proxy config is provided; proxy assertions MUST NOT break existing direct-mode runs.
+
+### 3.5 Binance USDⓈ-M Futures E2E Suite
+
+In addition to the spot harness, this spec defines a dedicated Binance USDⓈ-M futures E2E suite that exercises the same Kafka Protobuf contracts against the futures connector.
+
+- **Test module**: `tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py`
+- **Gating env var**: `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` (truthy value required to run)
+- **Topic strategy env var**: `KAFKA_E2E_TOPIC_STRATEGY` (`"per_symbol"` default, `"consolidated"` optional)
+- **Channels covered**:
+  - High-frequency: `TRADES`, `L2_BOOK`, `TICKER`
+  - Derivatives-specific: `FUNDING`, `OPEN_INTEREST`, `LIQUIDATIONS`
+- **Symbols under test**:
+  - Primarily `BTC-USDT-PERP` for per-symbol topics
+  - `ETH-USDT-PERP` additionally when using consolidated topics, to validate header symbol routing
+- **Kafka harness reuse**:
+  - Reuses the same Redpanda fixture and Kafka consumer helper as the spot E2E tests
+  - Uses `KafkaProtobufCallback` with metrics disabled and topic strategy injected via `_topic_strategy()`
+  - Uses `PartitionerFactory` to exercise both composite and round-robin strategies
+- **Offset semantics** (mirroring spot E2E behavior):
+  - `offset_reset="latest"` for TRADES (default and round-robin), TICKER, FUNDING, OPEN_INTEREST, LIQUIDATIONS, and multi-channel tests
+  - `offset_reset="earliest"` for `L2_BOOK` snapshot roundtrip tests (snapshot + delta semantics)
+- **Header assertions**:
+  - `content-type == b"application/x-protobuf"`
+  - `schema_version == SCHEMA_VERSION.encode()`
+  - `cf.serialization_format == b"protobuf"`
+  - `exchange == b"binance_futures"`
+  - `symbol in {b"BTC-USDT-PERP", b"ETH-USDT-PERP"}` depending on topic strategy
+- **Proxy-aware execution**:
+  - Uses `ProxySettings` and `get_proxy_injector()` to support HTTPS/SOCKS proxies for both REST (exchangeInfo, open interest) and WebSocket channels
+  - Provides REST preflight helper `_preflight_rest_through_proxy()` which skips tests with clear reasons when proxies or geoblocks prevent REST access
+  - Provides proxy sanity tests that validate pool resolution and injector behavior without hitting Binance/Redpanda
+
+This futures suite is intentionally structured to mirror the spot Binance E2E tests so that operators can interpret results consistently across spot and futures pipelines.
 
 ## 4. Test Cases
 

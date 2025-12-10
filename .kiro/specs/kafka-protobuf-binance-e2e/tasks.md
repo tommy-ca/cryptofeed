@@ -101,18 +101,43 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
 - [ ] 4.3 Add clear skip conditions for missing Docker/Redpanda/Binance
   - Ensure skips occur when `docker compose` is unavailable, Redpanda fails to start, or Binance endpoints are unreachable within timeouts.
 
-- [ ] 4.4 Implement topic auto-provision helper (FR8)
+- [x] 4.4 Implement topic auto-provision helper (FR8)
   - Create an idempotent helper/fixture that ensures required topics exist based on the configured topic strategy (per_symbol default, consolidated optional).
   - Support configurable partitions/replication via env/kwargs (defaults: partitions=1, replication=1 for local Redpanda).
   - On failure to create topics, skip with a clear message; do not proceed to feed start.
 
-- [ ] 4.5 Wire auto-provision into Binance E2E
+- [x] 4.5 Wire auto-provision into Binance E2E
   - Invoke the provisioning helper before starting `FeedHandler` and before consumer poll in the Binance trade/L2 tests.
   - Keep behavior isolated to tests; no production Kafka code changes.
 
-- [ ] 4.6 Document proxy and topic setup in test module/README
-  - Update test module notes or supporting docs to describe proxy envs, REST proxying via HTTP(S)_PROXY, and the new auto-provision behavior.
+- [x] 4.6 Document proxy and topic setup in test module/README
+  - Update test module notes or supporting docs to describe proxy envs, REST proxying via HTTP(S)_PROXY, and the new auto-provision behavior for both spot and futures Binance E2E tests.
   - Include rpk/Kafka admin command examples for manual verification.
+
+### Phase 4B: Binance USDⓈ-M Futures E2E Extension
+
+- [x] 4.B.1 Implement Binance USDⓈ-M futures Kafka Protobuf E2E module
+  - Add `tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py` mirroring the spot Binance E2E structure.
+  - Cover high-frequency channels (`TRADES`, `L2_BOOK`, `TICKER`) and derivatives-specific channels (`FUNDING`, `OPEN_INTEREST`, `LIQUIDATIONS`).
+  - Reuse the shared Redpanda fixture, Kafka consumer helper, and topic auto-provision helper.
+
+- [x] 4.B.2 Add futures-specific environment gating
+  - Introduce `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` as an opt-in gate for all Binance futures Kafka Protobuf E2E tests.
+  - Ensure tests skip with a clear message when the env var is not set or when Docker/Binance prerequisites are missing.
+
+- [x] 4.B.3 Align futures offset and partitioning semantics with spot
+  - Use `offset_reset="latest"` for futures TRADES (default and round-robin), TICKER, FUNDING, OPEN_INTEREST, LIQUIDATIONS, and multi-channel tests.
+  - Use `offset_reset="earliest"` for the L2 order book snapshot roundtrip, matching the spot orderbook E2E behavior.
+  - Configure `KafkaProtobufCallback` with `PartitionerFactory.create("round_robin")` and partition-key cache disabled for the round-robin futures trade test; assert that the consumed record key is `None`.
+
+- [x] 4.B.4 Add Makefile targets for Binance futures E2E
+  - Add `test-kafka-binance-futures` to run the Binance futures Kafka Protobuf E2E suite with `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` and `KAFKA_BOOTSTRAP_SERVERS` wired.
+  - Add `test-kafka-binance-futures-mullvad` to run the same suite via Mullvad HTTP/WS proxy pools for `BINANCE_FUTURES`, defaulting to the consolidated topic strategy.
+  - Update `test-kafka-all` to include `test-kafka-binance-futures` alongside the existing spot, unit, and perf targets.
+
+- [x] 4.B.5 Document Binance futures E2E workflow
+  - Extend this spec and related Kafka docs to describe the Binance futures E2E suite, its channels, topic strategies, and proxy behavior.
+  - Highlight parallels with the spot Binance E2E tests so operators can interpret results consistently across spot and futures.
 
 ---
 
@@ -161,6 +186,15 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Symbol/listen-key timeouts hardcoded (10s); consider config exposure.
   - Other requests callsites (OKX, HTTPSync generic, schema registry) still pending per Task 6.6.
   - Symbol fetch is still sequential; acceptable for FR7 but perf not improved.
+
+### Validation Notes (2025-12-08) — Binance USDⓈ-M Futures E2E Suite
+- Implemented `tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py` covering TRADES, L2_BOOK, TICKER, FUNDING, OPEN_INTEREST, LIQUIDATIONS, and multi-channel futures pipelines.
+- Wired futures E2E tests to use the shared Redpanda fixture, topic auto-provision helper, and KafkaProtobufCallback with futures-specific header assertions (`exchange == b"binance_futures"`, `symbol in {b"BTC-USDT-PERP", b"ETH-USDT-PERP"}`).
+- Introduced `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` env gate and futures Makefile targets (`test-kafka-binance-futures`, `test-kafka-binance-futures-mullvad`), and added futures to the `test-kafka-all` aggregate target.
+- Validated the futures E2E suite locally with Redpanda up and Binance reachable:
+  - Command: `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true KAFKA_BOOTSTRAP_SERVERS=localhost:19092 python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v`.
+  - Result: 10 passed, 2 skipped (proxy sanity tests when no explicit futures proxy config present).
+  - Confirmed round-robin futures trade test uses `offset_reset="latest"` and asserts `record.key is None`, avoiding cross-test contamination from earlier composite-key messages.
 
 ---
 
@@ -238,6 +272,43 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - State in Requirements and Design that the Redpanda Docker configuration (`docker/infra/base.yml`) and Kafka E2E Makefile targets are part of this specs validation harness, in collaboration with `market-data-kafka-producer`.
   - Clarify that changes to shared Kafka backend behavior, Protobuf serialization, or normalized schemas MUST be made under their owning specs, and that this spec only consumes those contracts via configuration and tests.
   - Ensure AI agents and human contributors treat Makefile and test harness changes that affect multiple specs as cross-spec context requiring explicit coordination.
+
+### E2E Results Documentation & Cleanup Plan (docs/e2e/results)
+
+This section captures how Binance Kafka Protobuf E2E execution logs are documented and how the temporary `docs/e2e/results/` directory should be handled over time.
+
+1. **Canonical E2E documentation lives under `docs/e2e/`**
+   - Stable, user-facing guidance for E2E setup and execution (Quick Start, uv/proxy configuration, test phases, commands, success criteria) is consolidated into:
+     - `docs/e2e/README.md` – high-level guide and quick start.
+     - `docs/e2e/TEST_PLAN.md` – detailed test scenarios and gates.
+     - `docs/e2e/REPRODUCIBILITY.md` – uv/lockfile and reproducibility guidance.
+   - These files are the **spec-aligned source of truth** for how to run and interpret both spot and futures Kafka Protobuf E2E suites.
+
+2. **Per-run E2E execution reports are archived under `docs/e2e/results/`**
+   - Individual E2E runs (spot and futures) are recorded as timestamped markdown reports, for example:
+     - `docs/e2e/results/2025-10-24-execution.md` / `2025-10-24-review.md` / `phase2-results.md` – earlier multi-exchange E2E work.
+     - `docs/e2e/results/2025-12-07-binance-kafka-mullvad.md` – Binance spot Kafka E2E via Mullvad.
+     - `docs/e2e/results/2025-12-08-binance-futures-kafka-mullvad.md` – Binance USDⓈ-M futures Kafka E2E via Mullvad.
+   - `docs/e2e/results/README.md` provides a simple index of these per-run reports.
+   - These files are treated as **historical execution logs**, not specifications; they often contain verbose per-test output and environment snapshots.
+
+3. **Results directory is explicitly marked as temporary scratchpad**
+   - `docs/e2e/README.md` documents `docs/e2e/results/` as:
+     - "Historical, run-specific execution reports; treated as a temporary scratchpad that can be pruned once key guidance has been folded back into this directory."
+   - Evergreen guidance identified during Binance spot/futures E2E work (proxy patterns, Makefile usage, env examples, interpretation of passes/skips) has been folded into the core E2E docs above and/or this spec’s Validation Notes.
+
+4. **Cleanup plan for `docs/e2e/results/`**
+   - Once stakeholders are comfortable that no additional, evergreen guidance is hiding in the per-run reports, it is safe to:
+     - Delete some or all of `docs/e2e/results/` in a follow-up cleanup PR, or
+     - Move any remaining high-signal reports into a more permanent archive location if desired.
+   - This spec assumes that **removing `docs/e2e/results/` does not change any functional behavior** of the Binance Kafka Protobuf E2E suites; it only removes historical logs and examples.
+
+5. **Traceability and future runs**
+   - Future Binance E2E runs MAY continue to drop markdown reports into `docs/e2e/results/` while work is active.
+   - When a new pattern or lesson emerges (for example, a new proxy/geoblock edge case or Mullvad behavior), it SHOULD be promoted into:
+     - This spec (Requirements/Design/Validation Notes), and/or
+     - The canonical E2E docs under `docs/e2e/`.
+   - This keeps `docs/e2e/results/` as an optional, disposable layer while ensuring the spec and core docs stay aligned with how the Binance spot and futures E2E suites are actually run.
 
 ## Traceability
 
