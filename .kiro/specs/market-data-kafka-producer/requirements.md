@@ -18,6 +18,29 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 
 ---
 
+## Scope Boundary (Per CLAUDE.md Architecture)
+
+**IN-SCOPE (Cryptofeed Producer):**
+- Kafka message production
+- Topic naming and partitioning
+- Protobuf serialization
+- Message headers
+- Producer monitoring (9 Prometheus metrics)
+- Producer error handling and delivery guarantees
+
+**OUT-OF-SCOPE (External Consumer Responsibility):**
+- Consumer implementations (Flink, DuckDB, QuixStreams, custom)
+- Storage backends (Iceberg, Parquet, DuckDB)
+- Analytics and aggregations
+- Retention policies and compaction
+- Query engines (Trino, Spark SQL)
+
+**Note:** Consumer documentation (Tasks 12, 13, 21, 23, 24) was created during
+Phase 5 execution to assist external consumers but is not a requirement
+for this producer specification.
+
+---
+
 ## Backend Separation
 
 ### Legacy Backend (DEPRECATED ⚠️)
