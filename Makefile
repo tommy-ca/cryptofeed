@@ -6,7 +6,7 @@
 #############################################################################
 
 .PHONY: docker-ps-19092 docker-stop-19092 redpanda-up redpanda-down redpanda-health
-.PHONY: test-kafka-e2e test-kafka-binance test-kafka-binance-mullvad test-kafka-unit test-kafka-perf test-kafka-all
+.PHONY: test-kafka-e2e test-kafka-binance test-kafka-binance-mullvad test-kafka-binance-futures test-kafka-binance-futures-mullvad test-kafka-unit test-kafka-perf test-kafka-all
 
 # Advanced / scoped targets (legacy, keep for reference)
 .PHONY: test-kafka-bisect test-kafka-files test-kafka-callback-integration
@@ -52,6 +52,20 @@ test-kafka-binance-mullvad:
 	KAFKA_E2E_TOPIC_STRATEGY=$${KAFKA_E2E_TOPIC_STRATEGY:-consolidated} \
 	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v -s
 
+test-kafka-binance-futures:
+	CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=$${CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E:-true} \
+	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) \
+	python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
+
+test-kafka-binance-futures-mullvad:
+	@echo "Using Mullvad EU/AP relays for Binance Futures (override envs to customize)"
+	CRYPTOFEED_PROXY_ENABLED=true \
+	CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__HTTP__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \
+	CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \
+	CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=$${CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E:-true} \
+	KAFKA_E2E_TOPIC_STRATEGY=$${KAFKA_E2E_TOPIC_STRATEGY:-consolidated} \
+	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v -s
+
 test-kafka-unit:
 	KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/unit/kafka -v
 
@@ -82,7 +96,7 @@ test-kafka-files:
 		python -m pytest $$f -q --durations=5 || exit 1; \
 	done
 
-test-kafka-all: test-kafka-e2e test-kafka-binance test-kafka-unit test-kafka-perf
+test-kafka-all: test-kafka-e2e test-kafka-binance test-kafka-binance-futures test-kafka-unit test-kafka-perf
 
 # Bisect Kafka unit tests to identify slow subsets
 
