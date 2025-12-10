@@ -357,8 +357,23 @@ class HTTPAsyncConn(AsyncConnection):
 
 
 class HTTPPoll(HTTPAsyncConn):
-    def __init__(self, address: Union[List, str], conn_id: str, delay: float = 60, sleep: float = 1, proxy: StrOrURL = None):
-        super().__init__(f'{conn_id}.http.{self.conn_count}', proxy)
+    def __init__(
+        self,
+        address: Union[List, str],
+        conn_id: str,
+        delay: float = 60,
+        sleep: float = 1,
+        proxy: StrOrURL = None,
+        exchange_id: str | None = None,
+    ):
+        """HTTP polling connection.
+
+        exchange_id defaults to ``conn_id`` so that proxy settings keyed by
+        the exchange identifier (for example ``BINANCE_FUTURES``) apply
+        consistently to both WebSocket and HTTP polling connections.
+        """
+
+        super().__init__(f"{conn_id}.http.{self.conn_count}", proxy, exchange_id=exchange_id or conn_id)
         if isinstance(address, str):
             address = [address]
         self.address = address
