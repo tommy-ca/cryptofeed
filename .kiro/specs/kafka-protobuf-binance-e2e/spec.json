@@ -31,5 +31,23 @@
       "schema-parity-hardening"
     ]
   },
-  "description": "End-to-end validation pipeline from Binance REST/WS through normalized market data into Kafka Protobuf backend topics, using normalized protobuf schemas and Redpanda-based integration tests."
+  "description": "End-to-end validation pipeline from Binance REST/WS through normalized market data into Kafka Protobuf backend topics, using normalized protobuf schemas and Redpanda-based integration tests.",
+  "scope_clarification": {
+    "in_scope": [
+      "E2E producer validation",
+      "protobuf roundtrip verification",
+      "message headers validation",
+      "test infrastructure"
+    ],
+    "out_of_scope": [
+      "consumer implementations",
+      "storage backends",
+      "analytics",
+      "downstream processing",
+      "production consumer deployments"
+    ],
+    "note": "Kafka consumer helper (Task 2.2) is test infrastructure for assertions only, not a consumer implementation",
+    "scope_verified": "2025-12-10",
+    "producer_only_scope": true
+  }
 }

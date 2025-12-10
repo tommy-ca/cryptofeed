@@ -11,6 +11,32 @@ This specification focuses on **validation and test infrastructure** rather than
 
 The goal is to provide high-confidence, reproducible tests that prove the Binance→Kafka Protobuf path behaves as designed, without introducing new ingestion responsibilities beyond Kafka topic publication.
 
+---
+
+## Scope Boundary (Per CLAUDE.md Architecture)
+
+**IN-SCOPE (Cryptofeed Producer E2E Validation):**
+- End-to-end validation from Binance → Kafka
+- Kafka message production verification
+- Protobuf serialization validation
+- Message headers verification
+- Test infrastructure (Kafka consumer helper for assertions only)
+- Redpanda test harness
+
+**OUT-OF-SCOPE (External Consumer Responsibility):**
+- Consumer implementations (Flink, DuckDB, QuixStreams, custom)
+- Storage backends (Iceberg, Parquet, DuckDB)
+- Analytics and aggregations
+- Retention policies and compaction
+- Query engines (Trino, Spark SQL)
+- Production consumer deployments
+
+**Note:** The "Kafka consumer helper" (Task 2.2) is **test infrastructure** for verifying
+messages were produced correctly. It is NOT a consumer implementation. This helper consumes
+messages only to assert they match expected protobuf structure and headers.
+
+---
+
 ## Functional Requirements
 
 ### FR1: End-to-End Trade Pipeline (Binance → Kafka Protobuf)

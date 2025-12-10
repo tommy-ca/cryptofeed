@@ -1041,6 +1041,72 @@ All tasks must satisfy:
 
 ---
 
+## OUT-OF-SCOPE: Consumer Implementation (External Responsibility)
+
+> **Note:** The following tasks document consumer-related work that was completed
+> as part of Phase 5 execution. Per CLAUDE.md architecture, consumer implementation
+> is OUT-OF-SCOPE for Cryptofeed. These tasks remain as historical record but
+> are not requirements for this producer spec.
+>
+> Consumer implementations should be tracked in external consumer repositories.
+
+### Consumer Documentation Tasks (Phase 3)
+
+- [ ] **Task 12**: Consumer integration guide (Flink, DuckDB, Python async)
+  - 12.1: Flink integration docs
+  - 12.2: DuckDB integration docs
+  - 12.3: Python async consumer docs
+  - Status: ✅ Complete (historical)
+  - **OUT-OF-SCOPE**: Consumer implementation is external responsibility
+
+- [ ] **Task 13**: Consumer migration guide
+  - 13.1: Topic subscription patterns
+  - 13.2: Migration runbook (includes consumer migration steps)
+  - Status: ✅ Complete (historical)
+  - **OUT-OF-SCOPE**: Consumer migration is external responsibility
+
+### Consumer Migration Tasks (Phase 5)
+
+- [x] **Task 21**: Consumer migration templates
+  - 21.1: Create templates (Flink, Python, Custom)
+  - 21.2: Test consumer migrations in staging
+  - Status: ✅ Complete (historical)
+  - **OUT-OF-SCOPE**: Consumer implementation is external responsibility
+
+- [x] **Task 23**: Migrate consumers by exchange
+  - 23.1: Migrate Coinbase consumers
+  - 23.2: Migrate Binance consumers
+  - 23.3: Migrate remaining exchanges
+  - Status: ✅ Complete (historical)
+  - **OUT-OF-SCOPE**: Consumer migration is external responsibility
+
+- [x] **Task 24**: Consumer performance validation
+  - 24.1: Monitor consumer lag by exchange
+  - 24.2: Validate downstream data completeness
+  - Status: ✅ Complete (historical)
+  - **OUT-OF-SCOPE**: Consumer monitoring is external responsibility
+
+### Scope Clarification
+
+**IN-SCOPE (Cryptofeed Producer):**
+- Kafka message production (Tasks 1-11, 15-20, 22, 25-28)
+- Topic management and partitioning
+- Protobuf serialization integration
+- Message headers
+- Producer monitoring (9 Prometheus metrics)
+- Producer error handling and delivery guarantees
+
+**OUT-OF-SCOPE (External Consumer Responsibility):**
+- Consumer implementations (Flink, DuckDB, QuixStreams, custom)
+- Storage backends (Iceberg, Parquet, DuckDB)
+- Analytics and aggregations
+- Consumer lag monitoring
+- Downstream data completeness validation
+- Retention policies and compaction
+- Query engines (Trino, Spark SQL)
+
+---
+
 ## Notes
 
 - **Protobuf Integration**: Tasks assume Spec 1 (protobuf-callback-serialization) is merged. If not available at task start, implement JSON fallback in Phase 1.
