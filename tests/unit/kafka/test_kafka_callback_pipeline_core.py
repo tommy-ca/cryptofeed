@@ -179,7 +179,7 @@ class TestCompleteMessagePipeline:
         assert header_dict[b"exchange"] == b"coinbase"
         assert header_dict[b"symbol"] == b"BTC-USD"
         assert header_dict[b"data_type"] == b"trades"
-        assert header_dict[b"schema_version"] == b"v1"
+        assert header_dict[b"schema_version"] == b"v0.1.0"
         assert b"producer_version" in header_dict
         assert b"timestamp_generated" in header_dict
 
