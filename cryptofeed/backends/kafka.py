@@ -21,7 +21,7 @@ from aiokafka.errors import (
     KafkaConnectionError,
     NodeNotReadyError,
 )
-from cryptofeed.json_utils import json
+from cryptofeed.json_utils import json, dumps_bytes
 
 from cryptofeed.backends.backend import (
     BackendBookCallback,
@@ -72,14 +72,6 @@ class KafkaCallback(BackendQueue):
         # Use parent class serialization handling (handles both JSON and Protobuf)
         await BackendCallback.__call__(self, dtype, receipt_timestamp)
 
-    def _default_serializer(self, to_bytes: dict | str) -> ByteString:
-        if isinstance(to_bytes, dict):
-            return json.dumpb(to_bytes)
-        elif isinstance(to_bytes, str):
-            return to_bytes.encode()
-        else:
-            raise TypeError(f"{type(to_bytes)} is not a valid Serialization type")
-
     async def _connect(self):
         if not self.producer:
             loop = asyncio.get_event_loop()
@@ -110,9 +102,9 @@ class KafkaCallback(BackendQueue):
                         )
                         self.running = True
 
-    def _default_serializer(self, to_bytes: dict | str) -> ByteString:
+    def _default_serializer(self, to_bytes: dict | str | bytes) -> ByteString:
         if isinstance(to_bytes, dict):
-            return json.dumpb(to_bytes)
+            return dumps_bytes(to_bytes)
         elif isinstance(to_bytes, str):
             return to_bytes.encode()
         elif isinstance(to_bytes, bytes):
