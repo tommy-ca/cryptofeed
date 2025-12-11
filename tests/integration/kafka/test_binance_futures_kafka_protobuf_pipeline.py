@@ -1,9 +1,8 @@
 """Binance Futures → Kafka Protobuf end-to-end tests using Redpanda.
 
 Live tests that exercise the Binance USDⓈ-M futures feed (REST+WS) through
-Mullvad SOCKS5 relays into the Kafka Protobuf backend, then decode payloads
-from Redpanda. All tests are opt-in and will skip unless
-`CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` is truthy.
+the Kafka Protobuf backend, then decode payloads from Redpanda. All tests are
+opt-in and will skip unless `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` is truthy.
 
 Channels covered:
 - High frequency: TRADES, L2_BOOK, TICKER
@@ -12,7 +11,81 @@ Channels covered:
 
 Prereqs:
 - Docker + docker compose (for Redpanda fixture)
-- Network access to Binance USDⓈ-M endpoints (via configured Mullvad proxies)
+- Network access to Binance USDⓈ-M endpoints (direct or via proxy)
+
+## Proxy Support (FR7: kafka-protobuf-binance-e2e spec)
+
+These tests support running through HTTP or SOCKS5 proxies for both REST and
+WebSocket transports. Proxy configuration is loaded from environment variables.
+
+**Quick Start - Direct Mode (no proxy):**
+```bash
+make redpanda-up
+CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true KAFKA_BOOTSTRAP_SERVERS=localhost:19092 \
+  python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
+make redpanda-down
+```
+
+**Quick Start - Single HTTP Proxy:**
+```bash
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__HTTP__URL=http://proxy:8080
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__WEBSOCKET__URL=http://proxy:8080
+make redpanda-up
+CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true KAFKA_BOOTSTRAP_SERVERS=localhost:19092 \
+  python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
+make redpanda-down
+```
+
+**Quick Start - Single SOCKS5 Proxy (requires python-socks):**
+```bash
+pip install python-socks
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__HTTP__URL=socks5://user:pass@proxy:1080
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__WEBSOCKET__URL=socks5://user:pass@proxy:1080
+make redpanda-up
+CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true KAFKA_BOOTSTRAP_SERVERS=localhost:19092 \
+  python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
+make redpanda-down
+```
+
+**Quick Start - Proxy Pool (round-robin):**
+```bash
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__HTTP__POOL='{"proxies":[{"url":"http://p1:8080","weight":1},{"url":"http://p2:8080","weight":1}],"strategy":"round_robin"}'
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://ws1:1080","weight":1},{"url":"socks5://ws2:1080","weight":1}],"strategy":"round_robin"}'
+make redpanda-up
+CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true KAFKA_BOOTSTRAP_SERVERS=localhost:19092 \
+  python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
+make redpanda-down
+```
+
+**Makefile Targets:**
+```bash
+# Direct mode
+make test-kafka-binance-futures
+
+# With Mullvad proxy pool (requires Mullvad configuration)
+make test-kafka-binance-futures-mullvad
+```
+
+**Dependencies:**
+- `python-socks` - Required for SOCKS WebSocket proxies: `pip install python-socks`
+  (Tests will skip with clear message if SOCKS configured but python-socks missing)
+
+**Comprehensive Documentation:**
+See `docs/e2e/PROXY_TESTING.md` for complete proxy configuration guide including:
+- Environment variable reference
+- Proxy pool configuration
+- Timeout configuration (CF_SYMBOL_FETCH_TIMEOUT, CF_LISTEN_KEY_TIMEOUT)
+- Troubleshooting guide
+- Example test runs
+- Futures-specific configuration examples
+
+**Related Docs:**
+- Proxy system: `docs/proxy/README.md`
+- Timeout config: `docs/proxy/timeout-configuration.md`
+- Spec requirements: `.kiro/specs/kafka-protobuf-binance-e2e/requirements.md` (FR7)
 """
 
 from __future__ import annotations
@@ -87,7 +160,8 @@ def _require_futures_env() -> None:
     value = os.getenv(BINANCE_FUTURES_ENV, "")
     if value.lower() not in {"1", "true", "yes", "on"}:
         pytest.skip(
-            f"Binance Futures Kafka Protobuf E2E disabled. Set {BINANCE_FUTURES_ENV}=true to enable."
+            f"Binance Futures Kafka Protobuf E2E disabled. Set {BINANCE_FUTURES_ENV}=true to enable. "
+            f"See docs/e2e/SKIP_CONDITIONS.md for details."
         )
 
 
@@ -100,19 +174,32 @@ def _python_socks_available() -> bool:
 
 
 async def _preflight_rest_through_proxy() -> None:
-    """Fetch futures exchangeInfo via configured proxy; skip if unavailable."""
+    """Fetch futures exchangeInfo via configured proxy; skip if unavailable.
 
-    _init_proxy_settings_if_configured()
+    Task 6.5: Initialize proxy system BEFORE attempting to lease proxies.
+    """
+
+    # Initialize proxy system first, then get the injector
+    has_proxy = _init_proxy_settings_if_configured()
+    if not has_proxy:
+        return  # no proxy configured; use direct path
+
     injector = get_proxy_injector()
-    proxy_url = injector.get_http_proxy_url("binance_futures") if injector else None
+    if not injector:
+        return  # proxy system not initialized
 
+    proxy_url = injector.get_http_proxy_url("binance_futures")
     if not proxy_url:
-        return
+        return  # no HTTP proxy configured for binance_futures
 
     try:
         import aiohttp
     except ImportError:
-        pytest.skip("aiohttp not available for REST preflight")
+        pytest.skip(
+            "aiohttp not available for REST preflight. "
+            "Install with: pip install aiohttp. "
+            "See docs/e2e/SKIP_CONDITIONS.md for details."
+        )
 
     connector = None
     try:
@@ -124,8 +211,9 @@ async def _preflight_rest_through_proxy() -> None:
                 connector = ProxyConnector.from_url(proxy_url)
             except ModuleNotFoundError:
                 pytest.skip(
-                    "Binance Futures REST exchangeInfo via SOCKS proxy requires aiohttp-socks; "
-                    "install it or use HTTP proxy"
+                    "Binance Futures REST exchangeInfo via SOCKS proxy requires aiohttp-socks. "
+                    "Install with: pip install aiohttp-socks, or use HTTP proxy instead. "
+                    "See docs/e2e/SKIP_CONDITIONS.md and docs/e2e/PROXY_TESTING.md."
                 )
     except Exception:
         connector = None
@@ -139,11 +227,17 @@ async def _preflight_rest_through_proxy() -> None:
             ) as resp:
                 if resp.status != 200:
                     pytest.skip(
-                        "Binance Futures REST exchangeInfo via proxy failed (status "
-                        f"{resp.status}); REST geoblocked or proxy blocked."
+                        f"Binance Futures REST exchangeInfo via proxy failed (status {resp.status}). "
+                        f"REST may be geoblocked or proxy blocked. "
+                        f"Check proxy configuration or try different proxy. "
+                        f"See docs/e2e/SKIP_CONDITIONS.md and docs/e2e/PROXY_TESTING.md."
                     )
         except Exception as exc:  # noqa: BLE001
-            pytest.skip(f"Binance Futures REST exchangeInfo via proxy failed: {exc}")
+            pytest.skip(
+                f"Binance Futures REST exchangeInfo via proxy failed: {exc}. "
+                f"Check network connectivity, proxy settings, and timeouts (CF_SYMBOL_FETCH_TIMEOUT). "
+                f"See docs/e2e/SKIP_CONDITIONS.md and docs/proxy/timeout-configuration.md."
+            )
 
 
 def _init_proxy_settings_if_configured() -> bool:
@@ -165,7 +259,9 @@ def _init_proxy_settings_if_configured() -> bool:
         if scheme.startswith("socks") and not _python_socks_available():
             pytest.skip(
                 "Binance Futures Kafka Protobuf E2E: SOCKS websocket proxy configured "
-                "but python-socks is not installed"
+                "but python-socks is not installed. "
+                "Install with: pip install python-socks. "
+                "See docs/e2e/SKIP_CONDITIONS.md for details."
             )
 
     init_proxy_system(settings)
@@ -223,7 +319,11 @@ async def _start_binance_futures(
     kafka_cb.start(loop)
 
     if not kafka_cb.is_connected():
-        pytest.skip("Kafka producer failed to connect to Redpanda")
+        pytest.skip(
+            "Kafka producer failed to connect to Redpanda. "
+            "Ensure Redpanda is running: 'make redpanda-up && make redpanda-health'. "
+            "See docs/e2e/SKIP_CONDITIONS.md for troubleshooting."
+        )
 
     _channels = channels or [TRADES]
 
