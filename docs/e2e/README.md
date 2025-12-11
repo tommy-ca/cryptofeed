@@ -304,6 +304,7 @@ jobs:
 ## Documentation
 
 - **[Test Plan](TEST_PLAN.md)** - Comprehensive test scenarios and success criteria
+- **[Proxy Testing Guide](PROXY_TESTING.md)** - Binance Kafka E2E proxy configuration (FR7)
 - **[Reproducibility Guide](REPRODUCIBILITY.md)** - Technical deep-dive on uv and lock files
 - **[Results Archive](results/)** - Historical, run-specific execution reports; treated as a temporary scratchpad that can be pruned once key guidance has been folded back into this directory.
 - **[Scripts Reference](../../tests/e2e/)** - Test automation scripts
