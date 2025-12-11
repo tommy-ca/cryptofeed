@@ -44,14 +44,12 @@ Conduct comprehensive research and analysis to ensure the technical design is ba
 - Document security considerations
 - Note any gaps requiring implementation investigation
 
-### 5. Architecture Pattern & Boundary Analysis
+### 5. Architecture Pattern Analysis
 **Evaluate Architectural Options**:
 - Compare relevant patterns (MVC, Clean, Hexagonal, Event-driven)
-- Assess fit with existing architecture and steering principles
-- Identify domain boundaries and ownership seams required to avoid team conflicts
-- Consider scalability implications and operational concerns
+- Assess fit with existing architecture
+- Consider scalability implications
 - Evaluate maintainability and team expertise
-- Document preferred pattern and rejected alternatives in `research.md`
 
 ### 6. Risk Assessment
 **Identify Technical Risks**:
@@ -83,11 +81,9 @@ Conduct comprehensive research and analysis to ensure the technical design is ba
 4. Investigate similar open-source implementations
 
 ## Output Requirements
-Capture all findings that impact design decisions in `research.md` using the shared template:
-- Key insights affecting architecture, technology alignment, and contracts
+Document all findings that impact design decisions:
+- Key insights affecting architecture
 - Constraints discovered during research
-- Recommended approaches and selected architecture pattern with rationale
-- Rejected alternatives and trade-offs (documented in the Design Decisions section)
-- Updated domain boundaries that inform Components & Interface Contracts
+- Recommended approaches based on findings
 - Risks and mitigation strategies
 - Gaps requiring further investigation during implementation
