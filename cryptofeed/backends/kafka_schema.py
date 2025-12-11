@@ -11,9 +11,12 @@ Task 18: Schema Registry Integration
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import struct
+import threading
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, Optional, Any, Tuple
@@ -21,10 +24,13 @@ from urllib.parse import urljoin
 
 import grpc
 import requests
-import os
+from aiohttp import ClientSession, ClientTimeout, BasicAuth
+from aiohttp_socks import ProxyConnector
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError, Timeout, RequestException
+
+from cryptofeed.proxy import get_proxy_injector
 
 
 LOG = logging.getLogger("cryptofeed.schema")
@@ -368,6 +374,222 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             self._auth = HTTPBasicAuth(config.username, config.password)
         # Schema cache: {schema_id: schema_dict}
         self._schema_cache: Dict[int, Dict[str, Any]] = {}
+
+    async def _http_request_async(
+        self,
+        url: str,
+        method: str = "GET",
+        json_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Generic async HTTP request helper with ProxyInjector integration.
+
+        Args:
+            url: Full URL to request
+            method: HTTP method (GET, POST, PUT)
+            json_data: JSON payload for POST/PUT requests
+
+        Returns:
+            Response JSON as dict
+
+        Raises:
+            SchemaRegistryError: On request failure
+        """
+        proxy_url = None
+        connector = None
+
+        # Lease proxy if configured
+        injector = get_proxy_injector()
+        if injector:
+            proxy_url = injector.get_http_proxy_url("schema_registry")
+            if proxy_url and proxy_url.startswith("socks"):
+                connector = ProxyConnector.from_url(proxy_url)
+
+        # Build auth
+        auth = None
+        if self.config.username and self.config.password:
+            auth = BasicAuth(self.config.username, self.config.password)
+
+        async with ClientSession(
+            connector=connector,
+            timeout=ClientTimeout(total=self._http_timeout),
+            auth=auth
+        ) as session:
+            kwargs = {
+                "proxy": proxy_url if not connector else None,
+            }
+            if json_data:
+                kwargs["json"] = json_data
+
+            async with session.request(method, url, **kwargs) as response:
+                response.raise_for_status()
+                return await response.json()
+
+    async def register_schema_async(
+        self,
+        subject: str,
+        schema: str,
+        schema_type: str = "PROTOBUF",
+    ) -> int:
+        """Register a schema with Confluent registry (async).
+
+        Args:
+            subject: Subject name
+            schema: Schema definition
+            schema_type: Type of schema
+
+        Returns:
+            Schema ID
+
+        Raises:
+            SchemaRegistrationError: If registration fails
+        """
+        url = urljoin(self.config.url, f"/subjects/{subject}/versions")
+        payload = {
+            "schema": schema,
+            "schemaType": schema_type,
+        }
+
+        try:
+            data = await self._http_request_async(url, method="POST", json_data=payload)
+            schema_id = data.get("id")
+            if schema_id is None:
+                raise SchemaRegistrationError(
+                    f"Registration succeeded but no schema ID returned: {data}"
+                )
+            self.logger.info(
+                f"Registered schema for subject={subject}, schema_id={schema_id}"
+            )
+            return schema_id
+        except Exception as e:
+            if "409" in str(e):
+                raise SchemaRegistrationError(
+                    f"Schema already exists for subject {subject}"
+                ) from e
+            raise SchemaRegistrationError(
+                f"Failed to register schema: {str(e)}"
+            ) from e
+
+    async def get_schema_by_id_async(self, schema_id: int) -> Dict[str, Any]:
+        """Retrieve schema by ID from Confluent registry (async).
+
+        Args:
+            schema_id: Schema ID
+
+        Returns:
+            Dict with schema details
+
+        Raises:
+            SchemaNotFoundError: If schema not found
+        """
+        # Check cache first
+        if schema_id in self._schema_cache:
+            self.logger.debug(f"Retrieved cached schema for schema_id={schema_id}")
+            return self._schema_cache[schema_id]
+
+        url = urljoin(self.config.url, f"/schemas/ids/{schema_id}")
+
+        try:
+            data = await self._http_request_async(url, method="GET")
+            # Cache the schema
+            self._schema_cache[schema_id] = data
+            self.logger.debug(f"Retrieved schema for schema_id={schema_id}")
+            return data
+        except Exception as e:
+            if "404" in str(e):
+                raise SchemaNotFoundError(f"Schema ID {schema_id} not found") from e
+            raise SchemaNotFoundError(
+                f"Failed to retrieve schema: {str(e)}"
+            ) from e
+
+    async def get_schema_by_version_async(
+        self, subject: str, version: int
+    ) -> Dict[str, Any]:
+        """Retrieve schema by subject and version (async).
+
+        Args:
+            subject: Subject name
+            version: Version number
+
+        Returns:
+            Dict with schema details
+
+        Raises:
+            SchemaNotFoundError: If schema not found
+        """
+        url = urljoin(
+            self.config.url, f"/subjects/{subject}/versions/{version}"
+        )
+
+        try:
+            return await self._http_request_async(url, method="GET")
+        except Exception as e:
+            raise SchemaNotFoundError(
+                f"Schema not found for subject={subject}, version={version}: {str(e)}"
+            ) from e
+
+    async def check_compatibility_async(
+        self,
+        subject: str,
+        schema: str,
+        version: Optional[int] = None,
+    ) -> bool:
+        """Check if new schema is compatible with existing schema (async).
+
+        Args:
+            subject: Subject name
+            schema: New schema to validate
+            version: Version to check against
+
+        Returns:
+            True if compatible, False otherwise
+
+        Raises:
+            CompatibilityCheckError: If check fails
+        """
+        if version is None:
+            url = urljoin(self.config.url, f"/compatibility/subjects/{subject}/versions/latest")
+        else:
+            url = urljoin(
+                self.config.url,
+                f"/compatibility/subjects/{subject}/versions/{version}"
+            )
+
+        payload = {"schema": schema}
+
+        try:
+            data = await self._http_request_async(url, method="POST", json_data=payload)
+            is_compatible = data.get("is_compatible", False)
+            self.logger.debug(
+                f"Compatibility check for subject={subject}: {is_compatible}"
+            )
+            return is_compatible
+        except Exception as e:
+            raise CompatibilityCheckError(
+                f"Compatibility check failed: {str(e)}"
+            ) from e
+
+    async def set_compatibility_mode_async(self, subject: str, mode: str) -> None:
+        """Set compatibility mode for a subject (async).
+
+        Args:
+            subject: Subject name
+            mode: Compatibility mode
+
+        Raises:
+            SchemaRegistryError: If setting fails
+        """
+        url = urljoin(self.config.url, f"/config/{subject}")
+        payload = {"compatibility": mode}
+
+        try:
+            await self._http_request_async(url, method="PUT", json_data=payload)
+            self.logger.info(
+                f"Set compatibility mode for subject={subject} to {mode}"
+            )
+        except Exception as e:
+            raise SchemaRegistryError(
+                f"Failed to set compatibility mode: {str(e)}"
+            ) from e
 
     def register_schema(
         self,
