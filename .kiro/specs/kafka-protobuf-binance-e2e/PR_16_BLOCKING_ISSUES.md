@@ -134,26 +134,49 @@ forward, please drop those generated/support files and limit the PR to the Kafka
 backend code. Once the diff contains actual code changes, I can review the Python/spec-related parts.
 ```
 
-### Current Analysis
+### Current Analysis (Updated 2025-12-11)
 
 #### File Count Breakdown
-**Total Files Changed**: 365
+**Total Files Changed**: 366
 
-**Support/Generated Files** (70 files - should be removed):
-- `.claude/*` - Agent configuration files (19 files)
-- `.kiro/*` - Specification/template files (48 files)
-- `.env*` - Environment templates (3 files)
+**Category 1: Framework/Support Files** (217 files - owner requested removal):
+- `.claude/*` - Modified framework files (19 files - Modified, not new)
+- `.kiro/settings/*` - Modified template/rules (9 files - Modified, not new)
+- `.kiro/specs/*` (non-kafka) - Other spec directories (5 files)
+- `.env*` - Environment templates (2 files - Added)
+- Other framework changes
 
-**Actual Code Files** (295 files - needs review):
-- `cryptofeed/*` - Backend implementations
-- `tests/*` - Test files
-- `docs/*` - Documentation
-- Other Python code
+**Category 2: Kafka-Specific Code** (88 files - core kafka work):
+- `cryptofeed/backends/kafka.py` and `kafka/*` modules
+- `tests/integration/kafka/*`
+- `tests/unit/kafka/*`
+- `.kiro/specs/kafka-protobuf-binance-e2e/*` (6 files)
+
+**Category 3: Supporting Infrastructure** (61 files - kafka dependencies):
+- `cryptofeed/backends/protobuf/*` - Protobuf serialization
+- `cryptofeed/connection.py`, `connection_handler.py` - Proxy support
+- `cryptofeed/exchanges/binance.py`, `okx.py` - Exchange changes
+- `cryptofeed/migration/` - Migration CLI
+- `tests/e2e/*`, `tests/phase5/*` - E2E and deployment tests
+
+#### Commit Analysis (2025-12-11)
+
+**Commit Breakdown** (171 total commits ahead of `origin/next`):
+- **168 commits** contain actual code changes (not pure support files)
+- **3 commits** touch only support/framework files (can be dropped)
+- **0 commits** are empty or mixed
+
+**Key Finding**: The support files are NOT from isolated commits that can be easily dropped via interactive rebase. Instead, they're:
+1. **Modified** files that existed in `next` (we updated the spec framework)
+2. **Mixed** into many commits alongside code changes
+
+**Implication**: Simple interactive rebase won't reduce file count significantly. Need different approach.
 
 #### Root Cause
-1. **Accumulated Changes**: Branch diverged from `next`, accumulated non-Kafka changes
-2. **Spec System Pollution**: .kiro/ and .claude/ files mixed with code changes
-3. **Wide Scope**: Changes beyond just "Kafka protobuf backend" core focus
+1. **Spec Framework Evolution**: Branch modified `.claude/*` and `.kiro/settings/*` framework files that existed in `next`
+2. **Multiple Specs**: Added 3 spec directories (kafka-backend-maintenance, kafka-proto-code-improvement, kafka-protobuf-binance-e2e)
+3. **Supporting Infrastructure**: Protobuf, proxy, connection changes are dependencies but owner wants narrower scope
+4. **Wide Scope**: Changes beyond just "Kafka backend" per owner's request for focus
 
 #### Impact
 - **PR Unreviable**: 365 files too large for effective code review
@@ -161,119 +184,177 @@ backend code. Once the diff contains actual code changes, I can review the Pytho
 - **CI Overhead**: Tests run on all 365 files, slowing down feedback
 - **Review Time**: Estimated 10-15 hours to review all files
 
-### Required Actions
+### Required Actions (Revised 2025-12-11)
 
-**Option 1: Interactive Rebase (Recommended)**
+**Analysis Shows**: Interactive rebase alone won't work because support files are mixed into 168 commits with code changes.
+
+**Revised Option 1: Git Filter + Revert (Recommended - Fastest)**
+Revert framework files to their `next` state, remove non-kafka specs, keep all code.
+
 ```bash
-# 1. Fetch latest next
-git fetch origin next:next
+# 1. Reset framework files to next version (removes our modifications)
+git checkout origin/next -- .claude/
+git checkout origin/next -- .kiro/settings/
 
-# 2. Interactive rebase to clean commits
-git rebase -i origin/next
+# 2. Remove non-kafka spec directories
+git rm -r .kiro/specs/kafka-backend-maintenance/
+git rm -r .kiro/specs/kafka-proto-code-improvement/
 
-# 3. During rebase, drop commits that only touch:
-#    - .claude/*
-#    - .kiro/* (except kafka-protobuf-binance-e2e spec)
-#    - .env templates
-#    - Non-Kafka documentation
+# 3. Remove env templates
+git rm .env.default .env.production.template
 
-# 4. Keep only Kafka backend commits
-#    - cryptofeed/backends/kafka/*
-#    - tests/integration/kafka/*
-#    - tests/unit/backends/test_kafka_*
-#    - .kiro/specs/kafka-protobuf-binance-e2e/* (spec only)
-```
+# 4. Commit the cleanup
+git commit -m "chore: remove framework changes and non-kafka specs from PR scope"
 
-**Option 2: Cherry-Pick to Clean Branch**
-```bash
-# 1. Create new branch from next
-git checkout next
-git pull origin next
-git checkout -b feature/kafka-proto-backend-clean
+# 5. Verify file count
+git diff --name-only origin/next HEAD | wc -l
+# Expected: ~149 files (down from 366)
 
-# 2. Cherry-pick only Kafka-related commits
-git cherry-pick <kafka-commit-1>
-git cherry-pick <kafka-commit-2>
-# ... etc
-
-# 3. Force push to feature/kafka-proto-backend
-git push origin feature/kafka-proto-backend-clean:feature/kafka-proto-backend --force-with-lease
-```
-
-**Option 3: Manual File Removal** (Not Recommended - loses git history)
-```bash
-# Remove support files
-git rm -r .claude/*
-git rm -r .kiro/* (except kafka spec)
-git rm .env.*
-
-# Commit removal
-git commit -m "chore: remove generated/support files from PR scope"
-
-# Force push
+# 6. Force push
 git push origin feature/kafka-proto-backend --force-with-lease
 ```
 
-### Recommended Resolution Plan
+**Result**: 149 files (88 kafka-specific + 61 supporting infrastructure + 0 framework)
+**Time**: 10 minutes
+**Risk**: Low - preserves all code changes, only removes framework modifications
 
-**Step 1: Identify Kafka Core Commits**
+**Revised Option 2: Split Into Multiple PRs (Most Aligned)**
+Create separate PRs for each logical component to match owner's "focused" request.
+
 ```bash
-# List commits with file stats
-git log --oneline --stat origin/next..HEAD | grep -A 5 "kafka"
+# PR #16a: Core Kafka Backend Only (~40 files)
+# - cryptofeed/backends/kafka.py and kafka/* modules
+# - tests/unit/kafka/* and tests/integration/kafka/*
+# - .kiro/specs/kafka-protobuf-binance-e2e/*
+
+# PR #16b: Protobuf Infrastructure (~25 files)
+# - cryptofeed/backends/protobuf/*
+# - cryptofeed/backends/protobuf_helpers.py
+# - tests/unit/backends/test_protobuf_*
+
+# PR #16c: Proxy/Connection Support (~15 files)
+# - cryptofeed/connection.py, connection_handler.py
+# - tests/unit/test_*proxy*.py
+
+# PR #16d: Exchange Updates (~10 files)
+# - cryptofeed/exchanges/binance.py, okx.py
+# - Related tests
 ```
 
-**Step 2: Create Clean Branch**
+**Result**: 4 focused PRs, each <50 files
+**Time**: 3-4 hours to split and create PRs
+**Risk**: Medium - requires careful dependency management between PRs
+
+**Option 3: Accept 149 Files (Fastest - No Work)**
+Execute Option 1, then explain to PR owner that 149 files are required because:
+- 88 kafka-specific files (backend + tests + spec)
+- 61 supporting infrastructure files (protobuf, proxy, exchanges)
+- All files are dependencies for kafka backend functionality
+
 ```bash
-git checkout -b feature/kafka-proto-backend-v2 origin/next
+# Just do Option 1 cleanup (10 min)
+# Then comment on PR explaining the 149 file count
+# Ask owner if they want Option 2 (split into multiple PRs)
 ```
 
-**Step 3: Cherry-Pick Core Commits**
+**Result**: 149 files, single PR
+**Time**: 15 minutes (10 min cleanup + 5 min PR comment)
+**Risk**: Low - may not meet owner's "<50 files" expectation, but preserves all functional code
+
+### Recommended Resolution Plan (Revised 2025-12-11)
+
+**Recommendation: Execute Option 1 (Git Filter + Revert)**
+
+Rationale:
+- Fastest path to improvement (10 minutes)
+- Reduces file count by 59% (366 → 149 files)
+- Preserves all functional code and git history
+- Low risk - just removing framework modifications
+- Can follow up with Option 2 (split PRs) if owner requests further reduction
+
+**Step 1: Execute Option 1 Cleanup**
 ```bash
-# Cherry-pick only these recent commits:
-git cherry-pick ba0fc2e7  # spec cleanup
-git cherry-pick dbafcd30  # CODE_REVIEW_ISSUES.md
-git cherry-pick 19beda1e  # test: serializer fix
-git cherry-pick e6fdfb36  # docs: frozen behavior
-git cherry-pick cbd768bc  # fix: json.dumpb
-git cherry-pick 737bd9ba  # style: ruff
-git cherry-pick 4f96e5b0  # spec: remove consumer scope
-git cherry-pick b2dda895  # spec: init futures
-git cherry-pick c62cb2ed  # spec: extend futures
-git cherry-pick e2b7d143  # test: futures scaffolding
-git cherry-pick 22f54d76  # feat: exchange_id param
+# Reset framework files to next version
+git checkout origin/next -- .claude/
+git checkout origin/next -- .kiro/settings/
+
+# Remove non-kafka specs
+git rm -r .kiro/specs/kafka-backend-maintenance/
+git rm -r .kiro/specs/kafka-proto-code-improvement/
+
+# Remove env templates
+git rm .env.default .env.production.template
+
+# Commit
+git commit -m "chore: remove framework changes and non-kafka specs from PR scope
+
+- Reset .claude/* and .kiro/settings/* to next (removes framework modifications)
+- Remove kafka-backend-maintenance and kafka-proto-code-improvement specs
+- Remove .env templates
+- Focus PR on kafka-protobuf-binance-e2e implementation only
+
+File count: 366 → 149 (88 kafka-specific + 61 supporting infrastructure)
+"
+
+# Verify
+git diff --name-only origin/next HEAD | wc -l
+
+# Push
+git push origin feature/kafka-proto-backend --force-with-lease
 ```
 
-**Step 4: Verify File Count**
+**Step 2: Update PR #16 with Results**
 ```bash
-# Should be < 50 files
-git diff --name-only origin/next | wc -l
+gh pr comment 16 --body "## PR Scope Reduction Complete
+
+**File Count**: 366 → 149 files (59% reduction)
+
+**Changes Made**:
+- ✅ Removed .claude/* framework modifications (reset to next)
+- ✅ Removed .kiro/settings/* template modifications (reset to next)
+- ✅ Removed non-kafka spec directories
+- ✅ Removed .env templates
+
+**Remaining Files** (149 total):
+- **88 kafka-specific**: cryptofeed/backends/kafka/*, tests/*/kafka/*, .kiro/specs/kafka-protobuf-binance-e2e/*
+- **61 supporting infrastructure**: protobuf/*, connection.py, exchanges/*, tests/e2e/*, tests/phase5/*
+
+**Supporting Infrastructure Rationale**:
+- Protobuf serialization required for kafka backend functionality
+- Proxy/connection support needed for e2e validation
+- Exchange updates (binance, okx) enable kafka pipeline testing
+- All changes are functional dependencies, not unrelated work
+
+**Options for Further Reduction**:
+If 149 files is still too large, I can split into 4 focused PRs:
+- PR #16a: Core Kafka Backend (~40 files)
+- PR #16b: Protobuf Infrastructure (~25 files)
+- PR #16c: Proxy/Connection (~15 files)
+- PR #16d: Exchange Updates (~10 files)
+
+Each PR would be <50 files and independently reviewable.
+
+Please advise if you want further splitting or if 149 files is acceptable.
+"
 ```
 
-**Step 5: Update PR**
-```bash
-# Close old PR #16
-gh pr close 16 --comment "Closing in favor of trimmed PR with Kafka backend changes only"
+### Success Criteria (Revised 2025-12-11)
 
-# Push clean branch
-git push origin feature/kafka-proto-backend-v2
-
-# Create new PR
-gh pr create --base next --head feature/kafka-proto-backend-v2 \
-  --title "feat: kafka protobuf backend with binance e2e validation" \
-  --body "$(cat PR_BODY.md)"
-```
-
-### Success Criteria
-- [ ] PR file count < 50 files
-- [ ] All files under `cryptofeed/backends/kafka/*` or `tests/*/kafka/*`
-- [ ] Only kafka-protobuf-binance-e2e spec included (no other .kiro/*)
-- [ ] No .claude/* files
-- [ ] No .env templates
+**Phase 1: Framework Cleanup** (Option 1)
+- [ ] Framework files reset to `next` version (.claude/*, .kiro/settings/*)
+- [ ] Non-kafka specs removed (kafka-backend-maintenance, kafka-proto-code-improvement)
+- [ ] Env templates removed (.env.default, .env.production.template)
+- [ ] File count reduced to ~149 (59% reduction from 366)
 - [ ] All tests pass
-- [ ] PR is reviewable in < 2 hours
+- [ ] Force push successful
 
-### Status
-**UNRESOLVED** - Requires manual action to rebase/clean branch
+**Phase 2: Owner Review** (After Phase 1)
+- [ ] PR owner reviews 149-file count
+- [ ] Decision: Accept 149 files OR split into multiple PRs
+- [ ] If split required, execute Option 2 (4 focused PRs)
+
+### Status (Updated 2025-12-11)
+**READY TO EXECUTE** - Analysis complete, Option 1 steps defined, awaiting execution approval
 
 ---
 
