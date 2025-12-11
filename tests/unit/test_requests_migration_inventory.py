@@ -11,7 +11,6 @@ Task: 6.6 (Migration Plan)
 """
 
 import ast
-import os
 import pytest
 from pathlib import Path
 

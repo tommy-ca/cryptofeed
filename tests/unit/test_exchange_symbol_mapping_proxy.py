@@ -114,7 +114,6 @@ async def test_symbol_mapping_respects_default_timeout(monkeypatch):
 @pytest.mark.asyncio
 async def test_symbol_mapping_timeout_prevents_hang(monkeypatch):
     """Test that timeout is enforced and prevents indefinite hangs"""
-    from aiohttp import ClientError
 
     async def slow_fetch(url, proxy_url, timeout, headers=None):
         # Simulate timeout by raising the appropriate error

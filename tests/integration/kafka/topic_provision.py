@@ -67,7 +67,7 @@ async def ensure_topics_exist(
             existing = await client.list_topics()
         except connectivity_errors as exc:  # pragma: no cover - network/env issues
             pytest.skip(f"Kafka topic provisioning failed (list): {exc}")
-        except kafka_error as exc:
+        except kafka_error:
             raise
 
         missing = [t for t in topics if t not in existing]
@@ -93,7 +93,7 @@ async def ensure_topics_exist(
             missing = []
         except connectivity_errors as exc:  # pragma: no cover - network/env issues
             pytest.skip(f"Kafka topic provisioning failed (create): {exc}")
-        except kafka_error as exc:
+        except kafka_error:
             raise
 
         # Verify topics exist and match basic expectations; retry briefly for broker propagation.

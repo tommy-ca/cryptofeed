@@ -8,7 +8,6 @@ from tests.unit.kafka.kafka_callback_test_utils import (
     CompositePartitioner,
     KafkaCallback,
     KafkaConfig,
-    KafkaPartitionConfig,
     KafkaTopicConfig,
     _StubProducer,
     _producer_factory,

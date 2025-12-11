@@ -1,4 +1,3 @@
-import os
 from unittest.mock import patch, Mock
 
 from cryptofeed.backends.kafka_schema import (
