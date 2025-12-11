@@ -489,7 +489,8 @@ class OKX(Feed, OKXRestMixin):
         endpoint = "public/time"
         injector = get_proxy_injector()
         proxy_url = None
-        release = lambda: None
+        def release():
+            pass
         if injector:
             proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
         try:

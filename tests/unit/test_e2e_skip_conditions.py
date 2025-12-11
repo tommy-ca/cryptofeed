@@ -10,7 +10,7 @@ These tests validate that:
 """
 
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import pytest
 
 
@@ -30,13 +30,6 @@ class TestDockerSkipConditions:
 
     def test_docker_compose_unavailable_includes_documentation_reference(self):
         """Skip message should reference setup documentation."""
-        expected_patterns = [
-            "docker",
-            "compose",
-            "install",
-            "available",
-        ]
-
         # Verify the skip message pattern in conftest
         from tests.integration.kafka.conftest import _docker_compose_available
 
@@ -51,8 +44,6 @@ class TestRedpandaSkipConditions:
 
     def test_redpanda_unreachable_connection_refused(self):
         """When Redpanda connection refused, skip with clear message."""
-        from confluent_kafka import KafkaException
-        from tests.integration.kafka.helpers import consume_one
 
         # This would trigger connection refused in consume_one
         # The actual test is in the E2E files checking kafka_cb.is_connected()
@@ -111,12 +102,6 @@ class TestPythonSocksSkipConditions:
         """Skip message for missing python-socks should include pip install guidance."""
         # Validated by test file docstrings and skip messages
         # Pattern: pytest.skip("...python-socks is not installed")
-        expected_patterns = [
-            "python-socks",
-            "install",
-            "pip",
-            "SOCKS",
-        ]
         # Docstrings in E2E files include these patterns
         pass  # Validated by documentation
 
