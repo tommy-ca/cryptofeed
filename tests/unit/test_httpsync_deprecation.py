@@ -6,7 +6,6 @@ Task 6.8c: HTTPSync deprecation/migration
 - Verify deprecation warnings are emitted
 - Ensure regression tests for proxy application
 """
-import asyncio
 import os
 import warnings
 import pytest

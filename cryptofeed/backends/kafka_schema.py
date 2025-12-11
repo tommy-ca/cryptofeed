@@ -11,12 +11,10 @@ Task 18: Schema Registry Integration
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
 import struct
-import threading
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, Optional, Any, Tuple

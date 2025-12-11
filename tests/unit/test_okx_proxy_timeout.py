@@ -1,4 +1,3 @@
-import os
 
 from cryptofeed.exchanges.okx import OKX
 from cryptofeed.proxy import ProxySettings, ConnectionProxies, ProxyConfig, init_proxy_system

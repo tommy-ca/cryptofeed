@@ -10,10 +10,8 @@ Test scope: Task 6 - Enable proxy-configured E2E runs
 from __future__ import annotations
 
 import os
-from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
-import pytest
 
 from cryptofeed.proxy import ProxySettings, init_proxy_system, get_proxy_injector
 

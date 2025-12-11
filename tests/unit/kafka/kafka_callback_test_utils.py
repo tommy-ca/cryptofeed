@@ -4,27 +4,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
 
-import pytest
 
 
 # Import KafkaCallback and related components used across KafkaCallback tests
-from cryptofeed.backends.kafka.callback import KafkaCallback
-from cryptofeed.backends.kafka.topic_manager import TopicManager
-from cryptofeed.backends.kafka.headers import MessageHeaders, OptionalHeaders, HeaderEnricher
-from cryptofeed.backends.kafka.partitioner import (
-    Partitioner,
-    PartitionerFactory,
-    SymbolPartitioner,
-    CompositePartitioner,
-    ExchangePartitioner,
-    RoundRobinPartitioner,
-)
-from cryptofeed.backends.kafka.config import (
-    KafkaConfig,
-    KafkaTopicConfig,
-    KafkaPartitionConfig,
-    KafkaProducerConfig,
-)
 
 
 @dataclass

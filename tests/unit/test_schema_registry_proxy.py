@@ -8,10 +8,6 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from cryptofeed.backends.kafka_schema import (
     SchemaRegistryConfig,
     ConfluentSchemaRegistry,
-    SchemaRegistrationError,
-    SchemaNotFoundError,
-    CompatibilityCheckError,
-    SchemaRegistryError,
 )
 
 

@@ -7,18 +7,12 @@ from unittest.mock import Mock
 import pytest
 
 from tests.unit.kafka.kafka_callback_test_utils import (
-    CompositePartitioner,
-    ExchangePartitioner,
     HeaderEnricher,
     KafkaCallback,
     KafkaConfig,
     KafkaPartitionConfig,
-    KafkaTopicConfig,
     MessageHeaders,
     OptionalHeaders,
-    PartitionerFactory,
-    RoundRobinPartitioner,
-    SymbolPartitioner,
     _StubProducer,
     _producer_factory,
 )

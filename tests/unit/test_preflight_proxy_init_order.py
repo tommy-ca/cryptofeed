@@ -7,7 +7,7 @@ before calling init_proxy_system, causing proxy-configured runs to go direct.
 
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from cryptofeed.proxy import init_proxy_system, get_proxy_injector, ProxySettings
 
 

@@ -13,10 +13,8 @@ from __future__ import annotations
 
 import json
 import os
-from unittest.mock import patch
 from urllib.parse import urlparse
 
-import pytest
 
 from cryptofeed.proxy import ProxySettings, init_proxy_system, get_proxy_injector, load_proxy_settings
 

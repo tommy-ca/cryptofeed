@@ -7,7 +7,7 @@ use the proxy correctly.
 
 import os
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch
 from cryptofeed.proxy import init_proxy_system, ProxySettings
 
 
