@@ -42,6 +42,19 @@ class Connection:
 
 
 class HTTPSync(Connection):
+    """Synchronous HTTP client with proxy and timeout support.
+
+    DEPRECATED: HTTPSync is deprecated and will be removed in a future version.
+    Use HTTPAsyncConn for async HTTP calls, which provides better proxy integration
+    via ProxyInjector and non-blocking execution.
+
+    HTTPSync provides basic proxy and timeout support via environment variables:
+    - HTTP_PROXY / HTTPS_PROXY / CRYPTOFEED_HTTP_PROXY / CF_HTTP_PROXY: proxy URL
+    - CRYPTOFEED_HTTP_TIMEOUT / CF_HTTP_TIMEOUT: timeout in seconds (default 10)
+
+    SOCKS proxies are supported via aiohttp_socks when proxy URL starts with 'socks'.
+    """
+
     def process_response(self, r, address, json=False, text=False, uuid=None):
         if self.raw_data_callback:
             self.raw_data_callback.sync_callback(r.text, time.time(), str(uuid), endpoint=address)
@@ -54,6 +67,18 @@ class HTTPSync(Connection):
         return r
 
     def read(self, address: str, params=None, headers=None, json=False, text=True, uuid=None):
+        """Read from HTTP endpoint (GET request).
+
+        DEPRECATED: Use HTTPAsyncConn instead for better proxy integration.
+        """
+        import warnings
+        warnings.warn(
+            "HTTPSync is deprecated and will be removed in a future version. "
+            "Use HTTPAsyncConn for async HTTP calls with ProxyInjector integration.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         LOG.debug("HTTPSync: requesting data from %s", address)
         timeout = float(os.getenv("CRYPTOFEED_HTTP_TIMEOUT", os.getenv("CF_HTTP_TIMEOUT", "10")))
         proxy = os.getenv("CRYPTOFEED_HTTP_PROXY") or os.getenv("CF_HTTP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
@@ -79,11 +104,26 @@ class HTTPSync(Connection):
                         text = text_body
                         def json(self_inner):
                             return json_loads(text_body, parse_float=Decimal)
+                        def raise_for_status(self_inner):
+                            # No-op: already called on line 98
+                            pass
                     return _Resp()
         resp_obj = asyncio.run(_do())
         return self.process_response(resp_obj, address, json=json, text=text, uuid=uuid)
 
     def write(self, address: str, data=None, json=False, text=True, uuid=None, is_data_json=False):
+        """Write to HTTP endpoint (POST request).
+
+        DEPRECATED: Use HTTPAsyncConn instead for better proxy integration.
+        """
+        import warnings
+        warnings.warn(
+            "HTTPSync is deprecated and will be removed in a future version. "
+            "Use HTTPAsyncConn for async HTTP calls with ProxyInjector integration.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         LOG.debug("HTTPSync: post to %s", address)
         timeout = float(os.getenv("CRYPTOFEED_HTTP_TIMEOUT", os.getenv("CF_HTTP_TIMEOUT", "10")))
         proxy = os.getenv("CRYPTOFEED_HTTP_PROXY") or os.getenv("CF_HTTP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
@@ -109,6 +149,9 @@ class HTTPSync(Connection):
                         text = text_body
                         def json(self_inner):
                             return json_loads(text_body, parse_float=Decimal)
+                        def raise_for_status(self_inner):
+                            # No-op: already called above
+                            pass
                     return _Resp()
         resp_obj = asyncio.run(_do())
         return self.process_response(resp_obj, address, json=json, text=text, uuid=uuid)
