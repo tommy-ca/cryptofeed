@@ -1,6 +1,8 @@
 # Design Document Template
 
 ---
+**Document Length Guidelines: Max 1000 lines**
+
 **Purpose**: Provide sufficient detail to ensure implementation consistency across different implementers, preventing interpretation drift.
 
 **Approach**:
@@ -11,8 +13,6 @@
 
 **Warning**: Approaching 1000 lines indicates excessive feature complexity that may require design simplification.
 ---
-
-> Sections may be reordered (e.g., surfacing Requirements Traceability earlier or moving Data Models nearer Architecture) when it improves clarity. Within each section, keep the flow **Summary → Scope → Decisions → Impacts/Risks** so reviewers can scan consistently.
 
 ## Overview 
 2-3 paragraphs max
@@ -33,9 +33,6 @@
 
 ## Architecture
 
-> Reference detailed discovery notes in `research.md` only for background; keep design.md self-contained for reviewers by capturing all decisions and contracts here.
-> Capture key decisions in text and let diagrams carry structural detail—avoid repeating the same information in prose.
-
 ### Existing Architecture Analysis (if applicable)
 When modifying existing systems:
 - Current architecture patterns and constraints
@@ -43,134 +40,173 @@ When modifying existing systems:
 - Integration points that must be maintained
 - Technical debt addressed or worked around
 
-### Architecture Pattern & Boundary Map
-**RECOMMENDED**: Include Mermaid diagram showing the chosen architecture pattern and system boundaries (required for complex features, optional for simple additions)
+### High-Level Architecture
+**RECOMMENDED**: Include Mermaid diagram showing system architecture (required for complex features, optional for simple additions)
 
 **Architecture Integration**:
-- Selected pattern: [name and brief rationale]
-- Domain/feature boundaries: [how responsibilities are separated to avoid conflicts]
 - Existing patterns preserved: [list key patterns]
 - New components rationale: [why each is needed]
+- Technology alignment: [how it fits current stack]
 - Steering compliance: [principles maintained]
 
-### Technology Stack
+### Technology Stack and Design Decisions
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend / CLI | | | |
-| Backend / Services | | | |
-| Data / Storage | | | |
-| Messaging / Events | | | |
-| Infrastructure / Runtime | | | |
+**Generation Instructions** (DO NOT include this section in design.md):
+Adapt content based on feature classification from Discovery & Analysis Phase:
 
-> Keep rationale concise here and, when more depth is required (trade-offs, benchmarks), add a short summary plus pointer to the Supporting References section and `research.md` for raw investigation notes.
+**For New Features (greenfield)**:
+Generate Technology Stack section with ONLY relevant layers:
+- Include only applicable technology layers (e.g., skip Frontend for CLI tools, skip Infrastructure for libraries)
+- For each technology choice, provide: selection, rationale, and alternatives considered
+- Include Architecture Pattern Selection if making architectural decisions
+
+**For Extensions/Additions to Existing Systems**:
+Generate Technology Alignment section instead:
+- Document how feature aligns with existing technology stack
+- Note any new dependencies or libraries being introduced
+- Justify deviations from established patterns if necessary
+
+**Key Design Decisions**:
+Generate 1-3 critical technical decisions that significantly impact the implementation.
+Each decision should follow this format:
+- **Decision**: [Specific technical choice made]
+- **Context**: [Problem or requirement driving this decision]
+- **Alternatives**: [2-3 other approaches considered]
+- **Selected Approach**: [What was chosen and how it works]
+- **Rationale**: [Why this is optimal for the specific context]
+- **Trade-offs**: [What we gain vs. what we sacrifice]
+
+Skip this entire section for simple CRUD operations or when following established patterns without deviation.
 
 ## System Flows
 
-Provide only the diagrams needed to explain non-trivial flows. Use pure Mermaid syntax. Common patterns:
-- Sequence (multi-party interactions)
-- Process / state (branching logic or lifecycle)
-- Data / event flow (pipelines, async messaging)
+**Flow Design Generation Instructions** (DO NOT include this section in design.md):
+Generate appropriate flow diagrams ONLY when the feature requires flow visualization. Select from:
+- **Sequence Diagrams**: For user interactions across multiple components
+- **Process Flow Charts**: For complex algorithms, decision branches, or state machines  
+- **Data Flow Diagrams**: For data transformations, ETL processes, or data pipelines
+- **State Diagrams**: For complex state transitions
+- **Event Flow**: For async/event-driven architectures
 
-Skip this section entirely for simple CRUD changes.
-> Describe flow-level decisions (e.g., gating conditions, retries) briefly after the diagram instead of restating each step.
+Skip this section entirely for simple CRUD operations or features without complex flows.
+When included, provide concise Mermaid diagrams specific to the actual feature requirements.
 
 ## Requirements Traceability
 
-Use this section for complex or compliance-sensitive features where requirements span multiple domains. Straightforward 1:1 mappings can rely on the Components summary table.
+**Traceability Generation Instructions** (DO NOT include this section in design.md):
+Generate traceability mapping ONLY for complex features with multiple requirements or when explicitly needed for compliance/validation.
 
-Map each requirement ID (e.g., `2.1`) to the design elements that realize it.
+When included, create a mapping table showing how each EARS requirement is realized:
+| Requirement | Requirement Summary | Components | Interfaces | Flows |
+|---------------|-------------------|------------|------------|-------|
+| 1.1 | Brief description | Component names | API/Methods | Relevant flow diagrams |
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | | | | |
-| 1.2 | | | | |
+Alternative format for simpler cases:
+- **1.1**: Realized by [Component X] through [Interface Y]
+- **1.2**: Implemented in [Component Z] with [Flow diagram reference]
 
-> Omit this section only when a single component satisfies a single requirement without cross-cutting concerns.
+Skip this section for simple features with straightforward 1:1 requirement-to-component mappings.
 
 ## Components and Interfaces
 
-Provide a quick reference before diving into per-component details.
+**Component Design Generation Instructions** (DO NOT include this section in design.md):
+Structure components by domain boundaries or architectural layers. Generate only relevant subsections based on component type.
+Group related components under domain/layer headings for clarity.
 
-- Summaries can be a table or compact list. Example table:
-  | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-  |-----------|--------------|--------|--------------|--------------------------|-----------|
-  | ExampleComponent | UI | Displays XYZ | 1, 2 | GameProvider (P0), MapPanel (P1) | Service, State |
-- Only components introducing new boundaries (e.g., logic hooks, external integrations, persistence) require full detail blocks. Simple presentation components can rely on the summary row plus a short Implementation Note.
-
-Group detailed blocks by domain or architectural layer. For each detailed component, list requirement IDs as `2.1, 2.3` (omit “Requirement”). When multiple UI components share the same contract, reference a base interface/props definition instead of duplicating code blocks.
-
-### [Domain / Layer]
+### [Domain/Layer Name]
 
 #### [Component Name]
 
-| Field | Detail |
-|-------|--------|
-| Intent | 1-line description of the responsibility |
-| Requirements | 2.1, 2.3 |
-| Owner / Reviewers | (optional) |
-
-**Responsibilities & Constraints**
-- Primary responsibility
-- Domain boundary and transaction scope
-- Data ownership / invariants
+**Responsibility & Boundaries**
+- **Primary Responsibility**: Single, clear statement of what this component does
+- **Domain Boundary**: Which domain/subdomain this belongs to
+- **Data Ownership**: What data this component owns and manages
+- **Transaction Boundary**: Scope of transactional consistency (if applicable)
 
 **Dependencies**
-- Inbound: Component/service name — purpose (Criticality)
-- Outbound: Component/service name — purpose (Criticality)
-- External: Service/library — purpose (Criticality)
+- **Inbound**: Components/services that depend on this component
+- **Outbound**: Components/services this component depends on
+- **External**: Third-party services, libraries, or external systems
 
-Summarize external dependency findings here; deeper investigation (API signatures, rate limits, migration notes) lives in `research.md`.
+**External Dependencies Investigation** (when using external libraries/services):
+- Use WebSearch to locate official documentation, GitHub repos, and community resources
+- Use WebFetch to retrieve and analyze documentation pages, API references, and usage examples
+- Verify API signatures, authentication methods, and rate limits
+- Check version compatibility, breaking changes, and migration guides
+- Investigate common issues, best practices, and performance considerations
+- Document any assumptions, unknowns, or risks for implementation phase
+- If critical information is missing, clearly note "Requires investigation during implementation: [specific concern]"
 
-**Contracts**: Service [ ] / API [ ] / Event [ ] / Batch [ ] / State [ ]  ← check only the ones that apply.
+**Contract Definition**
 
-##### Service Interface
+Select and generate ONLY the relevant contract types for each component:
+
+**Service Interface** (for business logic components):
 ```typescript
 interface [ComponentName]Service {
+  // Method signatures with clear input/output types
+  // Include error types in return signatures
   methodName(input: InputType): Result<OutputType, ErrorType>;
 }
 ```
-- Preconditions:
-- Postconditions:
-- Invariants:
+- **Preconditions**: What must be true before calling
+- **Postconditions**: What is guaranteed after successful execution
+- **Invariants**: What remains true throughout
 
-##### API Contract
+**API Contract** (for REST/GraphQL endpoints):
 | Method | Endpoint | Request | Response | Errors |
 |--------|----------|---------|----------|--------|
 | POST | /api/resource | CreateRequest | Resource | 400, 409, 500 |
 
-##### Event Contract
-- Published events:  
-- Subscribed events:  
-- Ordering / delivery guarantees:
+With detailed schemas only for complex payloads
 
-##### Batch / Job Contract
-- Trigger:  
-- Input / validation:  
-- Output / destination:  
-- Idempotency & recovery:
+**Event Contract** (for event-driven components):
+- **Published Events**: Event name, schema, trigger conditions
+- **Subscribed Events**: Event name, handling strategy, idempotency
+- **Ordering**: Guaranteed order requirements
+- **Delivery**: At-least-once, at-most-once, or exactly-once
 
-##### State Management
-- State model:  
-- Persistence & consistency:  
-- Concurrency strategy:
+**Batch/Job Contract** (for scheduled/triggered processes):
+- **Trigger**: Schedule, event, or manual trigger conditions
+- **Input**: Data source and validation rules
+- **Output**: Results destination and format
+- **Idempotency**: How repeat executions are handled
+- **Recovery**: Failure handling and retry strategy
 
-**Implementation Notes**
-- Integration: 
-- Validation: 
-- Risks:
+**State Management** (only if component maintains state):
+- **State Model**: States and valid transitions
+- **Persistence**: Storage strategy and consistency model
+- **Concurrency**: Locking, optimistic/pessimistic control
+
+**Integration Strategy** (when modifying existing systems):
+- **Modification Approach**: Extend, wrap, or refactor existing code
+- **Backward Compatibility**: What must be maintained
+- **Migration Path**: How to transition from current to target state
 
 ## Data Models
 
-Focus on the portions of the data landscape that change with this feature.
+**Data Model Generation Instructions** (DO NOT include this section in design.md):
+Generate only relevant data model sections based on the system's data requirements and chosen architecture.
+Progress from conceptual to physical as needed for implementation clarity.
 
 ### Domain Model
-- Aggregates and transactional boundaries
-- Entities, value objects, domain events
-- Business rules & invariants
-- Optional Mermaid diagram for complex relationships
+**When to include**: Complex business domains with rich behavior and rules
+
+**Core Concepts**:
+- **Aggregates**: Define transactional consistency boundaries
+- **Entities**: Business objects with unique identity and lifecycle
+- **Value Objects**: Immutable descriptive aspects without identity
+- **Domain Events**: Significant state changes in the domain
+
+**Business Rules & Invariants**:
+- Constraints that must always be true
+- Validation rules and their enforcement points
+- Cross-aggregate consistency strategies
+
+Include conceptual diagram (Mermaid) only when relationships are complex enough to benefit from visualization
 
 ### Logical Data Model
+**When to include**: When designing data structures independent of storage technology
 
 **Structure Definition**:
 - Entity relationships and cardinality
@@ -210,23 +246,25 @@ Focus on the portions of the data landscape that change with this feature.
 - TTL and compaction strategies
 
 ### Data Contracts & Integration
+**When to include**: Systems with service boundaries or external integrations
 
-**API Data Transfer**
+**API Data Transfer**:
 - Request/response schemas
 - Validation rules
 - Serialization format (JSON, Protobuf, etc.)
 
-**Event Schemas**
+**Event Schemas**:
 - Published event structures
 - Schema versioning strategy
 - Backward/forward compatibility rules
 
-**Cross-Service Data Management**
+**Cross-Service Data Management**:
 - Distributed transaction patterns (Saga, 2PC)
 - Data synchronization strategies
 - Eventual consistency handling
 
-Skip subsections that are not relevant to this feature.
+Skip any section not directly relevant to the feature being designed.
+Focus on aspects that influence implementation decisions.
 
 ## Error Handling
 
@@ -255,22 +293,18 @@ Error tracking, logging, and health monitoring implementation.
 ## Optional Sections (include when relevant)
 
 ### Security Considerations
-_Use this section for features handling auth, sensitive data, external integrations, or user permissions. Capture only decisions unique to this feature; defer baseline controls to steering docs._
+**Include when**: Features handle authentication, sensitive data, external integrations, or user permissions
 - Threat modeling, security controls, compliance requirements
 - Authentication and authorization patterns
 - Data protection and privacy considerations
 
 ### Performance & Scalability
-_Use this section when performance targets, high load, or scaling concerns exist. Record only feature-specific targets or trade-offs and rely on steering documents for general practices._
+**Include when**: Features have specific performance requirements, high load expectations, or scaling concerns
 - Target metrics and measurement strategies
 - Scaling approaches (horizontal/vertical)
 - Caching strategies and optimization techniques
 
 ### Migration Strategy
-Include a Mermaid flowchart showing migration phases when schema/data movement is required.
-- Phase breakdown, rollback triggers, validation checkpoints
+**REQUIRED**: Include Mermaid flowchart showing migration phases
 
-## Supporting References (Optional)
-- Create this section only when keeping the information in the main body would hurt readability (e.g., very long TypeScript definitions, vendor option matrices, exhaustive schema tables). Keep decision-making context in the main sections so the design stays self-contained.
-- Link to the supporting references from the main text instead of inlining large snippets.
-- Background research notes and comparisons continue to live in `research.md`, but their conclusions must be summarized in the main design.
+**Process**: Phase breakdown, rollback triggers, validation checkpoints

@@ -16,11 +16,11 @@ Check that design has been completed:
 
 If validation fails, inform user to complete design phase first.
 
-## Invoke Subagent
+## Invoke SubAgent
 
 Delegate design validation to validate-design-agent:
 
-Use the Task tool to invoke the Subagent with file path patterns:
+Use the Task tool to invoke the SubAgent with file path patterns:
 
 ```
 Task(
@@ -42,7 +42,7 @@ File patterns to read:
 
 ## Display Result
 
-Show Subagent summary to user, then provide next step guidance:
+Show SubAgent summary to user, then provide next step guidance:
 
 ### Next Phase: Task Generation
 

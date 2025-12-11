@@ -12,25 +12,25 @@ argument-hint: [feature-name] [task-numbers]
 
 ## Auto-Detection Logic
 
-**Perform detection before invoking Subagent**:
+**Perform detection before invoking SubAgent**:
 
 **If no arguments** (`$1` empty):
 - Parse conversation history for `/kiro:spec-impl <feature> [tasks]` patterns
 - OR scan `.kiro/specs/*/tasks.md` for `[x]` checkboxes
-- Pass detected features and tasks to Subagent
+- Pass detected features and tasks to SubAgent
 
 **If feature only** (`$1` present, `$2` empty):
 - Read `.kiro/specs/$1/tasks.md` and find all `[x]` checkboxes
-- Pass feature and detected tasks to Subagent
+- Pass feature and detected tasks to SubAgent
 
 **If both provided** (`$1` and `$2` present):
-- Pass directly to Subagent without detection
+- Pass directly to SubAgent without detection
 
-## Invoke Subagent
+## Invoke SubAgent
 
 Delegate validation to validate-impl-agent:
 
-Use the Task tool to invoke the Subagent with file path patterns:
+Use the Task tool to invoke the SubAgent with file path patterns:
 
 ```
 Task(
@@ -52,7 +52,7 @@ Validation scope: {based on detection results}
 
 ## Display Result
 
-Show Subagent summary to user, then provide next step guidance:
+Show SubAgent summary to user, then provide next step guidance:
 
 ### Next Steps Guidance
 
