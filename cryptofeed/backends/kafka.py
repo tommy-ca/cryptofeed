@@ -1,5 +1,5 @@
 """
-Legacy Kafka backend (MAINTAINED, JSON-only).
+Legacy Kafka backend (MAINTAINED, JSON + Protobuf).
 
 This module keeps the original `BackendQueue` + `aiokafka` behavior for
 deployments that haven't migrated to the new Kafka callbacks. Legacy class
@@ -8,6 +8,13 @@ instantiation emits deprecation guidance to steer migrations. New work should us
     from cryptofeed.backends.kafka import KafkaCallback, KafkaProtobufCallback
 
 Behavior remains frozen aside from critical fixes.
+
+EXCEPTION: Protobuf support added 2025-11-02 (commit a994d726) before the
+kafka-backend-maintenance spec formalized the frozen policy (2025-11-25).
+No further feature additions will be accepted. All new features must be
+implemented in the modern backend (cryptofeed.backends.kafka.*).
+
+Reference: .kiro/specs/kafka-backend-maintenance/requirements.md
 """
 
 from collections import defaultdict
