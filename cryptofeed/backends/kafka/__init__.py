@@ -44,8 +44,6 @@ class _DeprecatedBase(KafkaCallback):
     _deprecated_name: str = "LegacyKafka"
 
     def __init__(self, *args, producer_factory=None, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
-
         emit_class_deprecation_warning(self._deprecated_name, "cryptofeed.backends.kafka.KafkaCallback")
         # Default to stub producer to avoid real broker dependency in legacy shims
         pf = producer_factory or (lambda config: _LegacyStubProducer(config))

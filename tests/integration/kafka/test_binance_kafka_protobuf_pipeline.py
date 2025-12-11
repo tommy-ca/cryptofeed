@@ -853,7 +853,7 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
         )
 
         try:
-            record: ConsumedRecord = await asyncio.to_thread(
+            await asyncio.to_thread(
                 consume_one,
                 redpanda,
                 topic,

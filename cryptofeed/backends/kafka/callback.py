@@ -6,15 +6,23 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional
 import warnings
 
-
-
 from cryptofeed.json_utils import dumps_bytes
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
+from .base import KafkaBackendBase, KafkaQueuedMessage
+from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
+from .producer import KafkaProducer
+from .topic_manager import TopicManager
+from .partitioner import PartitionerFactory
+from .headers import HeaderEnricher, OptionalHeaders
+from .metrics import PrometheusMetricsExporter
+
 DEFAULT_PROTOBUF_CUTOFF = "2026-02-01"
+
+LOG = logging.getLogger("feedhandler")
 
 
 def _get_cutoff(override=None):
@@ -40,20 +48,6 @@ def _format_disable_date(cutoff_date):
     from datetime import timedelta
 
     return (cutoff_date - timedelta(days=1)).isoformat()
-
-from .base import KafkaBackendBase, KafkaQueuedMessage
-from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
-from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
-from .producer import KafkaProducer
-from .topic_manager import TopicManager
-from .partitioner import PartitionerFactory
-from .headers import HeaderEnricher, OptionalHeaders
-from .metrics import PrometheusMetricsExporter
-
-
-LOG = logging.getLogger("feedhandler")
-
-
 
 
 # Topic strategy helpers moved to cryptofeed.backends.kafka.topic_manager

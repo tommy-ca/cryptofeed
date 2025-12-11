@@ -199,7 +199,8 @@ class Binance(Feed, BinanceRestMixin):
             payload = {'listenKey': self._auth_token}
             injector = get_proxy_injector()
             proxy_url = None
-            release = lambda: None
+            def release():
+                pass
             if injector:
                 proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
             try:
@@ -217,7 +218,8 @@ class Binance(Feed, BinanceRestMixin):
         url = self.rest_endpoints[0].route('authentication', sandbox=self.sandbox)
         injector = get_proxy_injector()
         proxy_url = None
-        release = lambda: None
+        def release():
+            pass
         if injector:
             proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
         try:

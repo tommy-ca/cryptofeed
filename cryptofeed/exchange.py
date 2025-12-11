@@ -253,7 +253,8 @@ class Exchange:
             return Symbols.get(cls.id)[0]
         injector = get_proxy_injector()
         proxy_url = None
-        release = lambda: None
+        def release():
+            pass
         if injector:
             proxy_url, release = injector.lease_proxy(cls.id.lower(), "http")
         try:
