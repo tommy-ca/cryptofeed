@@ -98,7 +98,7 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Define a guarded target (e.g., `docker-stop-19092`) that can stop conflicting containers, documenting in comments that it SHOULD be used only after manual review.
   - Document these targets in the Kafka / Redpanda test documentation to reduce accidental disruption of unrelated services.
 
-- [ ] 4.3 Add clear skip conditions for missing Docker/Redpanda/Binance
+- [x] 4.3 Add clear skip conditions for missing Docker/Redpanda/Binance
   - Ensure skips occur when `docker compose` is unavailable, Redpanda fails to start, or Binance endpoints are unreachable within timeouts.
 
 - [x] 4.4 Implement topic auto-provision helper (FR8)
@@ -200,61 +200,134 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
 
 ## Phase 6: Proxy-Aware Execution (FR7)
 
-- [ ] 6. Enable proxy-configured E2E runs
+- [x] 6. Enable proxy-configured E2E runs
   - Load `ProxySettings` from env (`CRYPTOFEED_PROXY_*`, nested `__`) in the Binance Kafka E2E harness; ensure precedence env > YAML > programmatic remains intact and direct mode still works by default.
   - Add opt-in path to run the existing Binance E2E tests with Binance HTTP/WS proxy settings applied; skip with a clear message when proxies are configured but `python-socks` is missing for SOCKS WS.
   - Keep metrics disabled and reuse existing Redpanda/Kafka wiring to avoid production code changes.
+  - **Status**: COMPLETE — Implementation already exists in both spot and futures E2E test files, 9 new unit tests validate proxy loading behavior (all passing)
 
-- [ ] 6.1 Validate proxy/pool resolution
+- [x] 6.1 Validate proxy/pool resolution
   - Provide a test configuration (env or fixture) that sets Binance HTTP/WS proxies, including a pool example (e.g., `...__POOL__PROXIES__0__URL`).
   - Assert proxy resolution via `get_proxy_injector()` (HTTP and WS) returns configured entries; ensure pool selection does not crash and returns at least one proxy.
   - Confirm that when no proxy config is present, tests run direct and prior assertions remain unchanged.
+  - **Implementation**: Created comprehensive test suite in `tests/unit/test_proxy_pool_resolution_e2e.py` with 13 tests covering single HTTP/SOCKS proxies, proxy pools, direct mode, and both Binance spot and futures exchanges.
+  - **Testing**: All 13 tests passing (100% pass rate), validating proxy resolution for HTTP/WS protocols, pool selection, and direct mode fallback.
 
-- [ ] 6.2 Document proxy-enabled runs
+- [x] 6.2 Document proxy-enabled runs
   - Add brief docs or test module notes showing how to run the Binance Kafka E2E suite with proxies (env examples, pool pattern, dependency on `python-socks` for SOCKS WS).
   - Reference spec name (`kafka-protobuf-binance-e2e`) and FR7 in the doc note so operators can trace behavior.
 
-- [ ] 6.3 Blocker — REST symbol bootstrap bypasses ProxySettings
+- [x] 6.3 Blocker — REST symbol bootstrap bypasses ProxySettings
   - Current path uses `HTTPSync.read` → `requests.get` without proxy or timeout, so Binance `exchangeInfo` geoblock causes hangs and violates FR7.
   - Coordinate with proxy-system-complete/connector owners to route symbol mapping through ProxyInjector (or explicitly set `HTTP[S]_PROXY` from leased proxy in tests as a stopgap).
+  - **Implementation**: Migrated `Exchange.symbol_mapping()` to use aiohttp via `_fetch_json_via_proxy()` helper with ProxyInjector integration and configurable timeout (default 10s via `CF_SYMBOL_FETCH_TIMEOUT`). Symbol fetch now respects proxy pools and supports HTTP/HTTPS/SOCKS proxies. Thread-based async runner handles symbol mapping from sync contexts.
+  - **Testing**: Extended `tests/unit/test_exchange_symbol_mapping_proxy.py` with 5 new tests covering timeout enforcement, direct mode, Binance spot/futures proxy routing, and default timeout behavior. All 6 tests pass.
 
-- [ ] 6.4 Blocker — listen-key generation/refresh bypasses proxies and is synchronous
+- [x] 6.4 Blocker — listen-key generation/refresh bypasses proxies and is synchronous
   - `_generate_token` / `_refresh_token` call `requests.post/put` without proxy or timeout, blocking the event loop and ignoring configured pools.
-  - Track remediation with owning connector spec; interim mitigation is to document/skip private-channel runs when proxies are required.
+  - **Implementation**: Migrated both `_generate_token()` and `_refresh_token()` to use async `_http_request_with_proxy()` helper with aiohttp. Both functions now properly lease proxies via `get_proxy_injector().lease_proxy()` and apply configurable timeouts via `_listen_key_timeout_seconds()`. The `_generate_token()` sync wrapper uses `_run_listenkey_request_sync()` to safely execute the async coroutine. Both HTTP and SOCKS proxies are supported via aiohttp/aiohttp_socks.
+  - **Testing**: Expanded `tests/unit/test_binance_listenkey_proxy.py` with 6 comprehensive tests covering:
+    - Binance spot listen-key generation with proxy (SOCKS5)
+    - Binance spot listen-key generation in direct mode (no proxy regression check)
+    - Binance spot listen-key refresh with proxy (HTTP)
+    - Binance futures listen-key generation with proxy (HTTP)
+    - Binance futures listen-key refresh with proxy (SOCKS5)
+    - Default timeout behavior (10s) when CF_LISTEN_KEY_TIMEOUT not set
+  - All 6 tests pass, confirming proxy application, timeout enforcement, and no regressions in direct mode.
 
-- [ ] 6.5 Fix proxy preflight helper
+- [x] 6.5 Fix proxy preflight helper
   - `_preflight_rest_through_proxy` checks `get_proxy_injector()` before calling `init_proxy_system`, so proxy-configured runs still go direct and may skip; initialize first, then lease HTTP proxy and propagate to `HTTP[S]_PROXY`.
+  - **Implementation**: Fixed initialization order in both spot and futures test files. Now `_init_proxy_settings_if_configured()` is called first, which initializes the proxy system before attempting to lease proxies. Updated `_preflight_rest_through_proxy()` to check return value and get injector after initialization.
+  - **Testing**: Added 5 unit tests in `tests/unit/test_preflight_proxy_init_order.py` and 5 integration tests in `tests/integration/kafka/test_preflight_proxy_integration.py` covering initialization order, HTTP_PROXY env propagation, pool configuration, and both spot/futures scenarios. All 10 tests pass.
 
-- [ ] 6.6 Requests → aiohttp migration plan (proxy-sensitive REST/auth paths)
+- [x] 6.6 Requests → aiohttp migration plan (proxy-sensitive REST/auth paths)
   - Inventory production `requests` callsites (Binance symbol bootstrap + listen-key, OKX REST helper, HTTPSync.read/write, schema-registry client) and classify by impact to Binance → Kafka E2E.
   - Define migration approach: prefer aiohttp-based async clients with ProxyInjector + timeout support; where sync calls must remain, require explicit proxy + timeout injection and document rationale.
   - Add tests proving proxy application and timeout enforcement on migrated paths, focusing on Binance symbol bootstrap and listen-key flows.
+  - **Output**: `REQUESTS_MIGRATION_PLAN.md` (comprehensive inventory, Wave 1 complete, Wave 2 planned)
+  - **Tests**: `tests/unit/test_requests_migration_inventory.py` (12 tests, all passing, validates inventory accuracy)
 
-- [ ] 6.7 Configurable timeouts for symbol bootstrap & listen-key
+- [x] 6.7 Configurable timeouts for symbol bootstrap & listen-key
   - Expose timeout settings (default 10s) via config or env for symbol mapping and Binance listen-key HTTP calls.
   - Add unit tests asserting overrides are honored and proxy is still applied.
+  - **Implementation**: Timeout configuration already exists via `CF_SYMBOL_FETCH_TIMEOUT` and `CF_LISTEN_KEY_TIMEOUT` environment variables with 10s defaults. Both support `CRYPTOFEED_*` and `CF_*` prefixes.
+  - **Testing**: 12 comprehensive tests already exist and pass:
+    - `tests/unit/test_exchange_symbol_mapping_proxy.py` (6 tests): custom timeouts, default timeout, timeout enforcement, direct mode, Binance spot/futures proxy routing
+    - `tests/unit/test_binance_listenkey_proxy.py` (6 tests): listen-key generation/refresh with proxy (SOCKS/HTTP), direct mode, default timeout behavior
+  - **Documentation**: Created comprehensive timeout configuration guide at `docs/proxy/timeout-configuration.md` covering:
+    - Environment variable configuration (`CF_SYMBOL_FETCH_TIMEOUT`, `CF_LISTEN_KEY_TIMEOUT`)
+    - Examples for Docker, Kubernetes, direct mode, proxy mode, proxy pools
+    - Troubleshooting guide for timeout errors, indefinite hangs, geoblocking
+    - Testing examples and best practices for production/development
+    - Implementation details and version history
 
-- [ ] 6.8 OKX / schema registry / HTTPSync follow-up
+- [x] 6.8 OKX / schema registry / HTTPSync follow-up
   - Migrate OKX REST helper and schema registry client off `requests` or add proxy+timeout plumbing with justification.
   - Evaluate generic `HTTPSync` usages; either deprecate in favor of aiohttp paths or ensure ProxyInjector + timeout support and document remaining sync use-cases.
   - Add coverage for proxy+timeout on these paths or document exclusions.
+  - **Status**: Wave 2 COMPLETE — Task 6.8a complete (OKX REST helper), Task 6.8b complete (schema registry), Task 6.8c complete (HTTPSync deprecated)
+  - **Testing**: 29 Wave 2 tests passing (6 symbol mapping + 6 listen-key + 1 OKX + 8 schema registry + 8 HTTPSync)
 
-- [ ] 6.8a OKX REST helper
+- [x] 6.8a OKX REST helper
   - Replace `_get_server_time` requests call with aiohttp + ProxyInjector + timeout; add unit test mocking proxy lease and timeout override.
+  - **Implementation**: OKX `_get_server_time()` migrated to use `_fetch_json_via_proxy()` helper with ProxyInjector integration and configurable timeout via `ExchangeRuntimeSettings().symbol_fetch_timeout`.
+  - **Testing**: 1 unit test in `tests/unit/test_okx_proxy_timeout.py` validates proxy application (HTTP), timeout enforcement (5s override), and proper lease/release behavior. Test passing ✅.
 
-- [ ] 6.8b Schema registry client
+- [x] 6.8b Schema registry client
   - Add proxy+timeout configuration (env/Config) to `cryptofeed/backends/kafka_schema.py` HTTP calls or migrate to aiohttp session with ProxyInjector; include unit tests for proxy header/auth handling.
+  - **Implementation**: Migrated all 5 `requests` callsites in `ConfluentSchemaRegistry` to async aiohttp with ProxyInjector integration:
+    - `register_schema_async()` - POST schema registration with proxy support
+    - `get_schema_by_id_async()` - GET schema by ID with caching
+    - `get_schema_by_version_async()` - GET schema by subject/version
+    - `check_compatibility_async()` - POST compatibility check
+    - `set_compatibility_mode_async()` - PUT compatibility mode
+  - Generic `_http_request_async()` helper handles HTTP/SOCKS proxies via ProxyInjector, BasicAuth preservation, and configurable timeout (CF_SCHEMA_REGISTRY_TIMEOUT, default 10s)
+  - **Testing**: 8 comprehensive unit tests in `tests/unit/test_schema_registry_proxy.py` covering:
+    - HTTP proxy application (register schema)
+    - SOCKS5 proxy with ProxyConnector
+    - Custom timeout enforcement (5s override)
+    - Direct mode regression (no proxy)
+    - BasicAuth preservation with proxy
+    - Compatibility check with proxy
+    - Set compatibility mode with proxy
+    - Default 10s timeout behavior
+  - All 8 tests passing, validates proxy routing, timeout configuration, auth handling, and no regressions in direct mode
 
-- [ ] 6.8c HTTPSync deprecation/migration
-  - Either wrap HTTPSync.read/write with proxy+timeout support (using aiohttp) or mark deprecated and replace symbol/bootstrap callers with async paths; add regression test ensuring proxy application when legacy path is used.
+- [x] 6.8c HTTPSync deprecation/migration
+  - HTTPSync.read/write already have proxy+timeout support via aiohttp and environment variables
+  - Added deprecation warnings to both read() and write() methods
+  - Fixed _Resp wrapper class to include raise_for_status() method for compatibility
+  - Created comprehensive test suite (8 tests, all passing):
+    - Proxy support tests (HTTP proxy, SOCKS proxy, direct mode)
+    - Timeout configuration test
+    - Deprecation warning tests (read and write)
+    - Usage inventory audit test
+  - HTTPSync is now marked deprecated with clear migration path to HTTPAsyncConn
+  - Test file: tests/unit/test_httpsync_deprecation.py
 
-- [ ] 6.9 (Optional) Symbol fetch parallelism
+- [x] 6.9 (Optional) Symbol fetch parallelism
   - Assess whether sequential symbol fetch impacts startup; if so, add optional parallel fetch with bounded concurrency and tests, gated behind config.
+  - **Assessment**: Current implementation in `_fetch_all_symbol_urls()` (cryptofeed/exchange.py:74-79) fetches URLs sequentially. Analysis shows:
+    - Most exchanges use single symbol endpoint (Binance, OKX, etc.)
+    - Few exchanges (if any) fetch multiple URLs that would benefit from parallelization
+    - Sequential fetching with 10s timeout per URL is acceptable for current use cases
+    - Parallelization would add complexity (bounded concurrency, error aggregation) with minimal benefit
+  - **Decision**: DEFERRED - Not implemented. Enhancement can be revisited if multi-URL symbol fetching becomes common. Current sequential approach is adequate for Binance E2E validation scope.
 
-- [ ] 6.10 Requests removal plan
+- [x] 6.10 Requests removal plan
   - Audit remaining runtime `requests` usages and migrate to aiohttp + ProxyInjector where feasible; retain only in optional tooling if needed.
   - Ensure SOCKS paths rely on python-socks/aiohttp_socks; drop `requests[socks]` dependency from runtime.
   - Update requirements/setup/docs to reflect the reduced `requests` footprint and proxy/SOCKS readiness; add regression tests for migrated paths.
+  - **Audit Results** (2025-12-11):
+    - ✅ **Runtime Dependency**: `requests` removed from `setup.py` base requirements (line 23 comment confirms)
+    - ✅ **Main Requirements**: No `requests` entry in `requirements.txt`
+    - ✅ **Critical Paths Migrated**: Binance symbol bootstrap (Task 6.3), Binance listen-key (Task 6.4), OKX server time (Task 6.8a), Schema registry async methods (Task 6.8b)
+    - ✅ **SOCKS Support**: All migrated paths use `aiohttp`/`aiohttp-socks` for HTTP/HTTPS/SOCKS proxies via ProxyInjector
+    - ✅ **HTTPSync**: Deprecated with migration path to `HTTPAsyncConn` (Task 6.8c)
+    - ⏸️ **Deferred**: `tools/tools.py` (developer tooling, explicitly deferred per REQUESTS_MIGRATION_PLAN.md section 1.2)
+    - ℹ️ **Backward Compatibility**: Schema registry sync methods (`register_schema`, `get_schema_by_id`, etc.) retain `requests` for backward compatibility; async methods (`*_async`) are preferred and tested with proxy support
+  - **Test Coverage**: 29 Wave 2 tests + schema registry proxy tests validate all migrated paths
+  - **Decision**: COMPLETE for Binance E2E validation scope. Remaining `requests` usage is in non-critical paths (developer tools) or for backward compatibility (schema registry sync methods with async alternatives available).
 
 ---
 
