@@ -42,11 +42,9 @@ def docker_compose_env():
     Creates .env file if it doesn't exist, starts docker-compose stack,
     waits for services to be healthy, yields for tests, then tears down.
     """
-    # Ensure proxy environment variables exist for proxy integration tests
-    proxy_http = os.environ.setdefault("PROXY_HTTP", "http://localhost:8888")
-    proxy_socks5 = os.environ.setdefault(
-        "PROXY_SOCKS5", "socks5://localhost:1080"
-    )
+    # Ensure proxy environment variables exist for proxy integration tests (empty by default)
+    proxy_http = os.environ.setdefault("PROXY_HTTP", "")
+    proxy_socks5 = os.environ.setdefault("PROXY_SOCKS5", "")
 
     # Ensure .env file exists (create from .env.example if needed)
     if not ENV_FILE.exists():
@@ -352,8 +350,8 @@ class TestProxyIntegration:
                 (
                     "import yaml, os; "
                     "data = yaml.safe_load(open('/config/proxy.yaml')); "
-                    "expected_http = os.environ.get('PROXY_HTTP'); "
-                    "expected_socks5 = os.environ.get('PROXY_SOCKS5'); "
+                    "expected_http = os.environ.get('PROXY_HTTP') or None; "
+                    "expected_socks5 = os.environ.get('PROXY_SOCKS5') or None; "
                     "assert data['global']['http'] == expected_http, "
                     "f'http proxy mismatch: {data['global']['http']} vs {expected_http}'; "
                     "assert data['global']['socks5'] == expected_socks5, "
