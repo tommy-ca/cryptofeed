@@ -28,6 +28,7 @@ from cryptofeed.backends.kafka.callback import (
     TradeKafka, BookKafka, TickerKafka, FundingKafka,
     OpenInterestKafka, LiquidationsKafka, CandlesKafka
 )
+from cryptofeed.settings import Settings
 
 
 LOG = logging.getLogger('feedhandler')
@@ -256,13 +257,10 @@ async def run_feedhandler(config_path: str, proxy_config_path: Optional[str] = N
 
     LOG.info(f"Loading configuration from: {config_path}")
 
-    # Load configuration
-    config = Config(config_path)
-    LOG.info(config.log_msg)
-
-    # Interpolate environment variables in config
-    config_dict = dict(config.config)
-    config_dict = interpolate_env_vars(config_dict)
+    # Load configuration via pydantic Settings (YAML + env with env highest)
+    settings = Settings(config_path=config_path)
+    config_dict = settings.to_feed_config()
+    LOG.info("Config: loaded via Settings (YAML path=%s, env overrides applied)", config_path)
 
     # Extract Kafka configuration
     kafka_config = config_dict.get('kafka', {})
@@ -270,7 +268,8 @@ async def run_feedhandler(config_path: str, proxy_config_path: Optional[str] = N
     proxy_mapping = load_proxy_mapping(proxy_config_path or '/config/proxy.yaml')
 
     # Create FeedHandler instance
-    fh = FeedHandler(config=config, proxy_settings=proxy_mapping)
+    config_obj = Config(config=config_dict)
+    fh = FeedHandler(config=config_obj, proxy_settings=proxy_mapping)
 
     # Configure exchanges from YAML
     exchanges_configured = 0
