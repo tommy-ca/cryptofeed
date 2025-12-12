@@ -168,6 +168,80 @@ python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pip
 make redpanda-down
 ```
 
+## Live E2E: Binance → Mullvad SOCKS5 → Cryptofeed (Docker Compose) → Kafka (Protobuf)
+
+**Goal**: Validate full path with real Binance REST/WS traffic routed through Mullvad relays, normalized by Cryptofeed, and published as Protobuf to Kafka.
+
+### Prerequisites
+- Valid Binance API key/secret.
+- Mullvad SOCKS5 endpoints (e.g., `socks5://user:pass@at-vie-wg-socks5-001.relays.mullvad.net:1080`).
+- Docker + docker compose; host ports 8080/9090/9092 available.
+
+### Configuration (env-first, 12-Factor)
+```bash
+cp .env.example .env
+export BINANCE_API_KEY=...
+export BINANCE_API_SECRET=...
+
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_DEFAULT__HTTP__URL=socks5://user:pass@at-vie-wg-socks5-001.relays.mullvad.net:1080
+export CRYPTOFEED_PROXY_DEFAULT__WEBSOCKET__URL=$CRYPTOFEED_PROXY_DEFAULT__HTTP__URL
+# (Optional per-exchange overrides)
+
+export KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+```
+
+In `config/config.yaml` (or via env with `CRYPTOFEED_EXCHANGES__BINANCE__CHANNELS` / `__SYMBOLS`):
+```yaml
+binance:
+  channels: [trades, l2_book, ticker]
+  symbols: [BTC-USDT, ETH-USDT]
+kafka:
+  bootstrap_servers: [kafka:29092]
+  topic_strategy: consolidated
+  partition_strategy: composite
+```
+
+### Run stack
+```bash
+docker compose up -d
+```
+- Wait for health: `curl http://localhost:8080/health` should be 200; metrics at `http://localhost:9090/metrics`.
+
+### Validate Kafka output
+List topics:
+```bash
+docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+```
+Consume a few trade messages (headers only for quick check):
+```bash
+docker compose exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic cryptofeed.trades \
+  --from-beginning --max-messages 5 --property print.headers=true
+```
+Expect headers with `exchange=binance`, `data_type=trade`; payload is Protobuf.
+
+### Verify proxy usage
+```bash
+docker compose logs cryptofeed | grep \"proxy:\"
+docker compose exec cryptofeed python - <<'PY'
+from cryptofeed.proxy import load_proxy_settings
+s = load_proxy_settings()
+print("enabled", s.enabled, "http", s.get_proxy("binance","http"))
+print("ws", s.get_proxy("binance","websocket"))
+PY
+```
+
+### Teardown
+```bash
+docker compose down
+```
+
+### Notes
+- If Mullvad relay is unreachable, health will degrade and `/health` returns 503; fix endpoint or disable proxy to recover.
+- For Kafka inspection of Protobuf payloads, use the protobuf-callback test decoder or dedicated consumer in tests/integration/kafka/*.
+
 ## Makefile Targets
 
 Convenient Makefile targets are available for common scenarios:
