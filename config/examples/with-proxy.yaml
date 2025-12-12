@@ -1,0 +1,53 @@
+# Configuration with Proxy Support Example
+# This example shows how to use proxies for geo-restricted exchanges
+
+log:
+  filename: null
+  level: INFO
+
+uvloop: true
+ignore_invalid_instruments: true
+backend_multiprocessing: false
+
+binance:
+  channels:
+    - trades
+    - l2_book
+  symbols:
+    - BTC-USDT
+    - ETH-USDT
+  proxy:
+    http: ${PROXY_HTTP}
+    socks5: ${PROXY_SOCKS5}
+
+coinbase:
+  channels:
+    - trades
+    - l2_book
+  symbols:
+    - BTC-USD
+    - ETH-USD
+
+kafka:
+  bootstrap_servers:
+    - kafka:29092
+  acks: all
+  compression_type: snappy
+  enable_idempotence: true
+  topic_strategy: consolidated
+  partition_strategy: composite
+  request_timeout_ms: 30000
+  retries: 10
+  retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384
+
+exchange_credentials:
+  binance:
+    key_id: ${BINANCE_API_KEY}
+    key_secret: ${BINANCE_API_SECRET}
+
+  coinbase:
+    key_id: ${COINBASE_API_KEY}
+    key_secret: ${COINBASE_API_SECRET}
+    key_passphrase: ${COINBASE_API_PASSPHRASE}

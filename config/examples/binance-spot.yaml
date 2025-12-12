@@ -1,0 +1,39 @@
+# Binance SPOT Market Data Example
+# This is a complete working configuration for Binance SPOT market data
+
+log:
+  filename: null
+  level: INFO
+
+uvloop: true
+ignore_invalid_instruments: true
+backend_multiprocessing: false
+
+binance:
+  channels:
+    - trades
+    - l2_book
+    - ticker
+  symbols:
+    - BTC-USDT
+    - ETH-USDT
+    - SOL-USDT
+
+kafka:
+  bootstrap_servers:
+    - kafka:29092
+  acks: all
+  compression_type: snappy
+  enable_idempotence: true
+  topic_strategy: consolidated
+  partition_strategy: composite
+  request_timeout_ms: 30000
+  retries: 10
+  retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384
+
+exchange_credentials:
+  binance:
+    key_id: ${BINANCE_API_KEY}
+    key_secret: ${BINANCE_API_SECRET}

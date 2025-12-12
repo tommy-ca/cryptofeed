@@ -1,0 +1,85 @@
+# Docker ignore file for cryptofeed container builds
+# Excludes unnecessary files to reduce build context size
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs/
+*.md
+!README.md
+!INSTALL.md
+!CHANGES.md
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+.coveragerc
+htmlcov/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Benchmarks and profiling
+.benchmarks/
+*.prof
+
+# Configuration examples (use ConfigMaps instead)
+config.yaml
+config_example.yaml
+.env
+.env.*
+
+# Kiro/spec development files
+.kiro/
+.claude/
+.codex/
+.factory/
+
+# Quality and formatting
+.flake8
+.pyscn.toml
+.pre-commit-config.yaml
+.mypy_cache/
+.ruff_cache/
+
+# Editor logs
+.editor.log
+
+# Python version file
+.python-version
+
+# Build artifacts
+*.whl
+*.tar.gz
