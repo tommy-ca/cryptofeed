@@ -29,6 +29,7 @@ class TopicManager:
         "funding",
         "liquidation",
         "index",
+        "open_interest",
         "openinterest",
         "fill",
         "balance",
