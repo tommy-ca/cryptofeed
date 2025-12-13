@@ -14,18 +14,44 @@ Both HTTP (REST) and WebSocket transports respect proxy configuration, including
 - User-data listen-key acquisition/refresh (authenticated endpoints)
 - Market data WebSocket streams (trades, order books, tickers, funding, etc.)
 
+For an end-to-end pipeline overview (Binance → proxy → Cryptofeed → Redpanda → protobuf decode), see `docs/e2e/BINANCE_KAFKA_PROTOBUF_E2E.md`.
+
+## Field-tested quick recipe (Mullvad SOCKS5, public channels)
+
+Use a single fast relay to avoid pool-induced latency, plus a longer REST timeout:
+
+```bash
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+export CF_SYMBOL_FETCH_TIMEOUT=30
+export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true
+export KAFKA_BOOTSTRAP_SERVERS=localhost:19092
+
+make redpanda-up            # default 19092; if busy set REDPANDA_HOST_PORT=29092 and REDPANDA_HOST_BOOTSTRAP=localhost:29092
+python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "roundtrip and not placeholder" -vv -s --maxfail=1
+make redpanda-down
+```
+
+Observed results (2025-12-13): trades, round-robin trades, ticker, candle, multi-channel, and orderbook snapshot passed; candle can still be slow and may skip if no candle arrives within 180s.
+
 ## Prerequisites
 
 ### Required Dependencies
 
 **Core dependencies** (always required):
 ```bash
-pip install cryptofeed confluent-kafka docker
+# From this repo (recommended)
+pip install -e .
+
+# Kafka E2E test dependencies
+pip install confluent-kafka aiokafka
 ```
 
-**SOCKS WebSocket proxy support** (required only when using SOCKS proxies for WebSocket):
+**SOCKS proxy support** (required only when using SOCKS proxies):
 ```bash
-pip install python-socks
+# Proxy extras (includes aiohttp-socks + python-socks)
+pip install -e ".[proxy]"
 ```
 
 **Note**: If you configure a SOCKS WebSocket proxy but `python-socks` is not installed, tests will skip with a clear message.
@@ -646,8 +672,16 @@ KAFKA_BOOTSTRAP_SERVERS=kafka-broker1:9092,kafka-broker2:9092,kafka-broker3:9092
 KAFKA_E2E_TOPIC_STRATEGY=consolidated
 ```
 
+## Skip avoidance checklist (fast triage)
+
+- **Port 19092 already bound**: either stop the conflicting container (`make docker-ps-19092` / `make docker-stop-19092`) or run Redpanda on a different host port via `REDPANDA_HOST_PORT` + `REDPANDA_HOST_BOOTSTRAP` (e.g., 29092).
+- **Pool too slow/blocked**: start with a single known-good relay (e.g., `socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080`) before enabling round-robin pools.
+- **REST preflight timeouts**: set `CF_SYMBOL_FETCH_TIMEOUT=30` and ensure HTTP proxy matches the WebSocket proxy.
+- **SOCKS dependencies**: install `python-socks` and `aiohttp-socks`; otherwise SOCKS configs will skip.
+- **Candle flakiness**: candle roundtrip waits 180s; if it skips, retry with more symbols or extend the timeout locally.
+
 ---
 
 **Maintained by**: kafka-protobuf-binance-e2e spec (FR7: Proxy-Aware Execution)
-**Last Updated**: 2025-12-11
+**Last Updated**: 2025-12-13
 **Spec Status**: Task 6.2 (Document proxy-enabled runs) - COMPLETE

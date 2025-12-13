@@ -57,7 +57,7 @@ The numbering scheme follows the Kiro convention: top-level integers for major t
   - Implement `test_binance_trade_roundtrip_live` that:
     - Uses the Redpanda fixture and Binance + KafkaProtobufCallback wiring from Phase 2.
     - Starts the Binance feed on an event loop for a bounded period while polling Kafka for messages.
-    - Consumes a message from the expected per-symbol topic and decodes it with `trade_pb2.Trade` from `cryptofeed.proto_bindings`.
+    - Consumes a message from the expected per-symbol topic and decodes it with `trade_pb2.Trade` via `cryptofeed.backends.protobuf.bindings`.
     - Asserts on headers (`content-type`, `exchange`, `symbol`, `data_type`, `schema_version`, `cf.serialization_format`) and on core payload fields.
   - Mark the test with `@pytest.mark.integration`, `@pytest.mark.kafka`, and `@pytest.mark.binance_live`.
 

@@ -175,6 +175,23 @@ pytest tests/integration/test_live_backpack.py -v -m live_proxy
 
 **Recommendation**: Use CCXT implementation (87.5% success rate)
 
+### Phase 2.7: Kafka Protobuf E2E (Binance → Redpanda) (Optional)
+
+**Duration**: ~2–10 minutes (spot), ~5–20 minutes (futures)  
+**Purpose**: Validate the full ingestion pipeline from live Binance REST/WS through Cryptofeed normalization into **Kafka Protobuf** topics on a local Redpanda broker.
+
+**Quick Start (proxy pool, recommended)**:
+```bash
+make redpanda-up
+make test-kafka-binance-mullvad
+make test-kafka-binance-futures-mullvad
+make redpanda-down
+```
+
+**Notes**:
+- These tests are opt-in and will skip/fail fast if Docker, Redpanda, or Binance connectivity is missing.
+- See `docs/e2e/BINANCE_KAFKA_PROTOBUF_E2E.md` for full details (topic strategy, env vars, proxy configuration).
+
 ### Phase 3: Regional Validation (Optional)
 **Duration**: 30-45 minutes  
 **Purpose**: Test all exchange/region combinations

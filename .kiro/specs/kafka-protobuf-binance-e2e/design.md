@@ -14,7 +14,7 @@ This design describes how to validate an end-to-end pipeline from Binance public
   - Derivatives-specific channels: `FUNDING` (mark price), `OPEN_INTEREST` (REST poll), `LIQUIDATIONS` (force orders)
   - Proxy-aware execution (HTTP + WebSocket) via `ProxySettings` and the global proxy injector
 - Using a local Redpanda cluster (via `docker/infra/base.yml`) as the Kafka test environment
-- Consuming produced messages using `confluent_kafka.Consumer` and decoding them with generated Protobuf bindings under `cryptofeed.proto_bindings`
+- Consuming produced messages using `confluent_kafka.Consumer` and decoding them with generated Protobuf bindings under `cryptofeed.backends.protobuf.bindings`
 - Implementing pytest-based integration tests that are opt-in and robust to missing Docker/network prerequisites
 
 **Out of Scope**
@@ -33,7 +33,7 @@ This design assumes the Kafka backend and Protobuf serialization specs are alrea
 - **Interfaces & Contracts**:
   - Exchange connector contract: Binance produces normalized `cryptofeed.types.*` events via `message_handler`, `_trade`, `_book`, and `_snapshot`.
   - Kafka backend contract: `KafkaProtobufCallback` accepts normalized events, applies topic/partition strategies, adds headers, and produces protobuf bytes.
-  - Schema contract: Generated bindings under `cryptofeed.proto_bindings.*_pb2` define the protobuf message shapes used for decode/verify steps.
+  - Schema contract: Generated bindings are wrapped by `cryptofeed.backends.protobuf.bindings` (e.g., `bindings.trade_pb2`, `bindings.order_book_pb2`) and define the protobuf message shapes used for decode/verify steps.
 - **Synchronization Points**:
   - Topic naming, partitioning behavior, and header semantics are taken from the Kafka backend spec; this design only asserts that actual runtime behavior matches those contracts when exercised via Binance.
   - Schema versions and field-level expectations are taken from normalized-schema and parity specs; this design only asserts that messages produced from Binance respect those expectations.
@@ -103,7 +103,7 @@ confluent_kafka.Consumer (test harness)
   - poll() → value + headers
       |
       v
-cryptofeed.proto_bindings.*_pb2
+cryptofeed.backends.protobuf.bindings.*_pb2
   - ParseFromString
   - field assertions
 

@@ -4,6 +4,9 @@
 **Status**: ✅ **COMPLETE**  
 **Reduction**: 28.3% (3,382 lines → 2,423 lines)
 
+> Update (2025-12-08): the detailed per-run reports that were temporarily stored under `docs/e2e/results/` were later pruned.
+> The canonical guidance was promoted into `docs/e2e/*` and the relevant `.kiro/specs/*` documents, and `docs/e2e/results/README.md` now serves as the lightweight index.
+
 ---
 
 ## What Was Done
@@ -56,10 +59,7 @@ docs/e2e/
 ├── TEST_PLAN.md                 # 491 lines - Comprehensive test scenarios
 ├── REPRODUCIBILITY.md           # 339 lines - Technical guide
 └── results/
-    ├── README.md                # 68 lines - Results index
-    ├── 2025-10-24-execution.md  # 470 lines - Final report
-    ├── 2025-10-24-review.md     # 468 lines - Review report
-    └── phase2-results.md        # 284 lines - Phase 2 details
+    └── README.md                # Results index (detailed reports pruned after consolidation)
 ```
 
 ---
@@ -141,15 +141,19 @@ $ python -c "import cryptofeed, ccxt, pytest; print('✓ All imports successful'
 
 ### Structure Verified ✅
 
+At the time of consolidation (2025-10-24) the `docs/e2e/results/` directory contained detailed per-run reports.
+Those were later pruned (see note at the top of this document). The current expected structure includes:
+
 ```
 $ find docs/e2e -type f
+docs/e2e/BINANCE_KAFKA_PROTOBUF_E2E.md
+docs/e2e/CONSOLIDATION_SUMMARY.md
+docs/e2e/PROXY_TESTING.md
 docs/e2e/README.md
 docs/e2e/REPRODUCIBILITY.md
+docs/e2e/SKIP_CONDITIONS.md
 docs/e2e/TEST_PLAN.md
-docs/e2e/results/2025-10-24-execution.md
-docs/e2e/results/2025-10-24-review.md
 docs/e2e/results/README.md
-docs/e2e/results/phase2-results.md
 ```
 
 ---

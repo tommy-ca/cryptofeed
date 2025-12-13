@@ -1,10 +1,10 @@
 ## kafka-protobuf-binance-futures-e2e – Requirements
 
-This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover Binance USDc-M futures. It reuses the same Kafka/Protobuf contracts and Redpanda harness, and adds futures-specific coverage, semantics, and ergonomics.
+This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover Binance USDⓈ-M futures. It reuses the same Kafka/Protobuf contracts and Redpanda harness, and adds futures-specific coverage, semantics, and ergonomics.
 
-### R1  Futures E2E Coverage
+### R1 — Futures E2E Coverage
 
-- Provide end-to-end tests for Binance USDc-M futures public market data channels, from live exchange to Kafka Protobuf topics and back to decoded Protobuf messages.
+- Provide end-to-end tests for Binance USDⓈ-M futures public market data channels, from live exchange to Kafka Protobuf topics and back to decoded Protobuf messages.
 - Channels in scope:
   - High-frequency: `TRADES`, `L2_BOOK`, `TICKER`.
   - Derivatives-specific: `FUNDING` (mark price stream), `OPEN_INTEREST` (REST poll), `LIQUIDATIONS` (force orders).
@@ -12,7 +12,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - Primary: `BTC-USDT-PERP`.
   - Secondary: `ETH-USDT-PERP` when using consolidated topics, to validate symbol routing.
 
-### R2  Header and Schema Correctness
+### R2 — Header and Schema Correctness
 
 - Futures E2E tests MUST assert Kafka headers on consumed records:
   - `content-type == application/x-protobuf`.
@@ -29,7 +29,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - open interest: open_interest not all-zero/empty.
   - liquidations: non-zero quantity and price.
 
-### R3  Topics and Partition Semantics
+### R3 — Topics and Partition Semantics
 
 - Futures tests MUST support and exercise both topic strategies already defined by the Kafka backend:
   - `per_symbol` (default) and `consolidated`.
@@ -40,7 +40,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - Composite partitioner (default): non-`None` key derived from `exchange-symbol`.
   - Round-robin partitioner: keyless messages (`record.key is None`), relying on broker assignment.
 
-### R4  Proxy-Aware Execution
+### R4 — Proxy-Aware Execution
 
 - The futures E2E suite MUST honor `ProxySettings` and the proxy injector for `BINANCE_FUTURES`:
   - Support HTTP and SOCKS proxies and pools (HTTP/WS) configured via env (`CRYPTOFEED_PROXY_*`).
@@ -50,7 +50,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - Skip with a clear, actionable message when proxies/geoblocks prevent reachability.
 - Tests MUST default to direct connections when no proxy configuration is present; proxy logic MUST NOT break direct-mode runs.
 
-### R5  Opt-In and CI Safety
+### R5 — Opt-In and CI Safety
 
 - All futures Kafka Protobuf E2E tests MUST be explicitly gated by an environment variable:
   - `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E`.
@@ -61,7 +61,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - Binance endpoints consistently unreachable within configured timeouts.
 - Skips MUST be logged with enough information to distinguish proxy/configuration issues from exchange outages.
 
-### R6  Makefile Ergonomics
+### R6 — Makefile Ergonomics
 
 - The spec MUST provide convenient Makefile entrypoints that align with the existing Kafka E2E workflow:
   - `test-kafka-binance-futures` to run the futures Kafka Protobuf E2E suite with `CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E` and `KAFKA_BOOTSTRAP_SERVERS` wired.
@@ -69,7 +69,7 @@ This spec extends the existing `kafka-protobuf-binance-e2e` (spot) work to cover
   - Inclusion of `test-kafka-binance-futures` in the `test-kafka-all` aggregate target.
 - These targets MUST be safe to run repeatedly in local development and CI, and MUST propagate non-zero exit codes when tests fail.
 
-### R7  Alignment with Existing Specs
+### R7 — Alignment with Existing Specs
 
 - This spec MUST treat the following as upstream contracts, not redefine them:
   - `market-data-kafka-producer`: topic naming, partitioning, header semantics.

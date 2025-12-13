@@ -123,10 +123,17 @@ callback = KafkaCallback(
 ## Live Binance → Kafka Protobuf E2E Tests (Opt-In)
 
 - Start Redpanda locally: `make redpanda-up` (port defaults to 19092).
-- Enable the live Binance tests: `export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true`.
-- Run the suite: `make test-kafka-binance` (skips if Docker/compose or Binance network access are unavailable).
+- Enable the live Binance tests:
+  - Spot: `export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true`
+  - Futures: `export CRYPTODATA_RUN_BINANCE_FUTURES_KAFKA_E2E=true`
+- Run the suite(s):
+  - Spot: `make test-kafka-binance` (skips if Docker/compose or Binance network access are unavailable).
+  - Futures: `make test-kafka-binance-futures` (same gating, different feed).
 - Stop Redpanda when finished: `make redpanda-down`.
-- Shortcut with public Mullvad relays (EU/AP) and consolidated topics: `make test-kafka-binance-mullvad` (uses the pool from `docs/e2e/results/2025-12-07-binance-kafka-mullvad.md`; override envs to change proxies or topic strategy).
+- Shortcut with public Mullvad SOCKS5 relays (EU/AP) and consolidated topics:
+  - Spot: `make test-kafka-binance-mullvad`
+  - Futures: `make test-kafka-binance-futures-mullvad`
+  (override envs to change proxies or topic strategy; see `docs/e2e/PROXY_TESTING.md`).
 
 The tests produce real Binance trades through `FeedHandler` → `KafkaProtobufCallback` into Redpanda and decode protobuf payloads to verify headers, schema version, and routing metadata. They are guarded to avoid CI flakiness and remain out of the default test run.
 
