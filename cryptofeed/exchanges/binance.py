@@ -570,6 +570,15 @@ class Binance(Feed, BinanceRestMixin):
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
 
+        # REST polling connections (e.g., Binance USDⓈ-M futures open interest) send
+        # bare JSON payloads without the combined-stream wrapper.
+        if isinstance(conn, (HTTPPoll, HTTPConcurrentPoll)):
+            if "openInterest" in msg and "symbol" in msg and hasattr(self, "_open_interest"):
+                await self._open_interest(msg, timestamp)
+            else:
+                LOG.warning("%s: Unexpected REST message received: %s", self.id, msg)
+            return
+
         # Handle account updates from User Data Stream
         if self.requires_authentication:
             msg_type = msg['e']
