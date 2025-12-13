@@ -11,7 +11,8 @@ import pytest
 
 
 COMPOSE_FILE = os.getenv("REDPANDA_COMPOSE_FILE", "docker/infra/base.yml")
-HOST_BOOTSTRAP = os.getenv("REDPANDA_HOST_BOOTSTRAP", "localhost:19092")
+DEFAULT_HOST_PORT = os.getenv("REDPANDA_HOST_PORT", "19092")
+HOST_BOOTSTRAP = os.getenv("REDPANDA_HOST_BOOTSTRAP", f"localhost:{DEFAULT_HOST_PORT}")
 
 
 def _docker_compose_available() -> bool:
@@ -25,6 +26,12 @@ def _docker_compose_available() -> bool:
     except FileNotFoundError:
         return False
     return result.returncode == 0
+
+
+def _port_open(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1.0)
+        return sock.connect_ex((host, port)) == 0
 
 
 def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
@@ -41,30 +48,38 @@ def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
 @pytest.fixture(scope="session")
 def redpanda():
     """Spin up Redpanda via docker compose for Kafka integration tests."""
-    if not _docker_compose_available():
-        pytest.skip("docker compose not available")
+    bootstrap = (HOST_BOOTSTRAP.split(",", 1)[0] or HOST_BOOTSTRAP).strip()
+    host, port_str = bootstrap.rsplit(":", 1)
+    port = int(port_str)
 
-    up = subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d"],
-        capture_output=True,
-        text=True,
-    )
-    if up.returncode != 0:
-        pytest.skip(f"failed to start redpanda: {up.stderr.strip()}")
+    started_here = False
+    if not _port_open(host, port):
+        if not _docker_compose_available():
+            pytest.skip("docker compose not available")
+
+        up = subprocess.run(
+            ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d"],
+            capture_output=True,
+            text=True,
+        )
+        if up.returncode != 0:
+            pytest.skip(f"failed to start redpanda: {up.stderr.strip()}")
+        started_here = True
 
     try:
-        host, port_str = HOST_BOOTSTRAP.rsplit(":", 1)
-        _wait_for_port(host, int(port_str), timeout=30)
+        _wait_for_port(host, port, timeout=30)
         time.sleep(5)
     except Exception as exc:  # pragma: no cover - env-specific
-        subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "logs"])
+        if started_here:
+            subprocess.run(["docker", "compose", "-f", COMPOSE_FILE, "logs"])
+            subprocess.run(
+                ["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True
+            )
+        raise exc
+
+    yield bootstrap
+
+    if started_here:
         subprocess.run(
             ["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True
         )
-        raise exc
-
-    yield HOST_BOOTSTRAP
-
-    subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "down"], capture_output=True
-    )

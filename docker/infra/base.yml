@@ -13,7 +13,7 @@ services:
       - '0'
       - --check=false
       - --kafka-addr
-      - PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:${REDPANDA_HOST_PORT:-19092}
+      - PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:19092
       - --advertise-kafka-addr
       - PLAINTEXT://redpanda:9092,PLAINTEXT_HOST://localhost:${REDPANDA_HOST_PORT:-19092}
     ports:
