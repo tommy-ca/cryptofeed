@@ -389,6 +389,8 @@ async def _start_binance_with_kafka(
             callbacks[channel] = [_mk_handler("trade")]
         elif channel == L2_BOOK:
             callbacks[channel] = [_mk_handler("l2_book")]
+        elif channel == CANDLES:
+            callbacks[channel] = [_mk_handler("candle")]
         else:  # pragma: no cover - future channels
             callbacks[channel] = [_mk_handler(channel.lower())]
 
@@ -446,6 +448,43 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
 
     # Reset proxy system to avoid leaking proxy configuration into other tests
     init_proxy_system(ProxySettings(enabled=False))
+    await _cancel_connection_handler_tasks()
+
+
+async def _cancel_connection_handler_tasks() -> None:
+    """Cancel leaked ConnectionHandler tasks to keep pytest output clean."""
+
+    current = asyncio.current_task()
+    to_cancel: list[asyncio.Task] = []
+
+    for task in asyncio.all_tasks():
+        if task is current:
+            continue
+
+        coro = task.get_coro()
+        qualname = getattr(coro, "__qualname__", "")
+        filename = getattr(getattr(coro, "cr_code", None), "co_filename", "")
+        filename = filename.replace("\\", "/")
+
+        if filename.endswith("/cryptofeed/connection_handler.py"):
+            if qualname not in {
+                "ConnectionHandler._create_connection",
+                "ConnectionHandler._watcher",
+            }:
+                continue
+        elif filename.endswith("/websockets/asyncio/connection.py"):
+            if qualname != "Connection.keepalive":
+                continue
+        else:
+            continue
+
+        to_cancel.append(task)
+
+    for task in to_cancel:
+        task.cancel()
+
+    if to_cancel:
+        await asyncio.gather(*to_cancel, return_exceptions=True)
 
 
 @pytest.mark.integration
@@ -457,24 +496,35 @@ def test_binance_proxy_resolution_when_configured():
     if not _init_proxy_settings_if_configured():
         pytest.skip("No proxy configuration provided for Binance")
 
-    injector = get_proxy_injector()
-    assert injector is not None, (
-        "Proxy injector should be initialized when proxies are configured"
-    )
-
-    http_url = injector.get_http_proxy_url("binance")
-    ws_url, release = injector.lease_proxy("binance", "websocket")
     try:
-        if not http_url and not ws_url:
-            pytest.skip(
-                "Proxy settings loaded but no Binance-specific HTTP/WS proxy configured"
-            )
-        if http_url:
-            assert urlparse(http_url).scheme, "HTTP proxy must include a scheme"
-        if ws_url:
-            assert urlparse(ws_url).scheme, "WS proxy must include a scheme"
+        injector = get_proxy_injector()
+        assert injector is not None, (
+            "Proxy injector should be initialized when proxies are configured"
+        )
+
+        http_url = injector.get_http_proxy_url("binance")
+        ws_url, release = injector.lease_proxy("binance", "websocket")
+        try:
+            if not http_url and not ws_url:
+                pytest.skip(
+                    "Proxy settings loaded but no Binance-specific HTTP/WS proxy configured"
+                )
+            if http_url:
+                assert urlparse(http_url).scheme, "HTTP proxy must include a scheme"
+            if ws_url:
+                assert urlparse(ws_url).scheme, "WS proxy must include a scheme"
+        finally:
+            release()
     finally:
-        release()
+        # Restore original HTTP proxy envs (set in _init_proxy_settings_if_configured)
+        for key, value in _env_cache.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+        # Reset proxy system to avoid leaking proxy configuration into other tests
+        init_proxy_system(ProxySettings(enabled=False))
 
 
 @pytest.mark.integration
@@ -502,6 +552,7 @@ def test_binance_proxy_pool_selection_without_live():
         assert urlparse(ws_url).scheme, "Pooled proxy URL must include a scheme"
     finally:
         release()
+        init_proxy_system(ProxySettings(enabled=False))
 
 
 @pytest.mark.asyncio
@@ -576,8 +627,8 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
 @pytest.mark.live_binance
 async def test_binance_kafka_protobuf_trade_roundtrip_round_robin(redpanda):
     """Validate round-robin partitioning produces keyless records for Binance trades."""
-    await _preflight_rest_through_proxy()
     _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(TRADES, strategy)
@@ -727,36 +778,42 @@ async def test_binance_kafka_protobuf_candle_roundtrip(redpanda):
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_top_of_book_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Binance spot feed does not currently emit top_of_book objects; waiting for emitter support.")
 
 
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_level2_delta_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Level2Delta emission not wired for Binance spot; pending feed support.")
 
 
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_index_price_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Index price channel not available on Binance spot; add when feed emits index data.")
 
 
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_funding_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Funding applies to futures/perps; add when Binance futures feed is included in this suite.")
 
 
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_open_interest_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Open interest applies to derivatives; add when Binance futures feed is included.")
 
 
 @pytest.mark.integration
 @pytest.mark.live_binance
 def test_binance_kafka_protobuf_liquidations_placeholder():
+    _require_binance_e2e_prereqs()
     pytest.skip("Liquidations are derivatives-only; add when Binance futures feed is included.")
 
 
@@ -838,6 +895,7 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
     """Order book snapshot+delta path: Binance L2 → Kafka Protobuf → decode."""
 
     _require_binance_e2e_prereqs()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(L2_BOOK, strategy)
@@ -853,7 +911,7 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
         )
 
         try:
-            await asyncio.to_thread(
+            record: ConsumedRecord = await asyncio.to_thread(
                 consume_one,
                 redpanda,
                 topic,
@@ -869,3 +927,15 @@ async def test_binance_kafka_protobuf_orderbook_snapshot_roundtrip(redpanda):
     finally:
         if fh is not None:
             await _shutdown_feeds(fh)
+
+    _assert_or_skip_headers(record)
+    assert record.headers[b"data_type"] == b"l2_book"
+
+    from cryptofeed.backends.protobuf import bindings as pb_bindings
+
+    l2_pb2 = pb_bindings.order_book_pb2
+    msg = l2_pb2.Level2Book()
+    msg.ParseFromString(record.value)
+    assert msg.exchange.lower() == "binance"
+    assert msg.symbol
+    assert msg.bids or msg.asks
