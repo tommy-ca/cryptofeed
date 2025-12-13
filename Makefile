@@ -44,7 +44,7 @@ test-kafka-binance:
 	CRYPTODATA_RUN_BINANCE_KAFKA_E2E=$(CRYPTODATA_RUN_BINANCE_KAFKA_E2E) KAFKA_BOOTSTRAP_SERVERS=$(KAFKA_BOOTSTRAP_SERVERS) python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v
 
 test-kafka-binance-mullvad:
-	@echo "Using Mullvad EU/AP relays from 2025-12-07 run (override envs to customize)"
+	@echo "Using Mullvad SOCKS5 relays (EU/AP). Override envs to customize. See docs/e2e/PROXY_TESTING.md"
 	CRYPTOFEED_PROXY_ENABLED=true \
 	CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \
 	CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \
@@ -58,7 +58,7 @@ test-kafka-binance-futures:
 	python -m pytest tests/integration/kafka/test_binance_futures_kafka_protobuf_pipeline.py -v
 
 test-kafka-binance-futures-mullvad:
-	@echo "Using Mullvad EU/AP relays for Binance Futures (override envs to customize)"
+	@echo "Using Mullvad SOCKS5 relays (EU/AP) for Binance Futures. Override envs to customize. See docs/e2e/PROXY_TESTING.md"
 	CRYPTOFEED_PROXY_ENABLED=true \
 	CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__HTTP__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \
 	CRYPTOFEED_PROXY_EXCHANGES__BINANCE_FUTURES__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"},{"url":"socks5://be-bru-wg-socks5-101.relays.mullvad.net:1080"},{"url":"socks5://hk-hkg-wg-socks5-201.relays.mullvad.net:1080"}],"strategy":"round_robin"}' \

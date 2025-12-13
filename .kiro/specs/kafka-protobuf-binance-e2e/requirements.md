@@ -72,7 +72,7 @@ As an operator, I want the Binance E2E tests to respect the Kafka topic and part
 As a quality engineer, I want the Binance E2E tests to reuse existing Protobuf schemas and serialization helpers, so that they validate parity rather than introducing parallel serialization logic.
 
 **Acceptance Criteria**
-1. WHEN Kafka messages from the Binance pipeline are decoded THEN they SHALL use the existing generated Protobuf bindings under `cryptofeed.proto_bindings` for the appropriate data type (e.g., `trade_pb2.Trade`).
+1. WHEN Kafka messages from the Binance pipeline are decoded THEN they SHALL use the existing generated Protobuf bindings under `cryptofeed.backends.protobuf.bindings` for the appropriate data type (e.g., `bindings.trade_pb2.Trade`).
 2. WHEN payload fields are compared in tests THEN numeric and timestamp fields SHALL match the semantics validated by `schema-parity-hardening` tests (precision, timestamp units, required/optional fields), without re-defining parity rules in this spec.
 3. WHEN serialization errors occur within `serialize_to_protobuf` for Binance-derived events during tests THEN the system SHALL surface `ProtobufEncodeError` or the existing serialization exception types, and the test SHALL assert on those errors rather than introducing new exception classes.
 
@@ -143,7 +143,7 @@ As an engineer, I want the Binance Kafka E2E tests to be opt-in, deterministic, 
 
 - **market-data-kafka-producer**: Defines Kafka backend behavior, topic/partition strategies, and monitoring expectations.
 - **protobuf-callback-serialization**: Provides Protobuf serialization helpers and error semantics used by `KafkaProtobufCallback`.
-- **normalized-data-schema-crypto**: Supplies the normalized Protobuf schemas referenced by `cryptofeed.proto_bindings`.
+- **normalized-data-schema-crypto**: Supplies the normalized Protobuf schemas referenced by `cryptofeed.backends.protobuf.bindings`.
 - **schema-parity-hardening**: Defines parity expectations between dataclasses and Protobuf representations; Binance E2E tests SHALL be consistent with these expectations.
 
 ## Compound Workstreams & Ownership (C.1)

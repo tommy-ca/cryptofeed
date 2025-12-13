@@ -195,7 +195,7 @@ Binance Kafka Protobuf E2E: SOCKS websocket proxy configured but python-socks is
 pip install python-socks
 
 # Or install with Cryptofeed extras
-pip install -e ".[dev]"  # includes python-socks
+pip install -e ".[proxy]"  # includes python-socks + aiohttp-socks
 
 # Verify installation
 python -c "import python_socks; print('OK')"
@@ -243,7 +243,7 @@ aiohttp not available for REST preflight
 pip install aiohttp
 
 # Or reinstall Cryptofeed dependencies
-pip install -e ".[dev]"
+pip install -e .
 ```
 
 ---
