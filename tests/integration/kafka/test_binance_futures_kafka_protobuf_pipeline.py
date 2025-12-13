@@ -91,6 +91,7 @@ See `docs/e2e/PROXY_TESTING.md` for complete proxy configuration guide including
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 from importlib import import_module
 from urllib.parse import urlparse
@@ -378,6 +379,16 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
     if shutdown_tasks:
         await asyncio.gather(*shutdown_tasks)
 
+    # Ensure connection handler background tasks are stopped to avoid pending-task warnings
+    conn = getattr(handler, "conn", None)
+    if conn and hasattr(conn, "close"):
+        await conn.close()
+        watcher = getattr(conn, "_watcher_task", None)
+        if watcher and hasattr(watcher, "cancel") and not watcher.done():
+            watcher.cancel()
+            with contextlib.suppress(Exception):
+                await watcher
+
     kafka_cb = getattr(handler, "kafka_cb", None)
     if kafka_cb and hasattr(kafka_cb, "stop"):
         await kafka_cb.stop()
@@ -389,6 +400,50 @@ async def _shutdown_feeds(handler: FeedHandler) -> None:
             os.environ[key] = value
 
     init_proxy_system(ProxySettings(enabled=False))
+    await _cancel_connection_handler_tasks()
+
+
+async def _cancel_connection_handler_tasks() -> None:
+    """Cancel leaked ConnectionHandler tasks to keep pytest output clean.
+
+    These integration tests run short-lived feeds in a strict asyncio test
+    loop. ConnectionHandler retries can still be sleeping when the loop is
+    torn down, which surfaces as "Task was destroyed but it is pending!".
+
+    This helper is test-only hygiene; it does not affect production code.
+    """
+
+    current = asyncio.current_task()
+    to_cancel: list[asyncio.Task] = []
+
+    for task in asyncio.all_tasks():
+        if task is current:
+            continue
+
+        coro = task.get_coro()
+        qualname = getattr(coro, "__qualname__", "")
+        filename = getattr(getattr(coro, "cr_code", None), "co_filename", "")
+        filename = filename.replace("\\", "/")
+
+        if filename.endswith("/cryptofeed/connection_handler.py"):
+            if qualname not in {
+                "ConnectionHandler._create_connection",
+                "ConnectionHandler._watcher",
+            }:
+                continue
+        elif filename.endswith("/websockets/asyncio/connection.py"):
+            if qualname != "Connection.keepalive":
+                continue
+        else:
+            continue
+
+        to_cancel.append(task)
+
+    for task in to_cancel:
+        task.cancel()
+
+    if to_cancel:
+        await asyncio.gather(*to_cancel, return_exceptions=True)
 
 
 def _assert_headers(record: ConsumedRecord, data_type: bytes):
@@ -408,7 +463,15 @@ def _assert_headers(record: ConsumedRecord, data_type: bytes):
 @pytest.mark.live_binance
 async def test_binance_futures_rest_connectivity_via_proxy():
     _require_futures_env()
-    await _preflight_rest_through_proxy()
+    try:
+        await _preflight_rest_through_proxy()
+    finally:
+        for key, value in _env_cache.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        init_proxy_system(ProxySettings(enabled=False))
 
 
 @pytest.mark.integration
@@ -418,22 +481,32 @@ def test_binance_futures_proxy_resolution_when_configured():
     if not _init_proxy_settings_if_configured():
         pytest.skip("No proxy configuration provided for Binance Futures")
 
-    injector = get_proxy_injector()
-    assert injector is not None, "Proxy injector should be initialized when proxies are configured"
-
-    http_url = injector.get_http_proxy_url("binance_futures") or injector.get_http_proxy_url("binance")
-    ws_url, release = injector.lease_proxy("binance_futures", "websocket")
     try:
-        if not http_url and not ws_url:
-            pytest.skip(
-                "Proxy settings loaded but no Binance Futures-specific HTTP/WS proxy configured"
-            )
-        if http_url:
-            assert urlparse(http_url).scheme, "HTTP proxy must include a scheme"
-        if ws_url:
-            assert urlparse(ws_url).scheme, "WS proxy must include a scheme"
+        injector = get_proxy_injector()
+        assert injector is not None, (
+            "Proxy injector should be initialized when proxies are configured"
+        )
+
+        http_url = injector.get_http_proxy_url("binance_futures") or injector.get_http_proxy_url("binance")
+        ws_url, release = injector.lease_proxy("binance_futures", "websocket")
+        try:
+            if not http_url and not ws_url:
+                pytest.skip(
+                    "Proxy settings loaded but no Binance Futures-specific HTTP/WS proxy configured"
+                )
+            if http_url:
+                assert urlparse(http_url).scheme, "HTTP proxy must include a scheme"
+            if ws_url:
+                assert urlparse(ws_url).scheme, "WS proxy must include a scheme"
+        finally:
+            release()
     finally:
-        release()
+        for key, value in _env_cache.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        init_proxy_system(ProxySettings(enabled=False))
 
 
 @pytest.mark.integration
@@ -459,6 +532,7 @@ def test_binance_futures_proxy_pool_selection_without_live():
         assert urlparse(ws_url).scheme, "Pooled proxy URL must include a scheme"
     finally:
         release()
+        init_proxy_system(ProxySettings(enabled=False))
 
 
 @pytest.mark.asyncio
@@ -466,6 +540,7 @@ def test_binance_futures_proxy_pool_selection_without_live():
 @pytest.mark.live_binance
 async def test_binance_futures_ws_connectivity_via_proxy():
     _require_futures_env()
+    await _preflight_rest_through_proxy()
 
     loop = asyncio.get_running_loop()
     fh = FeedHandler()
@@ -548,8 +623,8 @@ async def test_binance_futures_kafka_protobuf_trade_roundtrip(redpanda):
 @pytest.mark.integration
 @pytest.mark.live_binance
 async def test_binance_futures_kafka_protobuf_trade_roundtrip_round_robin(redpanda):
-    await _preflight_rest_through_proxy()
     _require_futures_env()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(TRADES, strategy)
@@ -685,6 +760,7 @@ async def test_binance_futures_kafka_protobuf_ticker_roundtrip(redpanda):
 @pytest.mark.live_binance
 async def test_binance_futures_kafka_protobuf_funding_roundtrip(redpanda):
     _require_futures_env()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(FUNDING, strategy)
@@ -729,6 +805,7 @@ async def test_binance_futures_kafka_protobuf_funding_roundtrip(redpanda):
 @pytest.mark.live_binance
 async def test_binance_futures_kafka_protobuf_open_interest_roundtrip(redpanda):
     _require_futures_env()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(OPEN_INTEREST, strategy)
@@ -748,7 +825,7 @@ async def test_binance_futures_kafka_protobuf_open_interest_roundtrip(redpanda):
                 topic,
                 timeout_s=420.0,
                 group_id=f"cf-e2e-binance-fut-oi-{uuid4().hex}",
-                offset_reset="latest",
+                offset_reset="earliest",
             )
         except AssertionError as exc:
             pytest.skip(f"Binance Futures open_interest: no message within timeout: {exc}")
@@ -773,6 +850,7 @@ async def test_binance_futures_kafka_protobuf_open_interest_roundtrip(redpanda):
 @pytest.mark.live_binance
 async def test_binance_futures_kafka_protobuf_liquidation_roundtrip(redpanda):
     _require_futures_env()
+    await _preflight_rest_through_proxy()
 
     strategy = _topic_strategy()
     topic = _topic_name(LIQUIDATIONS, strategy)
@@ -875,4 +953,3 @@ async def test_binance_futures_kafka_protobuf_multi_channel_roundtrip(redpanda):
     msg_ticker = ticker_pb2.Ticker()
     msg_ticker.ParseFromString(records[TICKER].value)
     assert msg_ticker.bid or msg_ticker.ask
-
