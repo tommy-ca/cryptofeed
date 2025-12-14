@@ -1,5 +1,5 @@
 # Binance SPOT Market Data Example
-# This is a complete working configuration for Binance SPOT market data
+# Subscribes to trades, L2 order book, and ticker data for BTC, ETH, and SOL
 
 log:
   filename: null
@@ -7,8 +7,8 @@ log:
 
 uvloop: true
 ignore_invalid_instruments: true
-backend_multiprocessing: false
 
+# Binance exchange configuration
 binance:
   channels:
     - trades
@@ -19,9 +19,9 @@ binance:
     - ETH-USDT
     - SOL-USDT
 
+# Kafka backend configuration
 kafka:
-  bootstrap_servers:
-    - kafka:29092
+  bootstrap_servers: [kafka:29092]
   acks: all
   compression_type: snappy
   enable_idempotence: true
@@ -32,8 +32,3 @@ kafka:
   retry_backoff_ms: 100
   linger_ms: 10
   batch_size: 16384
-
-exchange_credentials:
-  binance:
-    key_id: ${BINANCE_API_KEY}
-    key_secret: ${BINANCE_API_SECRET}

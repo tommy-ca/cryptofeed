@@ -42,34 +42,57 @@ class Settings(BaseSettings):
     exchanges: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def settings_customise_sources(cls, settings_cls, init_settings, env_settings, file_secret_settings):
-        def yaml_settings_source(settings: BaseSettings) -> Dict[str, Any]:
-            config_path = settings.__dict__.get("config_path")
-            if not config_path:
-                return {}
-            path = Path(config_path)
-            if not path.exists():
-                return {}
-            data = yaml.safe_load(path.read_text()) or {}
-            if not isinstance(data, dict):
-                return {}
-            return data
+    def settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
+        # Create a custom source that loads YAML config
+        class YamlSettingsSource:
+            def __init__(self, settings_cls):
+                self.settings_cls = settings_cls
+
+            def __call__(self) -> Dict[str, Any]:
+                # Try to get config_path from init_settings first
+                config_path = None
+                if hasattr(init_settings, '__call__'):
+                    init_values = init_settings()
+                    config_path = init_values.get("config_path")
+
+                if not config_path:
+                    return {}
+
+                path = Path(config_path)
+                if not path.exists():
+                    return {}
+
+                data = yaml.safe_load(path.read_text()) or {}
+                if not isinstance(data, dict):
+                    return {}
+
+                return data
+
+        yaml_source = YamlSettingsSource(settings_cls)
 
         return (
             init_settings,
-            yaml_settings_source,
+            yaml_source,
             env_settings,
+            dotenv_settings,
             file_secret_settings,
         )
 
     def to_feed_config(self) -> Dict[str, Any]:
         """Convert settings into the dict expected by Config / FeedHandler."""
+        # Build log config with disabled flag when filename is None
+        log_config = {
+            "level": self.log.level,
+        }
+        if self.log.filename is not None:
+            log_config["filename"] = self.log.filename
+        else:
+            # When filename is None, disable file logging (stdout only)
+            log_config["disabled"] = True
+
         cfg: Dict[str, Any] = {
             "uvloop": self.uvloop,
-            "log": {
-                "level": self.log.level,
-                "filename": self.log.filename,
-            },
+            "log": log_config,
         }
         if self.kafka:
             cfg["kafka"] = self.kafka

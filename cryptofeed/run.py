@@ -24,7 +24,7 @@ from cryptofeed.config import Config
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.health_server import HealthServer
 from cryptofeed.exchanges import EXCHANGE_MAP
-from cryptofeed.backends.kafka.callback import (
+from cryptofeed.backends.kafka import (
     TradeKafka, BookKafka, TickerKafka, FundingKafka,
     OpenInterestKafka, LiquidationsKafka, CandlesKafka
 )
@@ -241,6 +241,56 @@ def load_proxy_mapping(path: str) -> Optional[Dict[str, Any]]:
     return data or None
 
 
+def load_exchange_credentials() -> Dict[str, Dict[str, Optional[str]]]:
+    """
+    Load exchange API credentials from environment variables.
+
+    Environment variable naming convention:
+        {EXCHANGE_NAME}_API_KEY
+        {EXCHANGE_NAME}_API_SECRET
+        {EXCHANGE_NAME}_API_PASSPHRASE (optional)
+
+    Returns:
+        Dictionary mapping exchange names to credential dicts with key_id, key_secret, and key_passphrase.
+        Only exchanges with at least key_id and key_secret set are included.
+
+    Examples:
+        BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy -> {'binance': {'key_id': 'xxx', 'key_secret': 'yyy'}}
+        COINBASE_API_KEY=xxx COINBASE_API_SECRET=yyy COINBASE_API_PASSPHRASE=zzz
+            -> {'coinbase': {'key_id': 'xxx', 'key_secret': 'yyy', 'key_passphrase': 'zzz'}}
+    """
+    # List of supported exchanges (matching EXCHANGE_MAP keys)
+    # This list can be extended as needed
+    supported_exchanges = [
+        'binance', 'coinbase', 'kraken', 'bybit', 'okx',
+        'bitfinex', 'bitmex', 'deribit', 'gemini', 'kucoin',
+        'huobi', 'ftx', 'bitflyer', 'bithumb', 'upbit'
+    ]
+
+    credentials = {}
+
+    for exchange in supported_exchanges:
+        exchange_upper = exchange.upper()
+        key_id = os.environ.get(f'{exchange_upper}_API_KEY')
+        key_secret = os.environ.get(f'{exchange_upper}_API_SECRET')
+        key_passphrase = os.environ.get(f'{exchange_upper}_API_PASSPHRASE')
+
+        # Only include exchange if both key_id and key_secret are set
+        if key_id and key_secret:
+            creds = {
+                'key_id': key_id,
+                'key_secret': key_secret,
+            }
+            # Add passphrase only if set
+            if key_passphrase:
+                creds['key_passphrase'] = key_passphrase
+
+            credentials[exchange] = creds
+            LOG.debug(f"Loaded credentials for {exchange} from environment variables")
+
+    return credentials
+
+
 async def run_feedhandler(config_path: str, proxy_config_path: Optional[str] = None):
     """
     Run feedhandler with configuration from file.
@@ -261,6 +311,22 @@ async def run_feedhandler(config_path: str, proxy_config_path: Optional[str] = N
     settings = Settings(config_path=config_path)
     config_dict = settings.to_feed_config()
     LOG.info("Config: loaded via Settings (YAML path=%s, env overrides applied)", config_path)
+
+    # Load exchange credentials from environment variables and merge into config
+    exchange_credentials = load_exchange_credentials()
+    if exchange_credentials:
+        LOG.info(f"Loaded API credentials from environment for {len(exchange_credentials)} exchange(s)")
+        for exchange_name, creds in exchange_credentials.items():
+            # Merge credentials into exchange config section
+            if exchange_name not in config_dict:
+                config_dict[exchange_name] = {}
+            # Ensure exchange config is a dict
+            if not isinstance(config_dict[exchange_name], dict):
+                LOG.warning(f"Exchange '{exchange_name}' config is not a dict, skipping credential merge")
+                continue
+            # Merge credentials (environment takes precedence)
+            config_dict[exchange_name].update(creds)
+            LOG.debug(f"Merged credentials into {exchange_name} config")
 
     # Extract Kafka configuration
     kafka_config = config_dict.get('kafka', {})

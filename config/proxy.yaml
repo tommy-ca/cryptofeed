@@ -1,156 +1,34 @@
-# =============================================================================
 # Cryptofeed Proxy Configuration
-# =============================================================================
-# This configuration file defines proxy settings for exchange connections
-# Used for:
-# - Accessing geo-restricted exchanges (e.g., Binance US, certain Kraken regions)
-# - IP rotation to avoid rate limiting
-# - Privacy and security
-#
-# This file is mounted read-only at /config/proxy.yaml in the container
-# =============================================================================
+# See config/examples/with-proxy.yaml for usage examples
 
-# -----------------------------------------------------------------------------
-# Global Proxy Settings
-# -----------------------------------------------------------------------------
-# These settings apply to all exchanges unless overridden per-exchange
-# -----------------------------------------------------------------------------
-
-# Global HTTP proxy (optional)
-# Format: http://[username:password@]host:port
-# Example: http://user:pass@proxy.example.com:8080
+# Global proxy settings (optional)
 global:
   http: null
-
-  # Global SOCKS5 proxy (optional)
-  # Format: socks5://[username:password@]host:port
-  # Example: socks5://user:pass@proxy.example.com:1080
   socks5: null
 
-# -----------------------------------------------------------------------------
-# Per-Exchange Proxy Settings
-# -----------------------------------------------------------------------------
-# Override global settings for specific exchanges
-# Useful when different exchanges have different geo-restrictions
-# -----------------------------------------------------------------------------
+# Per-exchange proxy overrides (optional)
+exchanges: {}
 
-exchanges:
-  # Example: Use HTTP proxy for Binance US (geo-restricted)
-  # binance:
-  #   http: http://us-proxy.example.com:8080
-  #   socks5: null
-
-  # Example: Use SOCKS5 proxy for Kraken (geo-restricted regions)
-  # kraken:
-  #   http: null
-  #   socks5: socks5://eu-proxy.example.com:1080
-
-  # Example: Use different proxy for Coinbase
-  # coinbase:
-  #   http: http://proxy2.example.com:8080
-  #   socks5: null
-
-  # Example: Disable proxy for specific exchange (use direct connection)
-  # bybit:
-  #   http: null
-  #   socks5: null
-
-  # Example: Use both HTTP and SOCKS5 proxies (fallback mechanism)
-  # okx:
-  #   http: http://proxy.example.com:8080
-  #   socks5: socks5://proxy.example.com:1080
-
-# -----------------------------------------------------------------------------
-# Proxy Pool Configuration (Future Enhancement)
-# -----------------------------------------------------------------------------
-# NOTE: Proxy pool support is planned for Phase 2
-# This section is reserved for future use
-# -----------------------------------------------------------------------------
-
-# proxy_pool:
-#   enabled: false
-#   rotation_strategy: round_robin  # round_robin, random, least_used
-#   health_check_interval: 60  # seconds
-#   proxies:
-#     - http://proxy1.example.com:8080
-#     - http://proxy2.example.com:8080
-#     - socks5://proxy3.example.com:1080
-
-# -----------------------------------------------------------------------------
-# Proxy Validation Settings
-# -----------------------------------------------------------------------------
-# Configuration for proxy health checks and failover
-# -----------------------------------------------------------------------------
-
+# Proxy validation
 validation:
-  # Enable proxy validation before use
   enabled: true
-
-  # Timeout for proxy connection test (seconds)
   timeout: 10
-
-  # Number of retries on proxy connection failure
   retries: 3
-
-  # Backoff strategy: linear, exponential
   backoff_strategy: exponential
-
-  # Initial backoff delay (seconds)
   initial_backoff: 1
-
-  # Maximum backoff delay (seconds)
   max_backoff: 30
 
-# -----------------------------------------------------------------------------
-# Proxy Authentication
-# -----------------------------------------------------------------------------
-# If proxies require authentication, credentials can be provided:
-# 1. In the proxy URL (http://user:pass@host:port)
-# 2. Via environment variables (recommended for security)
-# 3. Using this configuration section
-# -----------------------------------------------------------------------------
-
-# authentication:
-#   # Proxy credentials loaded from environment variables
-#   username: ${PROXY_USERNAME}
-#   password: ${PROXY_PASSWORD}
-
-# -----------------------------------------------------------------------------
-# Advanced Proxy Settings
-# -----------------------------------------------------------------------------
-
+# Advanced settings
 advanced:
-  # DNS resolution through proxy
-  # true: Resolve DNS through proxy (recommended for privacy)
-  # false: Resolve DNS locally then connect through proxy
   remote_dns: true
-
-  # Connection timeout (seconds)
   connect_timeout: 10
-
-  # Read timeout (seconds)
   read_timeout: 30
-
-  # Enable proxy keep-alive connections
   keep_alive: true
-
-  # Maximum number of proxy connections per exchange
   max_connections_per_proxy: 100
 
-# -----------------------------------------------------------------------------
-# Logging and Debugging
-# -----------------------------------------------------------------------------
-
+# Logging
 logging:
-  # Log proxy connection attempts
   log_connections: true
-
-  # Log proxy errors and failures
   log_errors: true
-
-  # Log successful proxy connections (verbose)
   log_success: false
-
-  # SECURITY WARNING: Never log proxy credentials
-  # This setting is always false for security
   log_credentials: false
