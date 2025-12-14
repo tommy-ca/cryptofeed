@@ -1,9 +1,11 @@
 ---
-status: ready
+status: resolved
 priority: p3
 issue_id: "004"
 tags: [documentation, configuration, code-simplicity, code-review]
 dependencies: []
+resolved_date: 2025-12-14
+resolved_commit: a1b5fee7
 ---
 
 # Excessive Comments in Configuration Files

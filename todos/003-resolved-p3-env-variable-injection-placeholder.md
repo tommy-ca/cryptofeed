@@ -1,9 +1,11 @@
 ---
-status: done
+status: resolved
 priority: p3
 issue_id: "003"
 tags: [docker, configuration, env-vars, code-review]
 dependencies: []
+resolved_date: 2025-12-14
+resolved_commit: a1b5fee7
 ---
 
 # Environment Variable Injection Placeholders in config.yaml

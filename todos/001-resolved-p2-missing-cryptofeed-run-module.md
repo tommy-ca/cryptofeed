@@ -1,9 +1,11 @@
 ---
-status: ready
+status: resolved
 priority: p2
 issue_id: "001"
 tags: [docker, implementation, code-review, multi-exchange-docker-deployment]
 dependencies: []
+resolved_date: 2025-12-14
+resolved_commit: a1b5fee7
 ---
 
 # Missing cryptofeed.run Module Implementation
