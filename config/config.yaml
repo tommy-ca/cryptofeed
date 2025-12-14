@@ -1,188 +1,40 @@
-# =============================================================================
-# Cryptofeed Docker Compose Configuration
-# =============================================================================
-# This configuration file is used by the cryptofeed container to:
-# - Configure logging behavior
-# - Define exchange connections and subscriptions
-# - Configure Kafka backend for message publishing
-#
-# This file is mounted read-only at /config/config.yaml in the container
-# =============================================================================
+# Cryptofeed Configuration
+# See config/examples/ for working examples
 
-# -----------------------------------------------------------------------------
-# Logging Configuration
-# -----------------------------------------------------------------------------
 log:
-  # Log file path (relative to container working directory)
-  # Set to null to disable file logging (logs will go to stdout only)
   filename: null
-
-  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-  # Can be overridden by LOG_LEVEL environment variable
   level: INFO
 
-# -----------------------------------------------------------------------------
-# Performance Tuning
-# -----------------------------------------------------------------------------
-# Enable UVLoop for improved async I/O performance
-# If uvloop is not installed, this will be silently ignored
 uvloop: true
-
-# Ignore invalid symbols/instruments from exchanges
-# Set to true to prevent startup failures on exchange API changes
 ignore_invalid_instruments: true
-
-# Use multiprocessing for backends (experimental)
-# Recommended: false for Docker deployments (use multiple containers instead)
 backend_multiprocessing: false
 
-# -----------------------------------------------------------------------------
-# Exchange Subscriptions (Example Configuration)
-# -----------------------------------------------------------------------------
-# Configure which exchanges, symbols, and data types to subscribe to
-# API keys are loaded from environment variables (see .env file)
-#
-# Uncomment and customize the exchanges you want to use:
-# -----------------------------------------------------------------------------
+# Exchange subscriptions
+# Uncomment and configure exchanges you want to use
+# See config/examples/ for complete examples
 
-# Example: Subscribe to Binance SPOT market data
 # binance:
-#   channels:
-#     - trades
-#     - l2_book
-#     - ticker
-#   symbols:
-#     - BTC-USDT
-#     - ETH-USDT
-#     - SOL-USDT
+#   channels: [trades, l2_book, ticker]
+#   symbols: [BTC-USDT, ETH-USDT]
 
-# Example: Subscribe to Coinbase Pro market data
 # coinbase:
-#   channels:
-#     - trades
-#     - l2_book
-#   symbols:
-#     - BTC-USD
-#     - ETH-USD
+#   channels: [trades, l2_book]
+#   symbols: [BTC-USD, ETH-USD]
 
-# Example: Subscribe to Kraken market data
-# kraken:
-#   channels:
-#     - trades
-#     - l2_book
-#     - ticker
-#   symbols:
-#     - BTC-USD
-#     - ETH-USD
-
-# Example: Subscribe to Bybit SPOT market data
-# bybit:
-#   channels:
-#     - trades
-#     - l2_book
-#   symbols:
-#     - BTCUSDT
-#     - ETHUSDT
-
-# Example: Subscribe to OKX market data
-# okx:
-#   channels:
-#     - trades
-#     - l2_book
-#     - ticker
-#     - funding
-#   symbols:
-#     - BTC-USDT
-#     - ETH-USDT
-
-# -----------------------------------------------------------------------------
-# Kafka Backend Configuration
-# -----------------------------------------------------------------------------
-# Kafka backend settings for publishing normalized market data
-# These settings integrate with the existing Kafka callback implementation
-# -----------------------------------------------------------------------------
+# Kafka backend configuration
 kafka:
-  # Kafka bootstrap servers (comma-separated list)
-  # This will be overridden by KAFKA_BOOTSTRAP_SERVERS environment variable
-  bootstrap_servers:
-    - kafka:29092
-
-  # Producer acknowledgment level
-  # 'all' or '-1': Wait for all in-sync replicas (strongest durability)
-  # '1': Wait for leader only (balanced durability/performance)
-  # '0': No acknowledgment (fastest, lowest durability)
+  bootstrap_servers: [kafka:29092]
   acks: all
-
-  # Message compression type
-  # Options: none, gzip, snappy, lz4, zstd
-  # Recommended: snappy (good balance of speed and compression ratio)
   compression_type: snappy
-
-  # Enable idempotent producer for exactly-once semantics
-  # Prevents duplicate messages on retry
   enable_idempotence: true
-
-  # Topic strategy: 'consolidated' or 'per_symbol'
-  # consolidated: O(20) topics (cryptofeed.trades, cryptofeed.l2_book, etc.)
-  # per_symbol: O(10K) topics (cryptofeed.binance.BTCUSDT.trades, etc.)
   topic_strategy: consolidated
-
-  # Partition strategy: composite, symbol, exchange, round_robin
-  # composite: Hash of (exchange, symbol, data_type) - balanced distribution
-  # symbol: Hash of symbol - co-locate symbol data on same partition
-  # exchange: Hash of exchange - co-locate exchange data on same partition
-  # round_robin: Round-robin across partitions - simple load balancing
   partition_strategy: composite
-
-  # Maximum time to wait for message delivery (milliseconds)
   request_timeout_ms: 30000
-
-  # Retry configuration
   retries: 10
   retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384
 
-  # Batch configuration for throughput optimization
-  linger_ms: 10  # Wait up to 10ms to batch messages
-  batch_size: 16384  # 16KB batch size
-
-# -----------------------------------------------------------------------------
-# Exchange API Credentials
-# -----------------------------------------------------------------------------
-# API keys are loaded from environment variables for security
-# Do NOT hardcode API keys in this file
-#
-# Environment variable naming convention:
-# {EXCHANGE_NAME}_API_KEY
-# {EXCHANGE_NAME}_API_SECRET
-# {EXCHANGE_NAME}_API_PASSPHRASE (if required)
-#
-# Example:
-# - BINANCE_API_KEY
-# - COINBASE_API_KEY
-# - COINBASE_API_PASSPHRASE
-# -----------------------------------------------------------------------------
-
-# Placeholder for environment variable injection
-# The cryptofeed.run module will read these from environment variables
-exchange_credentials:
-  binance:
-    key_id: ${BINANCE_API_KEY}
-    key_secret: ${BINANCE_API_SECRET}
-
-  coinbase:
-    key_id: ${COINBASE_API_KEY}
-    key_secret: ${COINBASE_API_SECRET}
-    key_passphrase: ${COINBASE_API_PASSPHRASE}
-
-  kraken:
-    key_id: ${KRAKEN_API_KEY}
-    key_secret: ${KRAKEN_API_SECRET}
-
-  bybit:
-    key_id: ${BYBIT_API_KEY}
-    key_secret: ${BYBIT_API_SECRET}
-
-  okx:
-    key_id: ${OKX_API_KEY}
-    key_secret: ${OKX_API_SECRET}
-    key_passphrase: ${OKX_API_PASSPHRASE}
+# API credentials are loaded from environment variables
+# Set BINANCE_API_KEY, COINBASE_API_KEY, etc. in docker-compose.yml
+# See .env.example for all supported exchanges

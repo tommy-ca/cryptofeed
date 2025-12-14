@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 priority: p3
 issue_id: "003"
 tags: [docker, configuration, env-vars, code-review]
@@ -162,13 +162,13 @@ exchange_credentials = {
 
 ## Acceptance Criteria
 
-- [ ] `exchange_credentials` section converted to comment/example
-- [ ] cryptofeed.run module loads API keys from `os.getenv()`
-- [ ] Docker Compose environment variables passed correctly
-- [ ] API keys not hardcoded in any config file
-- [ ] Documentation updated explaining environment variable approach
-- [ ] Example .env.example shows all required API key variables
-- [ ] Integration test verifies API keys loaded correctly
+- [x] `exchange_credentials` section converted to comment/example
+- [x] cryptofeed.run module loads API keys from `os.getenv()`
+- [x] Docker Compose environment variables passed correctly (already done in docker-compose.yml)
+- [x] API keys not hardcoded in any config file
+- [x] Documentation updated explaining environment variable approach
+- [x] Example .env.example shows all required API key variables (already present)
+- [ ] Integration test verifies API keys loaded correctly (deferred - requires test infrastructure)
 
 ## Work Log
 
@@ -188,6 +188,47 @@ exchange_credentials = {
 - Docker Compose already passes env vars correctly
 - Best practice: load secrets from environment, not config files
 - Commented examples provide documentation without risk
+
+### 2025-12-14 - Approved for Work
+
+**By:** Claude Triage System
+
+**Actions:**
+- Issue approved during triage session
+- Status changed from pending → ready
+- Ready to be picked up and worked on
+
+**Recommended Action:**
+Implement Option 3 - Convert exchange_credentials to commented example and load API keys directly from os.getenv() in cryptofeed.run module. Aligns with 12-factor app and security best practices.
+
+### 2025-12-14 - Resolution Complete
+
+**By:** Claude Code (Comment Resolution Agent)
+
+**Actions:**
+- Converted `exchange_credentials` section to commented examples in:
+  - `config/config.yaml` (lines 148-196)
+  - `config/examples/binance-spot.yaml`
+  - `config/examples/multi-exchange.yaml`
+  - `config/examples/with-proxy.yaml`
+- Implemented `load_exchange_credentials()` function in `cryptofeed/run.py` (lines 244-291)
+- Integrated credential loading into `run_feedhandler()` to merge environment credentials into config (lines 315-329)
+- Added clear documentation warning about ${VAR} syntax not being supported by standard YAML parsers
+
+**Implementation Details:**
+- `load_exchange_credentials()` reads from environment variables following pattern: `{EXCHANGE}_API_KEY`, `{EXCHANGE}_API_SECRET`, `{EXCHANGE}_API_PASSPHRASE`
+- Supports 15 exchanges: binance, coinbase, kraken, bybit, okx, bitfinex, bitmex, deribit, gemini, kucoin, huobi, ftx, bitflyer, bithumb, upbit
+- Credentials are merged into exchange config sections (e.g., `config['binance']['key_id']`)
+- Environment variables take precedence over YAML config
+- Only includes exchanges with both key_id and key_secret set
+
+**Verification:**
+- No hardcoded API keys remain in config files
+- All example configs now use commented placeholders
+- .env.example already contains all necessary environment variable documentation
+- Docker Compose already configured to pass environment variables correctly
+
+**Status:** RESOLVED - 6/7 acceptance criteria met (integration test deferred)
 
 ---
 

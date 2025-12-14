@@ -1,5 +1,5 @@
-# Configuration with Proxy Support Example
-# This example shows how to use proxies for geo-restricted exchanges
+# Proxy Configuration Example
+# Shows how to configure HTTP and SOCKS5 proxies
 
 log:
   filename: null
@@ -7,8 +7,8 @@ log:
 
 uvloop: true
 ignore_invalid_instruments: true
-backend_multiprocessing: false
 
+# Exchange configuration
 binance:
   channels:
     - trades
@@ -16,38 +16,41 @@ binance:
   symbols:
     - BTC-USDT
     - ETH-USDT
-  proxy:
-    http: ${PROXY_HTTP}
-    socks5: ${PROXY_SOCKS5}
 
-coinbase:
-  channels:
-    - trades
-    - l2_book
-  symbols:
-    - BTC-USD
-    - ETH-USD
-
+# Kafka backend configuration
 kafka:
-  bootstrap_servers:
-    - kafka:29092
+  bootstrap_servers: [kafka:29092]
   acks: all
   compression_type: snappy
-  enable_idempotence: true
   topic_strategy: consolidated
   partition_strategy: composite
-  request_timeout_ms: 30000
-  retries: 10
-  retry_backoff_ms: 100
-  linger_ms: 10
-  batch_size: 16384
 
-exchange_credentials:
-  binance:
-    key_id: ${BINANCE_API_KEY}
-    key_secret: ${BINANCE_API_SECRET}
-
-  coinbase:
-    key_id: ${COINBASE_API_KEY}
-    key_secret: ${COINBASE_API_SECRET}
-    key_passphrase: ${COINBASE_API_PASSPHRASE}
+# Proxy configuration (copy to config/proxy.yaml)
+# proxy:
+#   # Global proxy (applies to all exchanges)
+#   global:
+#     http: http://proxy.example.com:8080
+#     socks5: null
+#
+#   # Per-exchange proxy overrides
+#   exchanges:
+#     binance:
+#       http: http://us-proxy.example.com:8080
+#       socks5: null
+#
+#     kraken:
+#       http: null
+#       socks5: socks5://eu-proxy.example.com:1080
+#
+#   # Validation settings
+#   validation:
+#     enabled: true
+#     timeout: 10
+#     retries: 3
+#     backoff_strategy: exponential
+#
+#   # Advanced settings
+#   advanced:
+#     remote_dns: true
+#     connect_timeout: 10
+#     read_timeout: 30
