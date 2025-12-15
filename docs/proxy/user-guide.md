@@ -675,6 +675,96 @@ proxy:
     # url: "https://proxy:8443"   # HTTPS acceptable
 ```
 
+**3. SSRF Prevention (Server-Side Request Forgery)**
+
+The proxy system includes built-in SSRF attack prevention to protect against malicious proxy configurations. All proxy URLs are validated using a defense-in-depth approach with three security layers:
+
+**Validation Layers:**
+
+1. **Scheme Whitelist** - Only proxy protocols are allowed:
+   - ✅ Allowed: `http`, `https`, `socks4`, `socks5`, `socks5h`
+   - ❌ Blocked: `file`, `ftp`, `gopher`, and other non-proxy schemes
+
+2. **IP Range Validation** - Private and internal networks are blocked:
+   - ❌ Private IPs: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+   - ❌ Loopback: `127.0.0.0/8`, `::1/128`
+   - ❌ Link-local/Metadata: `169.254.0.0/16` (AWS/GCP metadata endpoint)
+   - ❌ IPv6 link-local: `fe80::/10`
+
+3. **Hostname Pattern Matching** - Blocked hostnames:
+   - ❌ `localhost`, `127.0.0.1`, `::1`
+   - ❌ `metadata.google.internal` (GCP metadata service)
+   - ❌ Cloud metadata endpoints
+
+**Why Each Category Is Blocked:**
+
+- **Metadata Endpoints** (`169.254.169.254`, `metadata.google.internal`): Attackers could steal cloud credentials (AWS IAM keys, GCP service account tokens) leading to full account compromise
+- **Local Files** (`file:///etc/passwd`): Direct filesystem access could expose sensitive configuration, credentials, or system information
+- **Internal Networks** (`10.0.0.0/8`, `192.168.0.0/16`): Access to internal services (databases, admin panels, monitoring systems) that should not be publicly accessible
+- **Localhost** (`127.0.0.1`, `localhost`): Access to local services (Redis, PostgreSQL, admin interfaces) running on the same machine
+
+**Examples of Rejected URLs with Error Messages:**
+
+```python
+# Blocked: Metadata endpoint attack
+url: "http://169.254.169.254/latest/meta-data/"
+# Error: "Proxy URL points to blocked IP range: 169.254.169.254
+#         (matches 169.254.0.0/16, SSRF prevention)"
+
+# Blocked: File system access
+url: "file:///etc/passwd"
+# Error: "Invalid proxy scheme 'file'.
+#         Allowed schemes: http, https, socks4, socks5, socks5h"
+
+# Blocked: Internal network scanning
+url: "http://192.168.1.1:8080/"
+# Error: "Proxy URL points to blocked IP range: 192.168.1.1
+#         (matches 192.168.0.0/16, SSRF prevention)"
+
+# Blocked: Localhost service access
+url: "http://localhost:6379/"
+# Error: "Proxy URL points to blocked hostname: localhost (SSRF prevention)"
+```
+
+**Configuring Legitimate Proxies:**
+
+To avoid false positives, ensure your proxy URLs use:
+- ✅ Public IP addresses or DNS names (not private IPs)
+- ✅ Allowed schemes (`http`, `https`, `socks5`, etc.)
+- ✅ Non-localhost hostnames
+
+```yaml
+# ✅ Valid proxy configurations
+proxy:
+  default:
+    http:
+      url: "socks5://proxy.example.com:1080"           # Public DNS name
+    # or
+      url: "http://203.0.113.50:8080"                  # Public IP address
+
+  exchanges:
+    binance:
+      http:
+        url: "socks5://eu-proxy.mycompany.net:1080"    # Corporate proxy DNS
+
+# ❌ Invalid configurations (will be rejected)
+proxy:
+  default:
+    http:
+      url: "http://10.0.0.5:8080"                      # Private IP
+    # or
+      url: "http://localhost:8080"                     # Localhost
+    # or
+      url: "file:///tmp/proxy.sock"                    # File scheme
+```
+
+**Security Reference:**
+- **CVE Details**: CVSS 7.5 High severity (CWE-918: Server-Side Request Forgery)
+- **OWASP Guidelines**: [SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
+- **CWE-918**: [Improper Restriction of Rendered UI Layers or Frames](https://cwe.mitre.org/data/definitions/918.html)
+
+For detailed incident response procedures and monitoring guidance, see the [SSRF Prevention Security Runbook](../security/ssrf-prevention.md).
+
 ### Performance
 
 **1. Environment-Appropriate Timeouts**
