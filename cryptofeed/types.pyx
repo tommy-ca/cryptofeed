@@ -41,8 +41,33 @@ cdef class Trade:
     cdef readonly str type
     cdef readonly double timestamp
     cdef readonly object raw  # can be dict or list
+    # New fields for protobuf v2beta1 schema (REQ-1.1)
+    cdef public object maker  # bool or None - True if buyer is maker
+    cdef public object event_time  # float or None - exchange event timestamp (seconds)
+    cdef public str match_id  # str or None - exchange-specific trade match ID
+    cdef public str liquidity_flag  # str or None - maker/taker designation
 
-    def __init__(self, exchange, symbol, side, amount, price, timestamp, id=None, type=None, raw=None):
+    def __init__(self, exchange, symbol, side, amount, price, timestamp, id=None, type=None, raw=None, maker=None, event_time=None, match_id=None, liquidity_flag=None):
+        """
+        Initialize Trade with optional v2beta1 protobuf schema fields.
+
+        New optional fields (protobuf v2beta1 schema):
+            maker (bool): True if buyer is maker, False if taker. Indicates which
+                side of the trade is providing liquidity.
+                Example: Binance WebSocket 'm' field (boolean)
+
+            event_time (float): Exchange event timestamp in seconds (not cryptofeed
+                processing time). Represents when the trade occurred at the exchange.
+                Example: Binance WebSocket 'E' field / 1000 (milliseconds to seconds)
+
+            match_id (str): Exchange-specific trade match identifier. Used to uniquely
+                identify the trade on the exchange side.
+                Example: Binance WebSocket 'a' field (aggregate trade ID)
+
+            liquidity_flag (str): Maker/taker designation or exchange-specific liquidity
+                indicator. May be "maker", "taker", or exchange-specific values.
+                Example: Some exchanges provide explicit liquidity role strings
+        """
         assert isinstance(price, Decimal)
         assert isinstance(amount, Decimal)
 
@@ -55,6 +80,11 @@ cdef class Trade:
         self.id = id
         self.type = type
         self.raw = raw
+        # v2beta1 schema fields (optional, default None)
+        self.maker = maker
+        self.event_time = event_time
+        self.match_id = match_id
+        self.liquidity_flag = liquidity_flag
 
     @staticmethod
     def from_dict(data: dict) -> Trade:
@@ -394,8 +424,23 @@ cdef class OrderBook:
     cdef public object checksum
     cdef public object timestamp
     cdef public object raw  # Can be dict or list
+    # New fields for protobuf v2beta1 schema (REQ-1.2)
+    cdef public object event_time  # float or None - exchange event timestamp (seconds)
+    cdef public object last_update_id  # int or None - final update ID in event
 
     def __init__(self, exchange, symbol, bids=None, asks=None, max_depth=0, truncate=False, checksum_format=None):
+        """
+        Initialize OrderBook with optional v2beta1 protobuf schema fields.
+
+        New optional fields (protobuf v2beta1 schema):
+            event_time (float): Exchange event timestamp in seconds. Represents when
+                the order book update occurred at the exchange.
+                Example: Binance WebSocket 'E' field / 1000 (milliseconds to seconds)
+
+            last_update_id (int): Final update ID in this event. Used for gap detection
+                and ensuring order book updates are applied in the correct sequence.
+                Example: Binance WebSocket 'u' field (final update ID)
+        """
         self.exchange = exchange
         self.symbol = symbol
         self.book = _OrderBook(max_depth=max_depth, checksum_format=checksum_format, max_depth_strict=truncate)
@@ -408,6 +453,9 @@ cdef class OrderBook:
         self.sequence_number = None
         self.checksum = None
         self.raw = None
+        # v2beta1 schema fields (optional, default None)
+        self.event_time = None
+        self.last_update_id = None
 
     # Expose bids/asks for parity tests and convenience
     property bids:
