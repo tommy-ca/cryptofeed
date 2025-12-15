@@ -256,14 +256,33 @@ class Binance(Feed, BinanceRestMixin):
             "M": true         // Ignore
         }
         """
+        # Extract new protobuf v2beta1 fields (REQ-1: Task 7.1)
+        maker = msg.get('m')  # boolean: True if buyer is maker
+        event_time = msg.get('E')
+        if event_time is not None:
+            event_time = event_time / 1000  # Convert milliseconds to seconds
+
+        # Extract trade ID and match_id from 'a' field (aggregate trade ID)
+        trade_id = msg.get('a')
+        match_id = None
+        if trade_id is not None:
+            trade_id = str(trade_id)
+            match_id = trade_id  # match_id is same as trade ID
+
+        # Determine side (use .get() for graceful handling of missing 'm' field)
+        side = SELL if msg.get('m', False) else BUY
+
         t = Trade(self.id,
                   self.exchange_symbol_to_std_symbol(msg['s']),
-                  SELL if msg['m'] else BUY,
+                  side,
                   Decimal(msg['q']),
                   Decimal(msg['p']),
                   self.timestamp_normalize(msg['T']),
-                  id=str(msg['a']),
-                  raw=msg)
+                  id=trade_id,
+                  raw=msg,
+                  maker=maker,
+                  event_time=event_time,
+                  match_id=match_id)
         await self.callback(TRADES, t, timestamp)
 
     async def _ticker(self, msg: dict, timestamp: float):
@@ -406,7 +425,18 @@ class Binance(Feed, BinanceRestMixin):
                 else:
                     self._l2_book[pair].book[side][price] = amount
 
-        await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, timestamp=self.timestamp_normalize(msg['E']), raw=msg, delta=delta, sequence_number=self.last_update_id[pair])
+        # Extract new protobuf v2beta1 fields (REQ-1: Task 7.2)
+        event_time = msg.get('E')
+        if event_time is not None:
+            event_time = event_time / 1000  # Convert milliseconds to seconds
+            self._l2_book[pair].event_time = event_time
+
+        last_update_id = msg.get('u')  # Final update ID in event
+        if last_update_id is not None:
+            self._l2_book[pair].last_update_id = last_update_id
+
+        book_timestamp = self.timestamp_normalize(msg['E']) if 'E' in msg else None
+        await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, timestamp=book_timestamp, raw=msg, delta=delta, sequence_number=self.last_update_id[pair])
 
     async def _funding(self, msg: dict, timestamp: float):
         """

@@ -27,8 +27,22 @@ def trade_to_proto(trade_obj) -> trade_pb2.Trade:
 
     Conversions:
     - Decimal (price, amount) → string (preserves full precision)
-    - float seconds (timestamp) → int64 microseconds
+    - float seconds (timestamp, event_time) → int64 microseconds
     - string (side: 'buy'/'sell') → enum (TRADE_SIDE_BUY/SELL)
+
+    v2beta1 Optional Fields:
+    - maker (bool): True if maker side, False if taker side
+    - event_time (float seconds): Exchange event timestamp → int64 microseconds
+    - match_id (str): Exchange-specific match identifier
+    - liquidity_flag (str): Liquidity role indicator (e.g., "maker", "taker")
+
+    Field Availability by Exchange:
+    - Binance: maker, event_time, match_id
+    - OKX: (planned)
+    - Coinbase: (planned)
+
+    Note: Fields are only populated if present and non-None in trade_obj.
+    Missing or None fields remain unset in protobuf message.
     """
     proto = trade_pb2.Trade()
     proto.exchange = trade_obj.exchange or ""
@@ -54,6 +68,21 @@ def trade_to_proto(trade_obj) -> trade_pb2.Trade:
         proto.timestamp = int(trade_obj.timestamp * 1_000_000)
     if hasattr(trade_obj, "type") and trade_obj.type:
         proto.trade_type = str(trade_obj.type)
+
+    # v2beta1 Optional Fields (REQ-1.8 through REQ-1.11)
+    # Populate only if attribute exists AND is not None
+    if hasattr(trade_obj, "maker") and trade_obj.maker is not None:
+        proto.maker = bool(trade_obj.maker)
+
+    if hasattr(trade_obj, "event_time") and trade_obj.event_time is not None:
+        # Convert seconds to microseconds for protobuf
+        proto.event_time = int(trade_obj.event_time * 1_000_000)
+
+    if hasattr(trade_obj, "match_id") and trade_obj.match_id is not None:
+        proto.match_id = str(trade_obj.match_id)
+
+    if hasattr(trade_obj, "liquidity_flag") and trade_obj.liquidity_flag is not None:
+        proto.liquidity_flag = str(trade_obj.liquidity_flag)
 
     return proto
 
@@ -160,8 +189,20 @@ def orderbook_to_proto(orderbook_obj) -> order_book_pb2.Level2Book:
 
     Conversions:
     - Decimal (price, quantity in bids/asks) → string (preserves precision)
-    - float seconds (timestamp) → int64 microseconds
+    - float seconds (timestamp, event_time) → int64 microseconds
     - SortedDict (bids/asks) → repeated PriceLevel
+
+    v2beta1 Optional Fields:
+    - event_time (float seconds): Exchange event timestamp → int64 microseconds
+    - last_update_id (int): Sequence number for gap detection
+
+    Field Availability by Exchange:
+    - Binance: event_time, last_update_id
+    - OKX: (planned)
+    - Coinbase: (planned)
+
+    Note: Fields are only populated if present and non-None in orderbook_obj.
+    Missing or None fields remain unset in protobuf message.
     """
     proto = order_book_pb2.Level2Book()
     proto.exchange = orderbook_obj.exchange or ""
@@ -188,6 +229,16 @@ def orderbook_to_proto(orderbook_obj) -> order_book_pb2.Level2Book:
         proto.sequence = int(orderbook_obj.sequence_number)
     if hasattr(orderbook_obj, "checksum") and orderbook_obj.checksum is not None:
         proto.checksum = str(orderbook_obj.checksum)
+
+    # v2beta1 Optional Fields (REQ-1.12, REQ-1.13)
+    # Populate only if attribute exists AND is not None
+    if hasattr(orderbook_obj, "event_time") and orderbook_obj.event_time is not None:
+        # Convert seconds to microseconds for protobuf
+        proto.event_time = int(orderbook_obj.event_time * 1_000_000)
+
+    if hasattr(orderbook_obj, "last_update_id") and orderbook_obj.last_update_id is not None:
+        # Note: last_update_id is a string in protobuf schema (v2beta1)
+        proto.last_update_id = str(orderbook_obj.last_update_id)
 
     return proto
 

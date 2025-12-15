@@ -12,30 +12,32 @@ from the normalized-data-schema-crypto specification.
 
 # ruff: noqa: F401
 
-SCHEMA_VERSION = "v0.1.0"
+SCHEMA_VERSION = "v2beta1"  # Updated to v2beta1 for new optional fields
 
-# Import all generated protobuf modules
+# Import all generated protobuf modules from v2beta1
+# v2beta1 includes optional fields: Trade (maker, event_time, match_id, liquidity_flag),
+# Level2Book (event_time, last_update_id)
 try:
-    from gen.python.cryptofeed.normalized.v1 import trade_pb2
-    from gen.python.cryptofeed.normalized.v1 import order_book_pb2
-    from gen.python.cryptofeed.normalized.v1 import ticker_pb2
-    from gen.python.cryptofeed.normalized.v1 import candle_pb2
-    from gen.python.cryptofeed.normalized.v1 import funding_pb2
-    from gen.python.cryptofeed.normalized.v1 import liquidation_pb2
-    from gen.python.cryptofeed.normalized.v1 import open_interest_pb2
-    from gen.python.cryptofeed.normalized.v1 import index_price_pb2
-    from gen.python.cryptofeed.normalized.v1 import balance_pb2
-    from gen.python.cryptofeed.normalized.v1 import position_pb2
-    from gen.python.cryptofeed.normalized.v1 import fill_pb2
-    from gen.python.cryptofeed.normalized.v1 import order_info_pb2
-    from gen.python.cryptofeed.normalized.v1 import transaction_pb2
-    from gen.python.cryptofeed.normalized.v1 import order_pb2
-    from gen.python.cryptofeed.normalized.v1 import trade_side_pb2
-    from gen.python.cryptofeed.normalized.v1 import price_level_pb2
-    from gen.python.cryptofeed.normalized.v1 import level2_delta_pb2
-    from gen.python.cryptofeed.normalized.v1 import nbbo_pb2
-    from gen.python.cryptofeed.normalized.v1 import top_of_book_pb2
-    from gen.python.cryptofeed.normalized.v1 import events_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import trade_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import order_book_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import ticker_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import candle_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import funding_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import liquidation_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import open_interest_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import index_price_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import balance_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import position_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import fill_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import order_info_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import transaction_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import order_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import trade_side_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import price_level_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import level2_delta_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import nbbo_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import top_of_book_pb2
+    from gen.python.cryptofeed.normalized.v2beta1 import events_pb2
     REQUIRED_MODULES = {
         'trade_pb2': 'Trade',
         'order_book_pb2': 'Level2Book',
