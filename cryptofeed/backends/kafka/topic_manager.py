@@ -7,6 +7,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 
+from .normalization import normalize_exchange, normalize_symbol
+
 
 class TopicStrategy(Enum):
     """Topic naming strategies for Kafka topics."""
@@ -58,15 +60,6 @@ class TopicManager:
             )
 
     @staticmethod
-    def _normalize_symbol(symbol: str) -> str:
-        # Lowercase for topic stability; normalize common separators.
-        return str(symbol).lower().replace("_", "-").replace("/", "-")
-
-    @staticmethod
-    def _normalize_exchange(exchange: str) -> str:
-        return str(exchange).lower()
-
-    @staticmethod
     def get_topic(
         data_type: str,
         symbol: str,
@@ -89,8 +82,8 @@ class TopicManager:
             if not exchange:
                 raise ValueError("Exchange is required for per_symbol topic strategy")
 
-            normalized_exchange = TopicManager._normalize_exchange(exchange)
-            normalized_symbol = TopicManager._normalize_symbol(symbol)
+            normalized_exchange = normalize_exchange(exchange)
+            normalized_symbol = normalize_symbol(symbol)
             topic_body = (
                 f"cryptofeed.{data_type}.{normalized_exchange}.{normalized_symbol}"
             )

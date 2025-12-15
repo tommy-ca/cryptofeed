@@ -1,84 +1,69 @@
 """
-Partition key strategy implementations for Kafka callbacks.
+Compatibility partitioner helpers (Phase 2 shim).
+
+Implements the legacy Partitioner classes using the shared normalization utilities
+and the inlined partition-key logic from `cryptofeed.backends.kafka.callback`.
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type
+from typing import Any
+
+from .normalization import normalize_exchange, normalize_symbol
 
 
-class Partitioner(ABC):
-    """Abstract base class for partition key strategies."""
+class Partitioner:
+    """Base partitioner interface."""
 
-    @staticmethod
-    def _normalize_symbol(symbol: str) -> str:
-        return str(symbol).strip().upper().replace("_", "-").lower()
-
-    @staticmethod
-    def _normalize_exchange(exchange: str) -> str:
-        return str(exchange).strip().lower()
-
-    @abstractmethod
-    def get_partition_key(self, message: Any) -> Optional[bytes]:
-        """Generate partition key for a message."""
+    def get_partition_key(self, message: Any) -> bytes | None:  # pragma: no cover - interface
+        raise NotImplementedError
 
 
 class SymbolPartitioner(Partitioner):
-    """Symbol-based partition key strategy."""
+    """Partition by normalized symbol."""
 
-    def get_partition_key(self, message: Any) -> bytes:
-        symbol = getattr(message, "symbol", "")
-        normalized = self._normalize_symbol(symbol)
-        return normalized.encode("utf-8")
+    def get_partition_key(self, message: Any) -> bytes | None:
+        return normalize_symbol(getattr(message, "symbol", None)).encode("utf-8")
 
 
 class CompositePartitioner(Partitioner):
-    """Composite exchange+symbol strategy (default)."""
+    """Partition by normalized exchange-symbol combination."""
 
-    def get_partition_key(self, message: Any) -> bytes:
-        exchange = getattr(message, "exchange", "")
-        symbol = getattr(message, "symbol", "")
-        normalized_exchange = self._normalize_exchange(exchange)
-        normalized_symbol = self._normalize_symbol(symbol)
-        return f"{normalized_exchange}-{normalized_symbol}".encode("utf-8")
+    def get_partition_key(self, message: Any) -> bytes | None:
+        exchange = normalize_exchange(getattr(message, "exchange", None))
+        symbol = normalize_symbol(getattr(message, "symbol", None))
+        return f"{exchange}-{symbol}".encode("utf-8")
 
 
 class ExchangePartitioner(Partitioner):
-    """Exchange-based partition key strategy."""
+    """Partition by normalized exchange."""
 
-    def get_partition_key(self, message: Any) -> bytes:
-        exchange = getattr(message, "exchange", "")
-        normalized = self._normalize_exchange(exchange)
-        return normalized.encode("utf-8")
+    def get_partition_key(self, message: Any) -> bytes | None:
+        return normalize_exchange(getattr(message, "exchange", None)).encode("utf-8")
 
 
 class RoundRobinPartitioner(Partitioner):
-    """Round-robin strategy that defers to Kafka."""
+    """Round robin (no partition key)."""
 
-    def get_partition_key(self, message: Any) -> Optional[bytes]:
+    def get_partition_key(self, message: Any) -> bytes | None:
         return None
 
 
 class PartitionerFactory:
-    """Factory for creating partitioner instances by strategy name."""
-
-    _PARTITIONERS: Dict[str, Type[Partitioner]] = {
-        "symbol": SymbolPartitioner,
-        "composite": CompositePartitioner,
-        "exchange": ExchangePartitioner,
-        "round_robin": RoundRobinPartitioner,
-    }
+    """Factory for creating partitioners by strategy name."""
 
     @staticmethod
-    def create(strategy: str = "composite") -> Partitioner:
-        strategy_lower = strategy.lower() if strategy else "composite"
-        if strategy_lower not in PartitionerFactory._PARTITIONERS:
-            supported = ", ".join(sorted(PartitionerFactory._PARTITIONERS.keys()))
-            raise ValueError(
-                f"Unknown partitioner strategy: {strategy}. Supported strategies: {supported}"
-            )
-        return PartitionerFactory._PARTITIONERS[strategy_lower]()
+    def create(strategy: str | None = "composite") -> Partitioner:
+        strategy_lower = (strategy or "composite").lower()
+        if strategy_lower == "symbol":
+            return SymbolPartitioner()
+        if strategy_lower == "exchange":
+            return ExchangePartitioner()
+        if strategy_lower == "round_robin":
+            return RoundRobinPartitioner()
+        if strategy_lower == "composite":
+            return CompositePartitioner()
+        raise ValueError(f"Unknown partitioner strategy: {strategy}")
 
 
 __all__ = [

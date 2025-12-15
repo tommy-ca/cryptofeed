@@ -146,7 +146,7 @@ class TestSymbolPartitioner:
         # Spot pair with slashes (normalized)
         msg_slash = MockMessage(exchange="kraken", symbol="BTC/USD")
         key_slash = partitioner.get_partition_key(msg_slash)
-        assert key_slash == b"btc/usd"
+        assert key_slash == b"btc-usd"
 
     def test_symbol_partitioner_whitespace_handling(self):
         """SymbolPartitioner should strip whitespace from symbols."""

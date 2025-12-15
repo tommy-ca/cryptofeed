@@ -142,7 +142,7 @@ class TestMessageHeadersClass:
         )
 
         header_dict = dict(headers)
-        assert header_dict[b"symbol"] == b"BTC-USD"
+        assert header_dict[b"symbol"] == b"btc-usd"
 
     def test_symbol_header_normalization(self):
         """Test symbol header normalization (underscores to hyphens)."""
@@ -153,7 +153,7 @@ class TestMessageHeadersClass:
 
         header_dict = dict(headers)
         # Symbol normalization: underscores to hyphens
-        assert header_dict[b"symbol"] == b"BTC-USD"
+        assert header_dict[b"symbol"] == b"btc-usd"
 
     def test_data_type_header(self):
         """Test data_type header is set correctly."""
@@ -210,7 +210,7 @@ class TestMessageHeadersClass:
         assert exchange_str == "binance"
 
         symbol_str = header_dict[b"symbol"].decode("utf-8")
-        assert symbol_str == "BTC-USDT"
+        assert symbol_str == "btc-usdt"
 
     def test_headers_are_list_of_tuples(self):
         """Test that headers are returned as list of tuples."""
@@ -263,8 +263,8 @@ class TestMessageHeadersClass:
         )
 
         header_dict = dict(headers)
-        # Should preserve forward slash
-        assert header_dict[b"symbol"] == b"BTC/USD"
+        # Normalization replaces separators with hyphens and lowercases
+        assert header_dict[b"symbol"] == b"btc-usd"
 
     def test_mandatory_headers_consistency(self):
         """Test that same message always produces same headers."""
@@ -521,7 +521,7 @@ class TestHeaderEnricherClass:
         header_dict = dict(headers)
 
         assert header_dict[b"exchange"] == b"coinbase"
-        assert header_dict[b"symbol"] == b"BTC-USD"
+        assert header_dict[b"symbol"] == b"btc-usd"
         assert header_dict[b"data_type"] == b"trades"
 
     def test_enricher_with_ticker_message(self):
@@ -533,7 +533,7 @@ class TestHeaderEnricherClass:
         header_dict = dict(headers)
 
         assert header_dict[b"exchange"] == b"binance"
-        assert header_dict[b"symbol"] == b"ETH-USDT"
+        assert header_dict[b"symbol"] == b"eth-usdt"
         assert header_dict[b"data_type"] == b"ticker"
 
     def test_enricher_with_orderbook_message(self):
@@ -545,7 +545,7 @@ class TestHeaderEnricherClass:
         header_dict = dict(headers)
 
         assert header_dict[b"exchange"] == b"kraken"
-        assert header_dict[b"symbol"] == b"SOL-USD"
+        assert header_dict[b"symbol"] == b"sol-usd"
         assert header_dict[b"data_type"] == b"orderbook"
 
     def test_enricher_with_candle_message(self):
@@ -557,7 +557,7 @@ class TestHeaderEnricherClass:
         header_dict = dict(headers)
 
         assert header_dict[b"exchange"] == b"bitmex"
-        assert header_dict[b"symbol"] == b"XBT-USD"
+        assert header_dict[b"symbol"] == b"xbt-usd"
         assert header_dict[b"data_type"] == b"candles"
 
     def test_enricher_consistency_same_message(self):
@@ -655,9 +655,9 @@ class TestHeaderEnricherClass:
         headers = enricher.build(message=trade, data_type="trades")
         header_dict = dict(headers)
 
-        # Should preserve special characters
+        # Normalization preserves exchange hyphen and normalizes symbol separators
         assert header_dict[b"exchange"] == b"kraken-us"
-        assert header_dict[b"symbol"] == b"BTC/USD"
+        assert header_dict[b"symbol"] == b"btc-usd"
 
     def test_enricher_with_all_data_types(self):
         """Test enricher with all supported data types."""
@@ -848,7 +848,7 @@ class TestHeadersEdgeCases:
         header_dict = dict(headers)
 
         # Should encode unicode properly
-        assert header_dict[b"symbol"] == "BTC-元".encode("utf-8")
+        assert header_dict[b"symbol"] == "btc-元".encode("utf-8")
 
     def test_numeric_exchange_values(self):
         """Test handling of numeric exchange values."""
