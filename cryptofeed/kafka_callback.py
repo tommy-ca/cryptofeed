@@ -4,7 +4,7 @@ Compatibility shim for legacy Kafka callback imports.
 
 from __future__ import annotations
 
-from cryptofeed.backends.kafka.base import _SUPPORTED_METHODS  # noqa: F401
+from cryptofeed.backends.kafka.backend import _SUPPORTED_METHODS  # noqa: F401
 from cryptofeed.backends.kafka.callback import *  # noqa: F401,F403
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback  # noqa: F401
 

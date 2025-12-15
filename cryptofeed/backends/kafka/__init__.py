@@ -5,7 +5,7 @@ This package contains the current Kafka producer/callback implementations.
 deprecation warning on import.
 """
 
-from .base import KafkaBackendBase, KafkaQueuedMessage  # noqa: F401
+from .backend import KafkaBackendBase, KafkaQueuedMessage, KafkaProducer, TopicStrategy, TopicManager  # noqa: F401
 from .callback import (  # noqa: F401
     KafkaCallback,
     MessageHeaders,
@@ -18,7 +18,6 @@ from .callback import (  # noqa: F401
     ExchangePartitioner,
     RoundRobinPartitioner,
 )
-from .producer import KafkaProducer  # noqa: F401
 from .config import (  # noqa: F401
     KafkaTopicConfig,
     KafkaPartitionConfig,

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from cryptofeed.backends.kafka.base import KafkaQueuedMessage
+from cryptofeed.backends.kafka.backend import KafkaQueuedMessage
 from cryptofeed.backends.kafka.callback import PartitionerFactory
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
