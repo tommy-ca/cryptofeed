@@ -1,0 +1,60 @@
+name: pr-size-check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  enforce-size-limits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Evaluate PR size
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fileLimit = 100;
+            const additionLimit = 5000;
+
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed('No pull_request payload found.');
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const fileCount = files.length;
+            const additions = files.reduce((sum, f) => sum + (f.additions || 0), 0);
+            const docOnly = files.every(f => f.filename.startsWith('docs/'));
+
+            core.info(`Files changed: ${fileCount}`);
+            core.info(`Total additions: ${additions}`);
+            core.info(`Doc-only PR: ${docOnly}`);
+
+            if (docOnly) {
+              core.info('Docs-only PR detected: size limits skipped.');
+              return;
+            }
+
+            const violations = [];
+            if (fileCount > fileLimit) violations.push(`file count ${fileCount} > ${fileLimit}`);
+            if (additions > additionLimit) violations.push(`additions ${additions} > ${additionLimit}`);
+
+            if (violations.length) {
+              core.setFailed(`PR size policy violated: ${violations.join('; ')}`);
+            }
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "PR size check complete" \
+            && echo "Files: ${{ steps.evaluate.outputs.fileCount || 'n/a' }}" || true
