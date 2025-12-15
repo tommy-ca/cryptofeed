@@ -68,3 +68,93 @@ def _producer_factory(cls):
         return cls(config)
 
     return _factory
+
+
+# Import from actual modules (not headers.py since it's being inlined)
+from cryptofeed.backends.kafka.callback import KafkaCallback, _build_headers
+from cryptofeed.backends.kafka.config import KafkaConfig, KafkaPartitionConfig, KafkaTopicConfig
+
+
+# Compatibility shims for old header classes (now inlined into callback.py)
+class MessageHeaders:
+    """Compatibility shim for MessageHeaders (now inlined)."""
+
+    @staticmethod
+    def build(message: Any, data_type: str, content_type: str) -> list[tuple[bytes, bytes]]:
+        """Build mandatory headers only (first 4 headers from _build_headers)."""
+        from cryptofeed.backends.kafka.normalization import normalize_exchange, normalize_symbol
+
+        exchange = normalize_exchange(getattr(message, "exchange", None))
+        symbol = normalize_symbol(getattr(message, "symbol", None))
+
+        def _enc(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                return val
+            return str(val).encode("utf-8")
+
+        return [
+            (b"content-type", _enc(content_type)),
+            (b"exchange", _enc(exchange)),
+            (b"symbol", _enc(symbol)),
+            (b"data_type", _enc(data_type)),
+        ]
+
+
+class OptionalHeaders:
+    """Compatibility shim for OptionalHeaders (now inlined)."""
+
+    @staticmethod
+    def build(
+        schema_version: str = "v1",
+        producer_version: Optional[str] = None,
+        timestamp_generated: Optional[str] = None,
+        serialization_format: str = "json",
+        include_serialization_format: bool = True,
+    ) -> list[tuple[bytes, bytes]]:
+        """Build optional headers."""
+        from datetime import datetime, timezone
+
+        def _enc(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                return val
+            return str(val).encode("utf-8")
+
+        producer_version = producer_version or "2.4.1"
+        if timestamp_generated is None:
+            iso_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            timestamp_generated = iso_str
+
+        headers = [
+            (b"schema_version", _enc(schema_version)),
+            (b"producer_version", _enc(producer_version)),
+            (b"timestamp_generated", _enc(timestamp_generated)),
+        ]
+
+        if include_serialization_format:
+            headers.append((b"cf.serialization_format", _enc(serialization_format)))
+
+        return headers
+
+
+class HeaderEnricher:
+    """Compatibility shim for HeaderEnricher (now inlined)."""
+
+    def __init__(
+        self,
+        content_type: str = "application/x-protobuf",
+        schema_version: str = "v1",
+        producer_version: Optional[str] = None,
+        timestamp_generated: Optional[str] = None,
+        serialization_format: str = "json",
+        include_serialization_header: bool = True,
+    ) -> None:
+        self.content_type = content_type
+        self.schema_version = schema_version
+        self.producer_version = producer_version
+        self.timestamp_generated = timestamp_generated
+        self.serialization_format = serialization_format
+        self._include_serialization_header = include_serialization_header
+
+    def build(self, message: Any, data_type: str) -> list[tuple[bytes, bytes]]:
+        """Build complete set of headers using inlined function."""
+        return _build_headers(message, data_type, self.content_type, self.schema_version)

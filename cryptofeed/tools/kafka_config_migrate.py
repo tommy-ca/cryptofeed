@@ -22,7 +22,7 @@ from typing import Any, Dict
 
 import yaml
 
-from cryptofeed.backends.kafka.migration import (
+from tools.migrate_kafka_config import (
     detect_legacy_config,
     translate_legacy_config,
 )

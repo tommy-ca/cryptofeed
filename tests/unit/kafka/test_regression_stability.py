@@ -6,7 +6,7 @@ import warnings
 
 import pytest
 
-from cryptofeed.backends.kafka.migration import translate_legacy_config
+from tools.migrate_kafka_config import translate_legacy_config
 from cryptofeed.backends.kafka.callback import KafkaConfig
 from cryptofeed.kafka_callback import KafkaCallback
 

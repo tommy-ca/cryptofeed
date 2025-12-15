@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
-from .callback import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
+from cryptofeed.backends.kafka.callback import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
 
 
 # ---- Data classes ---------------------------------------------------------
