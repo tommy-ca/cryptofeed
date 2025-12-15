@@ -13,16 +13,16 @@ from cryptofeed.backends.kafka.headers import (  # noqa: F401
 )
 from cryptofeed.backends.kafka.partitioner import (  # noqa: F401
     Partitioner,
+    PartitionerFactory,
     SymbolPartitioner,
     CompositePartitioner,
     ExchangePartitioner,
     RoundRobinPartitioner,
-    PartitionerFactory,
 )
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback  # noqa: F401
 
 # Use the new deprecation warning system for consistent messaging
-from cryptofeed.backends.kafka.maintenance import emit_import_deprecation_warning
+from cryptofeed.backends.kafka.deprecation import emit_import_deprecation_warning
 
 emit_import_deprecation_warning(
     "cryptofeed.kafka_callback", "cryptofeed.backends.kafka.callback"

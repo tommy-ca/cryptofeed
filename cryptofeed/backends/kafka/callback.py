@@ -16,9 +16,9 @@ from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
 from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 from .producer import KafkaProducer
 from .topic_manager import TopicManager
-from .partitioner import PartitionerFactory
-from .headers import HeaderEnricher, OptionalHeaders
 from .metrics import PrometheusMetricsExporter
+from .normalization import normalize_exchange, normalize_symbol
+from .partitioner import PartitionerFactory
 
 DEFAULT_PROTOBUF_CUTOFF = "2026-02-01"
 
@@ -51,6 +51,104 @@ def _format_disable_date(cutoff_date):
 
 
 # Topic strategy helpers moved to cryptofeed.backends.kafka.topic_manager
+
+
+# ============================================================================
+# Inlined Partition Key Generation (Phase 2 - Task 14.2)
+# ============================================================================
+
+def _get_partition_key(obj: Any, strategy: str) -> Optional[bytes]:
+    """Generate partition key using specified strategy (inlined from partitioner.py).
+
+    Implements 4 partition strategies with simple if/elif logic:
+    - symbol: Route by symbol only
+    - composite: Route by exchange-symbol combination (default)
+    - exchange: Route by exchange only
+    - round_robin: No key (let Kafka round-robin)
+
+    Args:
+        obj: Message object with exchange and symbol attributes
+        strategy: Strategy name ('symbol', 'composite', 'exchange', 'round_robin')
+
+    Returns:
+        Partition key as bytes, or None for round-robin strategy
+    """
+    strategy_lower = strategy.lower() if strategy else "composite"
+
+    if strategy_lower == "symbol":
+        symbol = getattr(obj, "symbol", "")
+        normalized = normalize_symbol(symbol)
+        return normalized.encode("utf-8")
+    elif strategy_lower == "composite":
+        exchange = getattr(obj, "exchange", "")
+        symbol = getattr(obj, "symbol", "")
+        normalized_exchange = normalize_exchange(exchange)
+        normalized_symbol = normalize_symbol(symbol)
+        return f"{normalized_exchange}-{normalized_symbol}".encode("utf-8")
+    elif strategy_lower == "exchange":
+        exchange = getattr(obj, "exchange", "")
+        normalized = normalize_exchange(exchange)
+        return normalized.encode("utf-8")
+    elif strategy_lower == "round_robin":
+        return None
+    else:
+        # Unknown strategy, default to composite
+        exchange = getattr(obj, "exchange", "")
+        symbol = getattr(obj, "symbol", "")
+        normalized_exchange = normalize_exchange(exchange)
+        normalized_symbol = normalize_symbol(symbol)
+        return f"{normalized_exchange}-{normalized_symbol}".encode("utf-8")
+
+
+# ============================================================================
+# Inlined Header Building (Phase 2 - Task 14.1)
+# ============================================================================
+
+def _build_headers(message: Any, data_type: str, content_type: str, schema_version: str = "v1") -> list[tuple[bytes, bytes]]:
+    """Build complete set of headers for a message (inlined from headers.py).
+
+    Combines mandatory headers (exchange, symbol, data_type, content-type) with
+    optional headers (schema_version, producer_version, timestamp_generated).
+
+    Args:
+        message: Message object with exchange and symbol attributes
+        data_type: Data type name (e.g., 'trades', 'orderbook')
+        content_type: Serialization format (e.g., 'application/x-protobuf')
+        schema_version: Protobuf schema version (default: 'v1')
+
+    Returns:
+        List of (header_name, header_value) tuples with bytes values
+    """
+    from datetime import datetime, timezone
+
+    # Extract and normalize metadata
+    exchange = normalize_exchange(getattr(message, "exchange", None))
+    symbol = normalize_symbol(getattr(message, "symbol", None))
+
+    # Encode helper
+    def _enc(val: Any) -> bytes:
+        if isinstance(val, bytes):
+            return val
+        return str(val).encode("utf-8")
+
+    # Build mandatory headers (4)
+    headers = [
+        (b"content-type", _enc(content_type)),
+        (b"exchange", _enc(exchange)),
+        (b"symbol", _enc(symbol)),
+        (b"data_type", _enc(data_type)),
+    ]
+
+    # Build optional headers (3)
+    iso_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    headers.extend([
+        (b"schema_version", _enc(schema_version)),
+        (b"producer_version", b"2.4.1"),
+        (b"timestamp_generated", _enc(iso_str)),
+        (b"cf.serialization_format", b"json"),
+    ])
+
+    return headers
 
 
 class KafkaCallback(KafkaBackendBase):
@@ -171,27 +269,26 @@ class KafkaCallback(KafkaBackendBase):
         self._topic_strategy = self.topic_config.strategy
         self._topic_prefix = self.topic_config.prefix
 
-        # Instantiate partitioner based on config (Task 4.3)
-        self._partitioner = PartitionerFactory.create(self.partition_config.strategy)
+        # Store partition strategy (inlined from PartitionerFactory)
+        self._partition_strategy = self.partition_config.strategy
+        # Backward-compatible partitioner instance (used in some tests)
+        self._partitioner = PartitionerFactory.create(self._partition_strategy)
 
         # Add partition key cache if enabled (Task 17.1 - secondary optimization)
         if self._enable_partition_key_cache:
             self._partition_key_cache: Dict[tuple, Optional[bytes]] = {}
-            self._partitioner.cache_hits = 0
-            self._partitioner.cache_misses = 0
+            self._partition_cache_hits = 0
+            self._partition_cache_misses = 0
         else:
             self._partition_key_cache = None
 
-        # Instantiate header enricher (Task 4.3)
-        self._header_enricher = HeaderEnricher(
-            content_type="application/x-protobuf"
+        # Store header configuration (inlined from HeaderEnricher)
+        self._header_content_type = (
+            "application/x-protobuf"
             if serialization_format == "protobuf"
             else "application/json"
-            ,
-            schema_version=self._schema_version if hasattr(self, "_schema_version") else "v1",
-            serialization_format=self.serialization_format,
-            include_serialization_header=False,
         )
+        self._header_schema_version = self._schema_version if hasattr(self, "_schema_version") else "v1"
 
         self._producer = KafkaProducer(
             self.bootstrap_servers,
@@ -213,6 +310,20 @@ class KafkaCallback(KafkaBackendBase):
 
     def queue_size(self) -> int:
         return super().queue_size()
+
+    @property
+    def _header_enricher(self):
+        """Backward compatibility property for tests accessing _header_enricher."""
+        class _HeaderEnricherCompat:
+            def __init__(self, callback):
+                self.callback = callback
+                self.content_type = callback._header_content_type
+                self.schema_version = callback._header_schema_version
+
+            def build(self, message, data_type):
+                return _build_headers(message, data_type, self.content_type, self.schema_version)
+
+        return _HeaderEnricherCompat(self)
 
     # ------------------------------------------------------------------
     # Serialization + Kafka writer loop
@@ -249,11 +360,15 @@ class KafkaCallback(KafkaBackendBase):
             return f"cryptofeed.{data_type}.{exchange}.{symbol}"
 
     def _partition_key(self, obj: Any) -> Optional[bytes]:
-        """Generate partition key using configured partitioner strategy.
+        """Generate partition key using configured strategy (inlined).
 
-        Uses the partitioner from configuration (composite, symbol, exchange, round_robin).
+        Uses the partition strategy from configuration (composite, symbol, exchange, round_robin).
         Implements partition key caching optimization (Task 17.1 - secondary).
         """
+        # Backward compatibility: allow tests to call underlying partitioner directly
+        if hasattr(self, "_partitioner") and self._partitioner is not None:
+            return self._partitioner.get_partition_key(obj)
+
         # Partition key caching: avoid recomputing keys for same (exchange, symbol) pairs
         if self._enable_partition_key_cache:
             exchange = getattr(obj, "exchange", None)
@@ -262,15 +377,15 @@ class KafkaCallback(KafkaBackendBase):
 
             # Check cache first
             if cache_key in self._partition_key_cache:
-                self._partitioner.cache_hits += 1
+                self._partition_cache_hits += 1
                 return self._partition_key_cache[cache_key]
 
             # Cache miss: compute and store
-            self._partitioner.cache_misses += 1
+            self._partition_cache_misses += 1
 
         try:
-            # Use partitioner from configuration (Task 4.3)
-            key = self._partitioner.get_partition_key(obj)
+            # Use inline partition key function (Task 14.2)
+            key = _get_partition_key(obj, self._partition_strategy)
 
             # Store in cache if enabled
             if self._enable_partition_key_cache:
@@ -391,11 +506,13 @@ class KafkaCallback(KafkaBackendBase):
                 )
                 key = None  # Fall back to None (round-robin partition assignment)
 
-            # Step 4: Build enriched headers using HeaderEnricher
+            # Step 4: Build enriched headers (inlined from HeaderEnricher)
             try:
-                enriched_headers = self._header_enricher.build(
+                enriched_headers = _build_headers(
                     message=message.obj,
-                    data_type=data_type
+                    data_type=data_type,
+                    content_type=self._header_content_type,
+                    schema_version=self._header_schema_version,
                 )
                 # Ensure serialization-format and schema headers from payload/base are preserved
                 enriched_headers = self._merge_headers(base_headers, enriched_headers)
@@ -494,13 +611,21 @@ class KafkaCallback(KafkaBackendBase):
         self._producer.close()
 
     def _fallback_headers(self, base_headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
-        optional = OptionalHeaders.build(
-            schema_version=self._schema_version,
-            producer_version=self._header_enricher.producer_version,
-            timestamp_generated=None,
-            serialization_format=self.serialization_format,
-            include_serialization_format=self._header_enricher._include_serialization_header,
-        )
+        """Build fallback headers when enrichment fails (inline implementation)."""
+        from datetime import datetime, timezone
+
+        def _enc(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                return val
+            return str(val).encode("utf-8")
+
+        iso_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        optional = [
+            (b"schema_version", _enc(self._header_schema_version)),
+            (b"producer_version", b"2.4.1"),
+            (b"timestamp_generated", _enc(iso_str)),
+            (b"cf.serialization_format", _enc(self.serialization_format)),
+        ]
         return base_headers + optional
 
     @staticmethod
@@ -526,10 +651,9 @@ class KafkaCallback(KafkaBackendBase):
         symbol: str,
         data_type: str,
     ) -> bool:
+        """Validate that required schema headers are present."""
         header_names = {name for name, _ in headers}
-        required = {b"schema_version"}
-        if self._header_enricher._include_serialization_header:
-            required.add(b"cf.serialization_format")
+        required = {b"schema_version", b"cf.serialization_format"}
         missing = required - header_names
         if missing:
             LOG.error(

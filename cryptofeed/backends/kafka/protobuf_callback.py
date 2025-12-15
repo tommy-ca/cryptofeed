@@ -11,8 +11,7 @@ from cryptofeed.backends.protobuf.bindings import (
     SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION,
 )
 
-from .callback import KafkaCallback
-from .headers import HeaderEnricher
+from .callback import KafkaCallback, _build_headers
 
 
 class KafkaProtobufCallback(KafkaCallback):
@@ -73,12 +72,9 @@ class KafkaProtobufCallback(KafkaCallback):
             **config,
         )
 
-        # Override header enricher to ensure schema_version metadata matches protobuf schema
-        self._header_enricher = HeaderEnricher(
-            content_type="application/x-protobuf",
-            schema_version=self._schema_version,
-            serialization_format=self.serialization_format,
-        )
+        # Override header configuration to ensure schema_version metadata matches protobuf schema
+        self._header_content_type = "application/x-protobuf"
+        self._header_schema_version = self._schema_version
 
     def _serialize_payload(self, obj: Any, receipt_timestamp: Optional[float]):
         """Serialize to protobuf and attach required proto headers.

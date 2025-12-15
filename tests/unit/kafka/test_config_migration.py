@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from cryptofeed.backends.kafka.migration import (
+from tools.migrate_kafka_config import (
     translate_legacy_config,
     detect_legacy_config,
     diff_configs,

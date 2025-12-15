@@ -14,10 +14,19 @@ from .config import (  # noqa: F401
     KafkaProducerConfig,
     KafkaConfig,
 )
+from .partitioner import (  # noqa: F401
+    Partitioner,
+    PartitionerFactory,
+    SymbolPartitioner,
+    CompositePartitioner,
+    ExchangePartitioner,
+    RoundRobinPartitioner,
+)
+from .headers import MessageHeaders, OptionalHeaders, HeaderEnricher  # noqa: F401
 from .protobuf_callback import KafkaProtobufCallback  # noqa: F401
 
-# Deprecation helpers kept minimal to avoid heavy maintenance dependencies
-from .maintenance import emit_class_deprecation_warning, emit_import_deprecation_warning  # noqa: F401
+# Deprecation helpers (simplified - maintenance module removed in Phase 1)
+from .deprecation import emit_class_deprecation_warning, emit_import_deprecation_warning  # noqa: F401
 
 
 # Lightweight legacy shims to satisfy deprecation tests without circular imports
@@ -125,6 +134,15 @@ __all__ = [
     "KafkaPartitionConfig",
     "KafkaProducerConfig",
     "KafkaConfig",
+    "Partitioner",
+    "PartitionerFactory",
+    "SymbolPartitioner",
+    "CompositePartitioner",
+    "ExchangePartitioner",
+    "RoundRobinPartitioner",
+    "MessageHeaders",
+    "OptionalHeaders",
+    "HeaderEnricher",
     "TradeKafka",
     "BookKafka",
     "TickerKafka",
