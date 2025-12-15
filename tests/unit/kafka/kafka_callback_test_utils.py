@@ -70,9 +70,24 @@ def _producer_factory(cls):
     return _factory
 
 
-# Import from actual modules (not headers.py since it's being inlined)
-from cryptofeed.backends.kafka.callback import KafkaCallback, _build_headers
-from cryptofeed.backends.kafka.config import KafkaConfig, KafkaPartitionConfig, KafkaTopicConfig
+# Import from actual modules (not headers.py or partitioner.py since they're inlined into callback.py)
+from cryptofeed.backends.kafka.callback import (
+    KafkaCallback,
+    _build_headers,
+    Partitioner,
+    PartitionerFactory,
+    SymbolPartitioner,
+    CompositePartitioner,
+    ExchangePartitioner,
+    RoundRobinPartitioner,
+)
+from cryptofeed.backends.kafka.config import (
+    KafkaConfig,
+    KafkaPartitionConfig,
+    KafkaTopicConfig,
+    KafkaProducerConfig,
+)
+from cryptofeed.backends.kafka.topic_manager import TopicManager
 
 
 # Compatibility shims for old header classes (now inlined into callback.py)

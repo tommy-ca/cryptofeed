@@ -6,15 +6,11 @@ deprecation warning on import.
 """
 
 from .base import KafkaBackendBase, KafkaQueuedMessage  # noqa: F401
-from .callback import KafkaCallback  # noqa: F401
-from .producer import KafkaProducer  # noqa: F401
-from .config import (  # noqa: F401
-    KafkaTopicConfig,
-    KafkaPartitionConfig,
-    KafkaProducerConfig,
-    KafkaConfig,
-)
-from .partitioner import (  # noqa: F401
+from .callback import (  # noqa: F401
+    KafkaCallback,
+    MessageHeaders,
+    OptionalHeaders,
+    HeaderEnricher,
     Partitioner,
     PartitionerFactory,
     SymbolPartitioner,
@@ -22,7 +18,13 @@ from .partitioner import (  # noqa: F401
     ExchangePartitioner,
     RoundRobinPartitioner,
 )
-from .headers import MessageHeaders, OptionalHeaders, HeaderEnricher  # noqa: F401
+from .producer import KafkaProducer  # noqa: F401
+from .config import (  # noqa: F401
+    KafkaTopicConfig,
+    KafkaPartitionConfig,
+    KafkaProducerConfig,
+    KafkaConfig,
+)
 from .protobuf_callback import KafkaProtobufCallback  # noqa: F401
 
 # Deprecation helpers (simplified - maintenance module removed in Phase 1)
