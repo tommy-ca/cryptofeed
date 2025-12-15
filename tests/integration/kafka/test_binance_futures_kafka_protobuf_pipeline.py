@@ -109,7 +109,7 @@ from cryptofeed.defines import (
 )
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
-from cryptofeed.backends.kafka.partitioner import PartitionerFactory
+from cryptofeed.backends.kafka.callback import PartitionerFactory
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.proxy import (
     ProxySettings,

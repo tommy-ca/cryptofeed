@@ -125,7 +125,7 @@ async def test_kafka_callback_concurrent_flow_e2e():
 
         for message in producer.messages:
             assert message.value
-            assert message.headers and ("content-type", b"application/x-protobuf") in message.headers
+            assert message.headers and (b"content-type", b"application/x-protobuf") in message.headers
 
         assert callback.queue_size() == 0
     finally:

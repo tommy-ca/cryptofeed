@@ -18,7 +18,6 @@ from .producer import KafkaProducer
 from .topic_manager import TopicManager
 from .metrics import PrometheusMetricsExporter
 from .normalization import normalize_exchange, normalize_symbol
-from .partitioner import PartitionerFactory
 
 DEFAULT_PROTOBUF_CUTOFF = "2026-02-01"
 
@@ -101,6 +100,65 @@ def _get_partition_key(obj: Any, strategy: str) -> Optional[bytes]:
 
 
 # ============================================================================
+# Backward Compatibility: Partitioner Classes (Phase 2 - Task 14.2)
+# ============================================================================
+
+
+class Partitioner:
+    """Base partitioner interface (backward compatibility)."""
+
+    def get_partition_key(self, message: Any) -> bytes | None:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class SymbolPartitioner(Partitioner):
+    """Partition by normalized symbol (backward compatibility)."""
+
+    def get_partition_key(self, message: Any) -> bytes | None:
+        return normalize_symbol(getattr(message, "symbol", None)).encode("utf-8")
+
+
+class CompositePartitioner(Partitioner):
+    """Partition by normalized exchange-symbol combination (backward compatibility)."""
+
+    def get_partition_key(self, message: Any) -> bytes | None:
+        exchange = normalize_exchange(getattr(message, "exchange", None))
+        symbol = normalize_symbol(getattr(message, "symbol", None))
+        return f"{exchange}-{symbol}".encode("utf-8")
+
+
+class ExchangePartitioner(Partitioner):
+    """Partition by normalized exchange (backward compatibility)."""
+
+    def get_partition_key(self, message: Any) -> bytes | None:
+        return normalize_exchange(getattr(message, "exchange", None)).encode("utf-8")
+
+
+class RoundRobinPartitioner(Partitioner):
+    """Round robin (no partition key) (backward compatibility)."""
+
+    def get_partition_key(self, message: Any) -> bytes | None:
+        return None
+
+
+class PartitionerFactory:
+    """Factory for creating partitioners by strategy name (backward compatibility)."""
+
+    @staticmethod
+    def create(strategy: str | None = "composite") -> Partitioner:
+        strategy_lower = (strategy or "composite").lower()
+        if strategy_lower == "symbol":
+            return SymbolPartitioner()
+        if strategy_lower == "exchange":
+            return ExchangePartitioner()
+        if strategy_lower == "round_robin":
+            return RoundRobinPartitioner()
+        if strategy_lower == "composite":
+            return CompositePartitioner()
+        raise ValueError(f"Unknown partitioner strategy: {strategy}")
+
+
+# ============================================================================
 # Inlined Header Building (Phase 2 - Task 14.1)
 # ============================================================================
 
@@ -149,6 +207,97 @@ def _build_headers(message: Any, data_type: str, content_type: str, schema_versi
     ])
 
     return headers
+
+
+# ============================================================================
+# Backward Compatibility: Header Builder Classes (Inlined from headers.py)
+# ============================================================================
+
+
+class MessageHeaders:
+    """Build mandatory (and optional) headers for a message."""
+
+    @staticmethod
+    def build(message: Any, data_type: str, content_type: str) -> list[tuple[bytes, bytes]]:
+        def _enc(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                return val
+            return str(val).encode("utf-8")
+
+        exchange = normalize_exchange(getattr(message, "exchange", None))
+        symbol = normalize_symbol(getattr(message, "symbol", None))
+
+        return [
+            (b"content-type", _enc(content_type)),
+            (b"exchange", _enc(exchange)),
+            (b"symbol", _enc(symbol)),
+            (b"data_type", _enc(data_type)),
+        ]
+
+
+class OptionalHeaders:
+    """Build optional headers only (schema_version, producer_version, timestamp_generated, cf.serialization_format)."""
+
+    @staticmethod
+    def build(
+        schema_version: str = "v1",
+        producer_version: Optional[str] = None,
+        timestamp_generated: Optional[str] = None,
+        serialization_format: str = "json",
+        include_serialization_format: bool = True,
+    ) -> list[tuple[bytes, bytes]]:
+        from datetime import datetime, timezone
+
+        def _enc(val: Any) -> bytes:
+            if isinstance(val, bytes):
+                return val
+            return str(val).encode("utf-8")
+
+        producer_version = producer_version or "2.4.1"
+        if timestamp_generated is None:
+            timestamp_generated = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+        headers: list[tuple[bytes, bytes]] = [
+            (b"schema_version", _enc(schema_version)),
+            (b"producer_version", _enc(producer_version)),
+            (b"timestamp_generated", _enc(timestamp_generated)),
+        ]
+
+        if include_serialization_format:
+            headers.append((b"cf.serialization_format", _enc(serialization_format)))
+
+        return headers
+
+
+class HeaderEnricher:
+    """Legacy enricher facade that forwards to the unified header builder."""
+
+    def __init__(
+        self,
+        content_type: str = "application/x-protobuf",
+        schema_version: str = "v1",
+        producer_version: Optional[str] = None,
+        timestamp_generated: Optional[str] = None,
+        serialization_format: str = "json",
+        include_serialization_header: bool = True,
+    ) -> None:
+        self.content_type = content_type
+        self.schema_version = schema_version
+        self.producer_version = producer_version
+        self.timestamp_generated = timestamp_generated
+        self.serialization_format = serialization_format
+        self._include_serialization_header = include_serialization_header
+
+    def build(self, message: Any, data_type: str) -> list[tuple[bytes, bytes]]:
+        mandatory = MessageHeaders.build(message, data_type, self.content_type)
+        optional = OptionalHeaders.build(
+            schema_version=self.schema_version,
+            producer_version=self.producer_version,
+            timestamp_generated=self.timestamp_generated,
+            serialization_format=self.serialization_format,
+            include_serialization_format=self._include_serialization_header,
+        )
+        return mandatory + optional
 
 
 class KafkaCallback(KafkaBackendBase):
@@ -271,8 +420,6 @@ class KafkaCallback(KafkaBackendBase):
 
         # Store partition strategy (inlined from PartitionerFactory)
         self._partition_strategy = self.partition_config.strategy
-        # Backward-compatible partitioner instance (used in some tests)
-        self._partitioner = PartitionerFactory.create(self._partition_strategy)
 
         # Add partition key cache if enabled (Task 17.1 - secondary optimization)
         if self._enable_partition_key_cache:
@@ -311,6 +458,55 @@ class KafkaCallback(KafkaBackendBase):
     def queue_size(self) -> int:
         return super().queue_size()
 
+    def get_health_status(self, timeout_ms: int = 3000) -> Dict[str, Any]:
+        """
+        Check Kafka producer connectivity status (Task 14.3 simplified health check).
+
+        Validates connectivity by calling list_topics on the underlying producer.
+        This is a basic health check that returns essential producer status.
+
+        Args:
+            timeout_ms: Timeout for connectivity check in milliseconds (default: 3000)
+
+        Returns:
+            Dictionary with health check results:
+            - ok: bool (True if connected)
+            - latency_ms: float (connection latency)
+            - error: str | None (error message if failed)
+            - bootstrap: list (broker addresses used)
+        """
+        start = time.time()
+        try:
+            # Check if producer is initialized
+            if self._producer is None or self._producer._producer is None:
+                latency_ms = (time.time() - start) * 1000
+                return {
+                    "ok": False,
+                    "latency_ms": latency_ms,
+                    "error": "Producer not initialized",
+                    "bootstrap": list(self.bootstrap_servers),
+                }
+
+            # Attempt to list topics to verify connectivity
+            timeout_sec = timeout_ms / 1000 if timeout_ms else None
+            self._producer._producer.list_topics(timeout=timeout_sec)
+
+            latency_ms = (time.time() - start) * 1000
+            return {
+                "ok": True,
+                "latency_ms": latency_ms,
+                "error": None,
+                "bootstrap": list(self.bootstrap_servers),
+            }
+        except Exception as exc:
+            latency_ms = (time.time() - start) * 1000
+            return {
+                "ok": False,
+                "latency_ms": latency_ms,
+                "error": str(exc),
+                "bootstrap": list(self.bootstrap_servers),
+            }
+
     @property
     def _header_enricher(self):
         """Backward compatibility property for tests accessing _header_enricher."""
@@ -324,6 +520,11 @@ class KafkaCallback(KafkaBackendBase):
                 return _build_headers(message, data_type, self.content_type, self.schema_version)
 
         return _HeaderEnricherCompat(self)
+
+    @property
+    def _partitioner(self):
+        """Backward compatibility property for tests accessing _partitioner."""
+        return PartitionerFactory.create(self._partition_strategy)
 
     # ------------------------------------------------------------------
     # Serialization + Kafka writer loop
@@ -365,10 +566,6 @@ class KafkaCallback(KafkaBackendBase):
         Uses the partition strategy from configuration (composite, symbol, exchange, round_robin).
         Implements partition key caching optimization (Task 17.1 - secondary).
         """
-        # Backward compatibility: allow tests to call underlying partitioner directly
-        if hasattr(self, "_partitioner") and self._partitioner is not None:
-            return self._partitioner.get_partition_key(obj)
-
         # Partition key caching: avoid recomputing keys for same (exchange, symbol) pairs
         if self._enable_partition_key_cache:
             exchange = getattr(obj, "exchange", None)
@@ -629,19 +826,24 @@ class KafkaCallback(KafkaBackendBase):
         return base_headers + optional
 
     @staticmethod
-    def _merge_headers(base: list[tuple[bytes, bytes]], enriched: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
+    def _merge_headers(base: list[tuple[bytes, bytes | str]], enriched: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
         """Merge base and enriched headers, keeping first occurrence per key.
 
         Ensures schema_version / serialization_format emitted by serializers are
         retained alongside enriched mandatory headers.
         """
+        def _to_bytes(val: bytes | str) -> bytes:
+            return val if isinstance(val, bytes) else val.encode("utf-8")
+
         result: list[tuple[bytes, bytes]] = []
         seen = set()
         for name, value in base + enriched:
-            if name in seen:
+            name_bytes = _to_bytes(name) if isinstance(name, str) else name
+            value_bytes = _to_bytes(value)
+            if name_bytes in seen:
                 continue
-            seen.add(name)
-            result.append((name, value))
+            seen.add(name_bytes)
+            result.append((name_bytes, value_bytes))
         return result
 
     def _validate_schema_headers(

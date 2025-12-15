@@ -10,12 +10,12 @@ from decimal import Decimal
 
 from cryptofeed.backends.kafka.normalization import normalize_exchange, normalize_symbol
 from cryptofeed.backends.kafka.topic_manager import TopicManager
-from cryptofeed.backends.kafka.partitioner import (
+from cryptofeed.backends.kafka.callback import (
     SymbolPartitioner,
     CompositePartitioner,
     ExchangePartitioner,
+    MessageHeaders,
 )
-from cryptofeed.backends.kafka.headers import MessageHeaders
 from cryptofeed.types import Trade
 
 

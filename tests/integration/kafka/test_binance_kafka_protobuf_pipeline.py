@@ -87,7 +87,7 @@ import pytest
 from cryptofeed.defines import TRADES, TICKER, CANDLES
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
-from cryptofeed.backends.kafka.partitioner import PartitionerFactory
+from cryptofeed.backends.kafka.callback import PartitionerFactory
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.proxy import ProxySettings
 from cryptofeed.defines import L2_BOOK
