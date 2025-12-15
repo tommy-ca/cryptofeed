@@ -207,7 +207,7 @@ class TradeKafka(KafkaCallback, BackendCallback):
 
     def __init__(self, *args, **kwargs):
         # Import here to avoid circular imports
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "TradeKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -222,7 +222,7 @@ class FundingKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "funding"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "FundingKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -237,7 +237,7 @@ class BookKafka(KafkaCallback, BackendBookCallback):
     protobuf_data_type = "orderbook"
 
     def __init__(self, *args, snapshots_only=False, snapshot_interval=1000, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "BookKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -255,7 +255,7 @@ class TickerKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "ticker"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "TickerKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -270,7 +270,7 @@ class OpenInterestKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "open_interest"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "OpenInterestKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -285,7 +285,7 @@ class LiquidationsKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "liquidation"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "LiquidationsKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -300,7 +300,7 @@ class CandlesKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "candles"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "CandlesKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -315,7 +315,7 @@ class OrderInfoKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "order_info"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "OrderInfoKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -330,7 +330,7 @@ class TransactionsKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "transactions"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "TransactionsKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -345,7 +345,7 @@ class BalancesKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "balances"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "BalancesKafka", "cryptofeed.backends.kafka.KafkaCallback"
@@ -360,7 +360,7 @@ class FillsKafka(KafkaCallback, BackendCallback):
     protobuf_data_type = "fills"
 
     def __init__(self, *args, **kwargs):
-        from cryptofeed.backends.kafka.maintenance import emit_class_deprecation_warning
+        from cryptofeed.backends.kafka.deprecation import emit_class_deprecation_warning
 
         emit_class_deprecation_warning(
             "FillsKafka", "cryptofeed.backends.kafka.KafkaCallback"

@@ -11,13 +11,22 @@ import warnings
 
 from cryptofeed.json_utils import dumps_bytes
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION as DEFAULT_SCHEMA_VERSION
-from .base import KafkaBackendBase, KafkaQueuedMessage
+from .backend import KafkaBackendBase, KafkaQueuedMessage, KafkaProducer, TopicManager
 from .config import KafkaConfig, KafkaTopicConfig, KafkaPartitionConfig
 from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
-from .producer import KafkaProducer
-from .topic_manager import TopicManager
-from .metrics import PrometheusMetricsExporter
 from .normalization import normalize_exchange, normalize_symbol
+
+# Direct prometheus_client usage (Phase 3, Task 15.3)
+try:
+    import prometheus_client
+    from prometheus_client import Counter, Histogram, Gauge
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    prometheus_client = None
+    Counter = None
+    Histogram = None
+    Gauge = None
+    PROMETHEUS_AVAILABLE = False
 
 DEFAULT_PROTOBUF_CUTOFF = "2026-02-01"
 
@@ -300,6 +309,157 @@ class HeaderEnricher:
         return mandatory + optional
 
 
+# ============================================================================
+# Direct Prometheus Metrics (Phase 3, Task 15.3)
+# ============================================================================
+
+def _create_kafka_metrics():
+    """Create Kafka metrics using prometheus_client directly (no wrappers).
+
+    Returns:
+        Dict of metric objects, or None if prometheus_client unavailable
+    """
+    if not PROMETHEUS_AVAILABLE:
+        LOG.debug("prometheus_client not available, metrics disabled")
+        return None
+
+    try:
+        from prometheus_client import REGISTRY
+
+        # Helper to get or create metrics (handle duplicate registration)
+        def _get_or_create_counter(name, doc, labelnames):
+            try:
+                return Counter(name, doc, labelnames)
+            except ValueError:
+                # Metric already exists, retrieve from registry
+                return REGISTRY._names_to_collectors.get(name)
+
+        def _get_or_create_histogram(name, doc, labelnames, buckets=None):
+            try:
+                if buckets:
+                    return Histogram(name, doc, labelnames, buckets=buckets)
+                return Histogram(name, doc, labelnames)
+            except ValueError:
+                # Metric already exists, retrieve from registry
+                return REGISTRY._names_to_collectors.get(name)
+
+        # Counter: messages_produced_total
+        messages_produced_total = _get_or_create_counter(
+            'kafka_messages_produced_total',
+            'Total number of messages successfully produced to Kafka',
+            ['exchange', 'symbol', 'data_type', 'partition_strategy']
+        )
+
+        # Histogram: produce_latency_seconds
+        produce_latency_seconds = _get_or_create_histogram(
+            'kafka_produce_latency_seconds',
+            'Latency of message production from callback to broker acknowledgment',
+            ['exchange', 'data_type'],
+            buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0)
+        )
+
+        # Counter: produce_errors_total
+        produce_errors_total = _get_or_create_counter(
+            'kafka_produce_errors_total',
+            'Total number of produce errors',
+            ['exchange', 'data_type', 'error_type']
+        )
+
+        # Histogram: message_size_bytes
+        message_size_bytes = _get_or_create_histogram(
+            'kafka_message_size_bytes',
+            'Distribution of serialized message sizes in bytes',
+            ['data_type', 'compression_enabled'],
+            buckets=(100, 250, 500, 1000, 2500, 5000, 10000)
+        )
+
+        # Histogram: serialization_latency_seconds
+        serialization_latency_seconds = _get_or_create_histogram(
+            'kafka_serialization_latency_seconds',
+            'Time taken to serialize message to protobuf format',
+            ['data_type'],
+            buckets=(0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01)
+        )
+
+        return {
+            'messages_produced_total': messages_produced_total,
+            'produce_latency_seconds': produce_latency_seconds,
+            'produce_errors_total': produce_errors_total,
+            'message_size_bytes': message_size_bytes,
+            'serialization_latency_seconds': serialization_latency_seconds,
+        }
+    except Exception as e:
+        LOG.warning(f"Error creating Prometheus metrics: {e}")
+        return None
+
+
+def _record_message_produced(metrics, exchange: str, symbol: str, data_type: str, partition_strategy: str):
+    """Record a successfully produced message."""
+    if metrics is None:
+        return
+    try:
+        metrics['messages_produced_total'].labels(
+            exchange=exchange,
+            symbol=symbol,
+            data_type=data_type,
+            partition_strategy=partition_strategy
+        ).inc()
+    except Exception as e:
+        LOG.debug(f"Error recording message produced metric: {e}")
+
+
+def _record_produce_latency(metrics, latency_seconds: float, exchange: str, data_type: str):
+    """Record message produce latency."""
+    if metrics is None:
+        return
+    try:
+        metrics['produce_latency_seconds'].labels(
+            exchange=exchange,
+            data_type=data_type
+        ).observe(latency_seconds)
+    except Exception as e:
+        LOG.debug(f"Error recording produce latency metric: {e}")
+
+
+def _record_produce_error(metrics, exchange: str, data_type: str, error_type: str):
+    """Record a produce error."""
+    if metrics is None:
+        return
+    try:
+        metrics['produce_errors_total'].labels(
+            exchange=exchange,
+            data_type=data_type,
+            error_type=error_type
+        ).inc()
+    except Exception as e:
+        LOG.debug(f"Error recording produce error metric: {e}")
+
+
+def _record_message_size(metrics, size_bytes: int, data_type: str, compression_enabled: bool):
+    """Record serialized message size."""
+    if metrics is None:
+        return
+    try:
+        metrics['message_size_bytes'].labels(
+            data_type=data_type,
+            compression_enabled=str(compression_enabled)
+        ).observe(size_bytes)
+    except Exception as e:
+        LOG.debug(f"Error recording message size metric: {e}")
+
+
+def _record_serialization_latency(metrics, latency_seconds: float, data_type: str):
+    """Record message serialization latency."""
+    if metrics is None:
+        return
+    try:
+        metrics['serialization_latency_seconds'].labels(
+            data_type=data_type
+        ).observe(latency_seconds)
+    except Exception as e:
+        LOG.debug(f"Error recording serialization latency metric: {e}")
+
+
 class KafkaCallback(KafkaBackendBase):
     """Backend callback that routes normalized messages to Kafka.
 
@@ -331,27 +491,32 @@ class KafkaCallback(KafkaBackendBase):
         partition_key_cache_size: int = 1000,
         enable_header_precomputation: bool = True,
         drain_frequency_ms: int = 10,
-        metrics_exporter: PrometheusMetricsExporter | None = None,
+        metrics_exporter=None,  # DEPRECATED: kept for backward compatibility
         metrics_enabled: bool = True,
         metrics_producer_id: str | None = None,
         **config: Any,
     ) -> None:
         if not hasattr(self, "_schema_version"):
             self._schema_version = DEFAULT_SCHEMA_VERSION
-        if metrics_exporter is None:
-            producer_id = metrics_producer_id or self.__class__.__name__
-            metrics_exporter = PrometheusMetricsExporter(
-                producer_id=producer_id,
-                enabled=metrics_enabled,
+
+        # Create direct prometheus metrics (Phase 3, Task 15.3)
+        self._metrics = _create_kafka_metrics() if metrics_enabled else None
+
+        # Handle deprecated metrics_exporter parameter (backward compatibility)
+        if metrics_exporter is not None:
+            warnings.warn(
+                "metrics_exporter parameter is deprecated. Metrics now use prometheus_client directly. "
+                "Use metrics_enabled=True/False to control metrics collection.",
+                DeprecationWarning,
+                stacklevel=2
             )
-            metrics_exporter.initialize()
 
         super().__init__(
             queue_maxsize=queue_maxsize,
             enable_batch_drain=enable_batch_drain,
             batch_drain_size=batch_drain_size,
             drain_frequency_ms=drain_frequency_ms,
-            metrics_exporter=metrics_exporter,
+            metrics_exporter=None,  # No longer used
         )
 
         # Provide a ref to module logger so tests can patch callback.LOG
@@ -359,27 +524,30 @@ class KafkaCallback(KafkaBackendBase):
 
         # Handle KafkaConfig parameter (Task 4.2 - refactoring)
         if kafka_config is not None:
-            # Load settings from KafkaConfig
+            # Load settings from KafkaConfig (flattened dataclass)
             self.bootstrap_servers = kafka_config.bootstrap_servers
             self.acks = kafka_config.acks
-            self.enable_idempotence = kafka_config.idempotence
-            self.topic_config = kafka_config.topic
-            self.partition_config = kafka_config.partition
+            self.enable_idempotence = kafka_config.enable_idempotence
+            # Extract flattened config fields
+            self._topic_strategy = kafka_config.topic_strategy
+            self._topic_prefix = kafka_config.topic_prefix
+            self._partition_strategy = kafka_config.partition_strategy
             # Extract other producer settings from config
             config.setdefault("batch_size", kafka_config.batch_size)
             config.setdefault("linger_ms", kafka_config.linger_ms)
             config.setdefault("compression_type", kafka_config.compression_type)
             config.setdefault("retries", kafka_config.retries)
             config.setdefault("retry_backoff_ms", kafka_config.retry_backoff_ms)
-            cutoff_override = getattr(kafka_config, "protobuf_cutoff", None)
+            cutoff_override = None  # Not in flattened config yet
         elif bootstrap_servers is not None:
             # Backward compatible: direct parameters
             self.bootstrap_servers = list(bootstrap_servers)
             self.acks = acks
             self.enable_idempotence = enable_idempotence if enable_idempotence is not None else True
-            # Create default configs for backward compatibility
-            self.topic_config = KafkaTopicConfig()
-            self.partition_config = KafkaPartitionConfig()
+            # Use default values matching KafkaConfig defaults
+            self._topic_strategy = "consolidated"
+            self._topic_prefix = "cryptofeed"
+            self._partition_strategy = "composite"
             cutoff_override = None
         else:
             raise TypeError(
@@ -415,11 +583,6 @@ class KafkaCallback(KafkaBackendBase):
 
         # Instantiate topic manager with config strategy (Task 4.3)
         self._topic_manager = TopicManager()
-        self._topic_strategy = self.topic_config.strategy
-        self._topic_prefix = self.topic_config.prefix
-
-        # Store partition strategy (inlined from PartitionerFactory)
-        self._partition_strategy = self.partition_config.strategy
 
         # Add partition key cache if enabled (Task 17.1 - secondary optimization)
         if self._enable_partition_key_cache:
@@ -446,7 +609,7 @@ class KafkaCallback(KafkaBackendBase):
             **config,
         )
         self._producer.connect()
-        self._metrics = metrics_exporter
+        # Metrics are now created directly in __init__ (self._metrics)
         compression_value = config.get("compression_type")
         self._compression_enabled = (
             str(compression_value or "").lower() not in ("", "none")
@@ -642,11 +805,13 @@ class KafkaCallback(KafkaBackendBase):
                 serialization_start = time.perf_counter() if metrics else None
                 payload, base_headers = self._serialize_payload(message.obj, message.receipt_timestamp)
                 if metrics and serialization_start is not None:
-                    metrics.record_serialization_latency(
+                    _record_serialization_latency(
+                        metrics,
                         time.perf_counter() - serialization_start,
                         data_type,
                     )
-                    metrics.record_message_size(
+                    _record_message_size(
+                        metrics,
                         len(payload),
                         data_type,
                         compression_enabled=self._compression_enabled,
@@ -664,7 +829,7 @@ class KafkaCallback(KafkaBackendBase):
                     }
                 )
                 if metrics:
-                    metrics.record_produce_error(exchange, data_type, "serialization_error")
+                    _record_produce_error(metrics, exchange, data_type, "serialization_error")
                 return  # Skip this message, continue processing queue
 
             # Step 2: Generate topic name using TopicManager
@@ -683,7 +848,7 @@ class KafkaCallback(KafkaBackendBase):
                     }
                 )
                 if metrics:
-                    metrics.record_produce_error(exchange, data_type, "topic_resolution_error")
+                    _record_produce_error(metrics, exchange, data_type, "topic_resolution_error")
                 return  # Skip this message, continue processing queue
 
             # Step 3: Generate partition key using Partitioner (with caching)
@@ -765,16 +930,18 @@ class KafkaCallback(KafkaBackendBase):
                 self._producer.produce(topic, payload, key=key, headers=normalized_headers)
                 self._producer.poll(0.0)
                 if metrics and produce_start is not None:
-                    metrics.record_produce_latency(
+                    _record_produce_latency(
+                        metrics,
                         time.perf_counter() - produce_start,
                         exchange,
                         data_type,
                     )
-                    metrics.record_message_produced(
+                    _record_message_produced(
+                        metrics,
                         exchange,
                         symbol,
                         data_type,
-                        self.partition_config.strategy,
+                        self._partition_strategy,
                     )
             except Exception as e:
                 LOG.error(
@@ -790,7 +957,7 @@ class KafkaCallback(KafkaBackendBase):
                     }
                 )
                 if metrics:
-                    metrics.record_produce_error(exchange, data_type, "kafka_produce_error")
+                    _record_produce_error(metrics, exchange, data_type, "kafka_produce_error")
                 # Note: Producer retries are configured in KafkaProducer settings
                 # We continue processing to avoid blocking the queue on transient errors
         except Exception as e:

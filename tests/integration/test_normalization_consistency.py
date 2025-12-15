@@ -9,7 +9,7 @@ import pytest
 from decimal import Decimal
 
 from cryptofeed.backends.kafka.normalization import normalize_exchange, normalize_symbol
-from cryptofeed.backends.kafka.topic_manager import TopicManager
+from cryptofeed.backends.kafka.backend import TopicManager
 from cryptofeed.backends.kafka.callback import (
     SymbolPartitioner,
     CompositePartitioner,

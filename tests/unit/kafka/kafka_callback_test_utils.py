@@ -87,7 +87,7 @@ from cryptofeed.backends.kafka.config import (
     KafkaTopicConfig,
     KafkaProducerConfig,
 )
-from cryptofeed.backends.kafka.topic_manager import TopicManager
+from cryptofeed.backends.kafka.backend import TopicManager
 
 
 # Compatibility shims for old header classes (now inlined into callback.py)
