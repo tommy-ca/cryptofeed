@@ -262,7 +262,7 @@ This implementation plan addresses PR #16 code review remediation across 5 requi
   - _Risk: Low (validation checkpoints)_
   - _Dependencies: Task 4 (all PRs created and sequenced)_
 
-- [ ] 5.1 Create CI workflow to enforce PR size constraints
+- [x] 5.1 Create CI workflow to enforce PR size constraints
   - Add GitHub Actions workflow checking file count (<100) and line additions (<5,000)
   - Fail CI if PR exceeds size limits with clear error message
   - Include exception mechanism for documentation-only PRs
@@ -272,7 +272,7 @@ This implementation plan addresses PR #16 code review remediation across 5 requi
   - _Estimated Effort: 1 hour_
   - _File: .github/workflows/pr-size-check.yml (new file)_
 
-- [ ] 5.2 Document dependency graph and merge sequence timeline
+- [x] 5.2 Document dependency graph and merge sequence timeline
   - Create visual dependency graph showing PR relationships (using Mermaid)
   - Document 4-week merge timeline with parallel and sequential phases
   - Specify rollback procedure for each PR (independent revert capability)
