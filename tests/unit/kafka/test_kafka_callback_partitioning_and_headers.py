@@ -157,10 +157,10 @@ class TestHeaderGeneration:
         """Test header generation with special characters in symbol."""
         obj = Mock()
         obj.exchange = "binance"
-        obj.symbol = "BTC_USDT"  # Underscore should be converted
+        obj.symbol = "BTC_USDT"  # Underscore should be converted and normalized to lowercase
         headers = MessageHeaders.build(obj, "trades", "application/json")
         header_dict = dict(headers)
-        assert header_dict[b"symbol"] == b"BTC-USDT"
+        assert header_dict[b"symbol"] == b"btc-usdt"  # Normalized: underscore→hyphen, lowercase
 
     def test_headers_with_case_insensitivity(self):
         """Test that exchange names are normalized to lowercase in headers."""
