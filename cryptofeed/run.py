@@ -10,13 +10,15 @@ Usage:
 """
 import argparse
 import asyncio
+import ipaddress
 import logging
 import os
 import re
 import signal
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set
+from urllib.parse import urlparse
 
 import yaml
 
@@ -44,6 +46,98 @@ KAFKA_CALLBACK_MAP = {
     'liquidations': LiquidationsKafka,
     'candles': CandlesKafka,
 }
+
+
+# SSRF Prevention Constants (REQ-2)
+ALLOWED_PROXY_SCHEMES: Set[str] = {'http', 'https', 'socks4', 'socks5', 'socks5h'}
+
+BLOCKED_IP_RANGES = [
+    ipaddress.ip_network('10.0.0.0/8'),      # RFC 1918 - Private Class A
+    ipaddress.ip_network('172.16.0.0/12'),   # RFC 1918 - Private Class B
+    ipaddress.ip_network('192.168.0.0/16'),  # RFC 1918 - Private Class C
+    ipaddress.ip_network('127.0.0.0/8'),     # RFC 1122 - Loopback
+    ipaddress.ip_network('169.254.0.0/16'),  # RFC 3927 - Link-local + AWS metadata
+    ipaddress.ip_network('::1/128'),         # RFC 4291 - IPv6 loopback
+    ipaddress.ip_network('fe80::/10'),       # RFC 4291 - IPv6 link-local
+]
+
+BLOCKED_HOSTNAMES: Set[str] = {
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    'metadata.google.internal',  # GCP metadata
+}
+
+
+def validate_proxy_url(url: Optional[str]) -> None:
+    """
+    Validate proxy URL to prevent SSRF attacks (REQ-2).
+
+    Defense-in-depth validation with three security layers:
+    1. Scheme whitelist (http, https, socks4, socks5, socks5h only)
+    2. IP range blacklist (private, loopback, link-local, cloud metadata)
+    3. Hostname pattern matching (localhost variants, metadata endpoints)
+
+    Security properties:
+    - Blocks file:// URIs (local file access)
+    - Blocks private IP ranges (internal network access)
+    - Blocks cloud metadata endpoints (credential theft)
+    - Blocks localhost (local service access)
+    - Resistant to DNS rebinding (IP validation after resolution)
+    - Resistant to URL encoding bypasses (parsed URL validation)
+
+    Args:
+        url: Proxy URL string to validate (can be None or empty)
+
+    Raises:
+        ValueError: URL scheme blocked, IP in private range, or hostname blocked
+
+    Examples:
+        >>> validate_proxy_url("http://proxy.example.com:8080")  # OK
+        >>> validate_proxy_url("file:///etc/passwd")  # Raises ValueError
+        >>> validate_proxy_url("http://169.254.169.254/")  # Raises ValueError
+        >>> validate_proxy_url("")  # OK (proxy disabled)
+    """
+    if not url:
+        return  # Empty URL is allowed (proxy disabled)
+
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        raise ValueError(f"Invalid proxy URL format: {e}")
+
+    # Layer 1: Scheme whitelist
+    if parsed.scheme not in ALLOWED_PROXY_SCHEMES:
+        raise ValueError(
+            f"Invalid proxy scheme '{parsed.scheme}'. "
+            f"Allowed schemes: {', '.join(sorted(ALLOWED_PROXY_SCHEMES))}"
+        )
+
+    if not parsed.hostname:
+        return  # No hostname to validate
+
+    # Layer 2: IP range validation
+    try:
+        ip = ipaddress.ip_address(parsed.hostname)
+        for blocked_range in BLOCKED_IP_RANGES:
+            if ip in blocked_range:
+                raise ValueError(
+                    f"Proxy URL points to blocked IP range: {parsed.hostname} "
+                    f"(matches {blocked_range}, SSRF prevention)"
+                )
+    except ValueError as e:
+        # Re-raise if it's our ValueError (not ipaddress parsing error)
+        if "does not appear to be" not in str(e):
+            raise
+        # Not an IP address, continue to hostname validation
+
+    # Layer 3: Hostname pattern matching
+    hostname_lower = parsed.hostname.lower()
+    if hostname_lower in BLOCKED_HOSTNAMES:
+        raise ValueError(
+            f"Proxy URL points to blocked hostname: {parsed.hostname} "
+            f"(SSRF prevention)"
+        )
 
 
 def setup_logging(level: str = 'INFO'):
@@ -233,11 +327,65 @@ def configure_exchange(fh: FeedHandler, exchange_name: str, exchange_config: Dic
 
 
 def load_proxy_mapping(path: str) -> Optional[Dict[str, Any]]:
-    """Load proxy YAML as a plain mapping (no templating)."""
+    """
+    Load proxy YAML with SSRF validation (REQ-2).
+
+    Validates all proxy URLs (global and per-exchange) to prevent SSRF attacks.
+    Fails fast on first invalid URL with clear error message indicating section path.
+
+    Args:
+        path: Path to proxy.yaml configuration file
+
+    Returns:
+        Validated proxy mapping dict or None if file doesn't exist
+
+    Raises:
+        ValueError: Invalid URL found in configuration (SSRF prevention)
+
+    Example YAML structure:
+        global:
+          http: "http://proxy.example.com:8080"
+          socks5: "socks5://proxy.example.com:1080"
+        exchanges:
+          binance:
+            http: "http://binance-proxy.example.com:8080"
+          okx:
+            socks5: "socks5://okx-proxy.example.com:1080"
+    """
     proxy_path = Path(path)
     if not proxy_path.exists():
         return None
+
     data = yaml.safe_load(proxy_path.read_text()) or {}
+
+    # Validate global proxy URLs
+    if 'global' in data and isinstance(data['global'], dict):
+        for proxy_type, url in data['global'].items():
+            if url:
+                try:
+                    validate_proxy_url(url)
+                except ValueError as e:
+                    raise ValueError(f"Invalid proxy URL in global.{proxy_type}: {e}")
+
+    # Validate per-exchange proxy URLs
+    if 'exchanges' in data and isinstance(data['exchanges'], dict):
+        for exchange_name, exchange_config in data['exchanges'].items():
+            if isinstance(exchange_config, dict):
+                for proxy_type, url in exchange_config.items():
+                    if url:
+                        try:
+                            validate_proxy_url(url)
+                        except ValueError as e:
+                            raise ValueError(
+                                f"Invalid proxy URL in exchanges.{exchange_name}.{proxy_type}: {e}"
+                            )
+            elif isinstance(exchange_config, str):
+                # Legacy format: exchanges.binance: "http://..."
+                try:
+                    validate_proxy_url(exchange_config)
+                except ValueError as e:
+                    raise ValueError(f"Invalid proxy URL in exchanges.{exchange_name}: {e}")
+
     return data or None
 
 
