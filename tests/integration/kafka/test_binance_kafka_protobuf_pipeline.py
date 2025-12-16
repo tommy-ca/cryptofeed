@@ -87,7 +87,7 @@ import pytest
 from cryptofeed.defines import TRADES, TICKER, CANDLES
 from cryptofeed.feedhandler import FeedHandler
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
-from cryptofeed.backends.kafka.callback import PartitionerFactory
+from cryptofeed.backends.kafka.config import KafkaConfig
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.proxy import ProxySettings
 from cryptofeed.defines import L2_BOOK
@@ -353,18 +353,33 @@ async def _start_binance_with_kafka(
 
     fh = FeedHandler()
 
-    kafka_cb = _TestKafkaProtobufCallback(
-        bootstrap_servers=[redpanda_bootstrap],
-        producer_factory=None,
-        metrics_exporter=None,
-        metrics_enabled=False,
-    )
-    kafka_cb._topic_strategy = topic_strategy
-    kafka_cb._enable_partition_key_cache = False
-
+    # Configure partition strategy via KafkaConfig if specified (REQ-5 refactoring)
     if partition_strategy is not None:
-        kafka_cb._partitioner = PartitionerFactory.create(partition_strategy)
+        kafka_config = KafkaConfig(
+            bootstrap_servers=redpanda_bootstrap,
+            partition_strategy=partition_strategy,
+            topic_strategy=topic_strategy,
+        )
+        # Pass bootstrap_servers as list to avoid producer config field issues
+        kafka_cb = _TestKafkaProtobufCallback(
+            bootstrap_servers=[redpanda_bootstrap],
+            producer_factory=None,
+            metrics_exporter=None,
+            metrics_enabled=False,
+        )
+        # Manually set strategies from config (avoids producer config fields being passed to confluent-kafka)
+        kafka_cb._topic_strategy = kafka_config.topic_strategy
+        kafka_cb._partition_strategy = kafka_config.partition_strategy
+    else:
+        kafka_cb = _TestKafkaProtobufCallback(
+            bootstrap_servers=[redpanda_bootstrap],
+            producer_factory=None,
+            metrics_exporter=None,
+            metrics_enabled=False,
+        )
+        kafka_cb._topic_strategy = topic_strategy
 
+    kafka_cb._enable_partition_key_cache = False
     kafka_cb.start(loop)
 
     if not kafka_cb.is_connected():
@@ -605,7 +620,7 @@ async def test_binance_kafka_protobuf_trade_roundtrip(redpanda):
     assert record.headers[b"schema_version"] == SCHEMA_VERSION.encode()
     assert record.headers[b"cf.serialization_format"] == b"protobuf"
     assert record.headers[b"exchange"] == b"binance"
-    assert record.headers[b"symbol"] in {b"BTC-USDT", b"ETH-USDT"}
+    assert record.headers[b"symbol"] in {b"btc-usdt", b"eth-usdt"}  # Normalized to lowercase (REQ-4)
     assert record.headers[b"data_type"] == b"trade"
 
     # Payload assertions
