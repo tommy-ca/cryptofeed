@@ -7,7 +7,6 @@ import time
 import pytest
 
 from cryptofeed.backends.kafka.backend import KafkaQueuedMessage
-from cryptofeed.backends.kafka.callback import PartitionerFactory
 from cryptofeed.backends.kafka.protobuf_callback import KafkaProtobufCallback
 from cryptofeed.backends.protobuf.bindings import SCHEMA_VERSION
 from cryptofeed.types import Trade
@@ -161,7 +160,7 @@ async def test_kafka_protobuf_trade_roundtrip(redpanda):
     assert record.headers[b"schema_version"] == SCHEMA_VERSION.encode()
     assert record.headers[b"cf.serialization_format"] == b"protobuf"
     assert record.headers[b"exchange"] == b"coinbase"
-    assert record.headers[b"symbol"] == b"BTC-USD"
+    assert record.headers[b"symbol"] == b"btc-usd"  # Normalized to lowercase
     assert record.headers[b"data_type"] == b"trade"
 
     # Payload
@@ -201,7 +200,8 @@ async def test_kafka_protobuf_misc_roundtrip(redpanda, type_name, data_type, pb_
     assert record.headers[b"schema_version"] == SCHEMA_VERSION.encode()
     assert record.headers[b"cf.serialization_format"] == b"protobuf"
     assert record.headers[b"exchange"] == obj.exchange.encode()
-    assert record.headers[b"symbol"] == obj.symbol.encode()
+    # Symbol is normalized to lowercase in headers (REQ-4 normalization)
+    assert record.headers[b"symbol"] == obj.symbol.lower().replace('/', '-').replace(':', '-').encode()
     assert record.headers[b"data_type"] == data_type.encode()
 
     # Payload
@@ -230,13 +230,19 @@ async def test_kafka_protobuf_partition_key_round_robin(redpanda):
         raw=None,
     )
 
-    cb = KafkaProtobufCallback(
+    # Use KafkaConfig to set partition and topic strategies
+    from cryptofeed.backends.kafka.config import KafkaConfig
+
+    config = KafkaConfig(
         bootstrap_servers=[redpanda],
+        partition_strategy="round_robin",
+        topic_strategy="per_symbol",
+    )
+    cb = KafkaProtobufCallback(
+        kafka_config=config,
         producer_factory=None,
         metrics_exporter=None,
     )
-    cb._partitioner = PartitionerFactory.create("round_robin")
-    cb._topic_strategy = "per_symbol"
 
     message = KafkaQueuedMessage(
         data_type="trade", obj=trade, receipt_timestamp=time.time()
