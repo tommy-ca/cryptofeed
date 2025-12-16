@@ -90,10 +90,10 @@ class KafkaConfig:
 
         Supports both flat and nested (deprecated) formats:
         - Flat: KafkaConfig(bootstrap_servers="kafka:9092", topic_prefix="prod")
-        - Nested: KafkaConfig(bootstrap_servers="kafka:9092", topic={...}, partition={...})
+        - Nested: KafkaConfig(bootstrap_servers="kafka:9092", topic={...}, partition={...}, producer={...})
         """
         # Flatten nested configs if present (backward compatibility)
-        if 'topic' in kwargs or 'partition' in kwargs:
+        if 'topic' in kwargs or 'partition' in kwargs or 'producer' in kwargs:
             kwargs = self._flatten_nested_config(kwargs)
 
         # Set all fields
@@ -178,8 +178,11 @@ class KafkaConfig:
                     flattened['topic_strategy'] = topic_config['strategy']
                 if 'prefix' in topic_config:
                     flattened['topic_prefix'] = topic_config['prefix']
+                # Handle both 'partitions' and 'partitions_per_topic' field names
                 if 'partitions_per_topic' in topic_config:
                     flattened['partitions_per_topic'] = topic_config['partitions_per_topic']
+                elif 'partitions' in topic_config:
+                    flattened['partitions_per_topic'] = topic_config['partitions']
                 if 'replication_factor' in topic_config:
                     flattened['replication_factor'] = topic_config['replication_factor']
 
@@ -192,6 +195,33 @@ class KafkaConfig:
             if isinstance(partition_config, dict):
                 if 'strategy' in partition_config:
                     flattened['partition_strategy'] = partition_config['strategy']
+
+        # Flatten producer config (handle both dict and KafkaProducerConfig object)
+        if 'producer' in flattened:
+            producer_config = flattened.pop('producer')
+            # Convert object to dict if needed
+            if hasattr(producer_config, '_kwargs'):
+                producer_config = producer_config._kwargs
+            if isinstance(producer_config, dict):
+                # Map all producer-specific fields
+                producer_field_mappings = {
+                    'compression_type': 'compression_type',
+                    'acks': 'acks',
+                    'enable_idempotence': 'enable_idempotence',
+                    'retries': 'retries',
+                    'retry_backoff_ms': 'retry_backoff_ms',
+                    'batch_size': 'batch_size',
+                    'linger_ms': 'linger_ms',
+                }
+                for old_key, new_key in producer_field_mappings.items():
+                    if old_key in producer_config:
+                        flattened[new_key] = producer_config[old_key]
+
+        # Handle legacy 'partitions' field name (convert to partitions_per_topic)
+        if 'partitions' in flattened:
+            if 'partitions_per_topic' not in flattened:
+                flattened['partitions_per_topic'] = flattened['partitions']
+            flattened.pop('partitions')
 
         return flattened
 
