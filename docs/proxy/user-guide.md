@@ -474,6 +474,69 @@ settings = get_proxy_settings()
 init_proxy_system(settings)
 ```
 
+## Mullvad SOCKS5 relays (Binance E2E example)
+
+You can use Mullvad’s public SOCKS5 relay list to run the Binance → Kafka Protobuf E2E tests through EU/AP proxies without hardcoding endpoints.
+
+- Fetch the list (verify checksum):
+  ```bash
+  curl -s https://raw.githubusercontent.com/mullvad/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt | tee /tmp/mullvad-relays.txt | head
+  sha256sum /tmp/mullvad-relays.txt
+  ```
+- Sample EU/AP relays (pick any that are healthy):
+  - EU: `socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080`, `socks5://nl-ams-wg-socks5-201.relays.mullvad.net:1080`
+  - AP: `socks5://sg-sin-wg-socks5-101.relays.mullvad.net:1080`, `socks5://jp-tyo-wg-socks5-201.relays.mullvad.net:1080`
+- Binance WebSocket pool env example (round-robin):
+  ```bash
+  export CRYPTOFEED_PROXY_ENABLED=true
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL="socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__1__URL="socks5://nl-ams-wg-socks5-201.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__2__URL="socks5://sg-sin-wg-socks5-101.relays.mullvad.net:1080"
+  export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__3__URL="socks5://jp-tyo-wg-socks5-201.relays.mullvad.net:1080"
+  ```
+- Probe and filter relays (REST + WS reachability/latency):
+  ```bash
+  python tools/binance_proxy_probe.py --regions eu ap --limit 3 --list-sha256 "<sha256 from above>"
+  ```
+  Requires `python-socks`, `aiohttp`, and `websockets`; outputs per-proxy REST/WS status and timing.
+- Requirements:
+  - Install `python-socks` for SOCKS WebSocket tunneling: `pip install python-socks`.
+  - E2E tests remain opt-in: `CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true` and Docker/Redpanda available. Tests live at `tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py`.
+  - If no proxy envs are set, tests run direct; proxy assertions skip when python-socks is missing for SOCKS URLs.
+
+### Route HTTP + WebSocket over SOCKS5 (Binance E2E)
+
+To force both REST and WS paths through SOCKS5 proxies for Binance during the Kafka Protobuf E2E:
+
+```bash
+export CRYPTOFEED_PROXY_ENABLED=true
+
+# HTTP over SOCKS5 (single endpoint)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL="socks5://<host>:<port>"
+
+# WebSocket over SOCKS5 (pool, round-robin example)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__0__URL="socks5://<host1>:<port>"
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES__1__URL="socks5://<host2>:<port>"
+
+# Alternatively, provide the pool as a JSON list (avoids env parsing quirks):
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+
+# Use the same SOCKS5 proxies for HTTP + WS (pool for both)
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__STRATEGY=round_robin
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL__PROXIES='[{"url":"socks5://<host1>:<port>"},{"url":"socks5://<host2>:<port>"}]'
+
+# Run the E2E
+CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v
+```
+
+Notes:
+- `python-socks` is required for WS SOCKS tunneling.
+- If no proxies are configured or a SOCKS dependency is missing, the test suite will skip the proxy-specific assertions.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -611,6 +674,96 @@ proxy:
     # or
     # url: "https://proxy:8443"   # HTTPS acceptable
 ```
+
+**3. SSRF Prevention (Server-Side Request Forgery)**
+
+The proxy system includes built-in SSRF attack prevention to protect against malicious proxy configurations. All proxy URLs are validated using a defense-in-depth approach with three security layers:
+
+**Validation Layers:**
+
+1. **Scheme Whitelist** - Only proxy protocols are allowed:
+   - ✅ Allowed: `http`, `https`, `socks4`, `socks5`, `socks5h`
+   - ❌ Blocked: `file`, `ftp`, `gopher`, and other non-proxy schemes
+
+2. **IP Range Validation** - Private and internal networks are blocked:
+   - ❌ Private IPs: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+   - ❌ Loopback: `127.0.0.0/8`, `::1/128`
+   - ❌ Link-local/Metadata: `169.254.0.0/16` (AWS/GCP metadata endpoint)
+   - ❌ IPv6 link-local: `fe80::/10`
+
+3. **Hostname Pattern Matching** - Blocked hostnames:
+   - ❌ `localhost`, `127.0.0.1`, `::1`
+   - ❌ `metadata.google.internal` (GCP metadata service)
+   - ❌ Cloud metadata endpoints
+
+**Why Each Category Is Blocked:**
+
+- **Metadata Endpoints** (`169.254.169.254`, `metadata.google.internal`): Attackers could steal cloud credentials (AWS IAM keys, GCP service account tokens) leading to full account compromise
+- **Local Files** (`file:///etc/passwd`): Direct filesystem access could expose sensitive configuration, credentials, or system information
+- **Internal Networks** (`10.0.0.0/8`, `192.168.0.0/16`): Access to internal services (databases, admin panels, monitoring systems) that should not be publicly accessible
+- **Localhost** (`127.0.0.1`, `localhost`): Access to local services (Redis, PostgreSQL, admin interfaces) running on the same machine
+
+**Examples of Rejected URLs with Error Messages:**
+
+```python
+# Blocked: Metadata endpoint attack
+url: "http://169.254.169.254/latest/meta-data/"
+# Error: "Proxy URL points to blocked IP range: 169.254.169.254
+#         (matches 169.254.0.0/16, SSRF prevention)"
+
+# Blocked: File system access
+url: "file:///etc/passwd"
+# Error: "Invalid proxy scheme 'file'.
+#         Allowed schemes: http, https, socks4, socks5, socks5h"
+
+# Blocked: Internal network scanning
+url: "http://192.168.1.1:8080/"
+# Error: "Proxy URL points to blocked IP range: 192.168.1.1
+#         (matches 192.168.0.0/16, SSRF prevention)"
+
+# Blocked: Localhost service access
+url: "http://localhost:6379/"
+# Error: "Proxy URL points to blocked hostname: localhost (SSRF prevention)"
+```
+
+**Configuring Legitimate Proxies:**
+
+To avoid false positives, ensure your proxy URLs use:
+- ✅ Public IP addresses or DNS names (not private IPs)
+- ✅ Allowed schemes (`http`, `https`, `socks5`, etc.)
+- ✅ Non-localhost hostnames
+
+```yaml
+# ✅ Valid proxy configurations
+proxy:
+  default:
+    http:
+      url: "socks5://proxy.example.com:1080"           # Public DNS name
+    # or
+      url: "http://203.0.113.50:8080"                  # Public IP address
+
+  exchanges:
+    binance:
+      http:
+        url: "socks5://eu-proxy.mycompany.net:1080"    # Corporate proxy DNS
+
+# ❌ Invalid configurations (will be rejected)
+proxy:
+  default:
+    http:
+      url: "http://10.0.0.5:8080"                      # Private IP
+    # or
+      url: "http://localhost:8080"                     # Localhost
+    # or
+      url: "file:///tmp/proxy.sock"                    # File scheme
+```
+
+**Security Reference:**
+- **CVE Details**: CVSS 7.5 High severity (CWE-918: Server-Side Request Forgery)
+- **OWASP Guidelines**: [SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
+- **CWE-918**: [Improper Restriction of Rendered UI Layers or Frames](https://cwe.mitre.org/data/definitions/918.html)
+
+For detailed incident response procedures and monitoring guidance, see the [SSRF Prevention Security Runbook](../security/ssrf-prevention.md).
 
 ### Performance
 

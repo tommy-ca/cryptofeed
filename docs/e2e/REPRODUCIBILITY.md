@@ -44,7 +44,7 @@ pytest tests/unit/test_proxy_mvp.py -v
 
 ```bash
 # Step 1: Create virtual environment
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 
 # Step 2: Activate
 source .venv-e2e/bin/activate
@@ -60,6 +60,33 @@ python -c "import cryptofeed; import ccxt; import pytest; print('✓ All imports
 ```
 
 ---
+
+## Reproducible Binance E2E recipe (public channels, Mullvad SOCKS)
+
+This recipe matches the field-tested run on 2025-12-13 and minimizes skips:
+
+```bash
+source tests/e2e/activate.sh
+
+export CRYPTOFEED_PROXY_ENABLED=true
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://de-fra-wg-socks5-101.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+export CF_SYMBOL_FETCH_TIMEOUT=30
+export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true
+export REDPANDA_HOST_PORT=19092
+export REDPANDA_HOST_BOOTSTRAP=localhost:19092
+export KAFKA_BOOTSTRAP_SERVERS=$REDPANDA_HOST_BOOTSTRAP
+
+# If port 19092 is already bound, pick another host port (e.g., 29092) and update both vars above.
+make redpanda-up
+python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "roundtrip and not placeholder" -vv -s --maxfail=1
+make redpanda-down
+```
+
+Notes:
+- Candle roundtrip may still skip if Binance does not emit within 180s; this is expected flakiness, not a proxy error.
+- If preflight REST skips, try a different relay or increase `CF_SYMBOL_FETCH_TIMEOUT`.
+- Keep `python-socks` and `aiohttp-socks` installed for SOCKS proxy support.
 
 ## Lock File Management
 
@@ -265,7 +292,7 @@ git commit -m "chore(e2e): add/update dependency lock"
 ```bash
 # Before committing updated lock file
 rm -rf .venv-e2e
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 source .venv-e2e/bin/activate
 uv pip install -r tests/e2e/requirements-e2e-lock.txt
 pytest tests/unit/ tests/integration/ -v

@@ -1,0 +1,79 @@
+# Cryptofeed Proxy Configuration
+# See config/examples/with-proxy.yaml for usage examples
+
+# =============================================================================
+# SECURITY NOTICE: SSRF PREVENTION
+# =============================================================================
+# All proxy URLs are validated to prevent Server-Side Request Forgery (SSRF)
+# attacks. The following URL patterns are BLOCKED for security:
+#
+# 1. Invalid Schemes (only http, https, socks4, socks5, socks5h allowed):
+#    - file:// (local file access)
+#    - ftp:// (FTP protocol)
+#    - gopher:// (legacy protocol)
+#
+# 2. Private IP Ranges (RFC 1918):
+#    - 10.0.0.0/8 (Class A private)
+#    - 172.16.0.0/12 (Class B private)
+#    - 192.168.0.0/16 (Class C private)
+#
+# 3. Loopback and Link-Local:
+#    - 127.0.0.0/8 (IPv4 loopback)
+#    - ::1/128 (IPv6 loopback)
+#    - 169.254.0.0/16 (link-local + cloud metadata endpoints)
+#    - fe80::/10 (IPv6 link-local)
+#
+# 4. Blocked Hostnames:
+#    - localhost, 127.0.0.1, ::1
+#    - metadata.google.internal (GCP metadata)
+#
+# ✅ VALID Examples:
+#   http: "socks5://proxy.example.com:1080"     # Public DNS name
+#   http: "http://203.0.113.50:8080"            # Public IP address
+#   socks5: "socks5://corporate-proxy:1080"     # Corporate proxy
+#
+# ❌ INVALID Examples (will raise ValueError):
+#   http: "http://10.0.0.5:8080"                # Private IP
+#   http: "http://localhost:8080"               # Localhost
+#   http: "file:///tmp/proxy.sock"              # File scheme
+#   http: "http://169.254.169.254/"             # Metadata endpoint
+#
+# For more information, see:
+# - docs/proxy/user-guide.md (SSRF Prevention section)
+# - docs/security/ssrf-prevention.md (Security runbook)
+# - OWASP SSRF Prevention: https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+# =============================================================================
+
+# Global proxy settings (optional)
+# Only use PUBLIC proxy servers with allowed schemes
+global:
+  http: null      # Example: "socks5://proxy.example.com:1080"
+  socks5: null    # Example: "socks5://secure-proxy.company.net:1080"
+
+# Per-exchange proxy overrides (optional)
+# Each exchange can have its own proxy configuration
+exchanges: {}     # Example: binance: { http: "http://binance-proxy.example.com:8080" }
+
+# Proxy validation
+validation:
+  enabled: true
+  timeout: 10
+  retries: 3
+  backoff_strategy: exponential
+  initial_backoff: 1
+  max_backoff: 30
+
+# Advanced settings
+advanced:
+  remote_dns: true
+  connect_timeout: 10
+  read_timeout: 30
+  keep_alive: true
+  max_connections_per_proxy: 100
+
+# Logging
+logging:
+  log_connections: true
+  log_errors: true
+  log_success: false
+  log_credentials: false

@@ -142,6 +142,91 @@ proxy:
 | **YAML Files** | Production deployments | `proxy: {enabled: true, ...}` |
 | **Python Code** | Dynamic configuration | `ProxySettings(enabled=True, ...)` |
 
+### Environment Examples (Binance HTTP + WebSocket)
+
+**Single SOCKS5 proxy**
+- `CRYPTOFEED_PROXY_ENABLED=true`
+- `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__URL=socks5://user:pass@host:1080`
+- `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__URL=socks5://user:pass@host:1080`
+
+**Proxy pools (JSON form, preferred for correct parsing)**
+- `CRYPTOFEED_PROXY_ENABLED=true`
+- HTTP pool (optional):
+  - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'`
+- WebSocket pool:
+  - `CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL='{"proxies":[{"url":"socks5://p1:1080","weight":1},{"url":"socks5://p2:1080","weight":1}],"strategy":"round_robin"}'`
+- Supported strategies: `round_robin` (default), `random`, `least_connections`
+
+**JSON parsing tips**
+- Use single quotes around the JSON string in shell to avoid escaping double quotes.
+- Keep JSON on one line; no trailing commas.
+- Pydantic will parse the JSON string into the pool config; per-exchange settings override defaults.
+
+**Notes**
+- SOCKS WebSocket support requires `python-socks`; SOCKS HTTP requires `aiohttp-socks`.
+- JSON strings must be single-line and quoted as shown (no trailing commas).
+- Defaults can be set with `CRYPTOFEED_PROXY_DEFAULT__HTTP__URL` / `CRYPTOFEED_PROXY_DEFAULT__WEBSOCKET__URL`; per-exchange settings take precedence.
+- Binance REST symbol metadata (used before WS starts) uses `requests`; set `HTTP_PROXY`/`HTTPS_PROXY` to the leased Binance HTTP proxy in test environments to ensure `exchangeInfo` is not geoblocked.
+
+### Selecting Relay Proxies (Mullvad helper)
+
+Use the provided probe script to fetch Mullvad SOCKS relays and test Binance access:
+
+```bash
+# Install deps
+python -m pip install python-socks aiohttp websockets
+
+# Probe a few EU/AP relays (binance REST/WS) from the curated relay list
+python tools/binance_proxy_probe.py --regions eu ap --limit 3
+
+# Output shows status per proxy (OK, GEOBLOCK, TIMEOUT, etc.) and latency.
+# Choose the OK entries and plug them into the pool JSON envs above.
+```
+
+The probe script pulls relays from Mullvad’s published list with checksum verification
+(`tools/binance_proxy_probe.py`), then tests both REST ping and WS trade stream through
+each proxy.
+
+### Binance → Kafka Protobuf E2E via Mullvad relays
+
+1) **Fetch relay list + checksum** (public artifact):
+   ```bash
+   curl -s https://raw.githubusercontent.com/tommy-ca/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt \
+     -o /tmp/mullvad-relays.txt
+   sha256sum /tmp/mullvad-relays.txt
+   # expected: c0975acd3fe2d28a8f8e1c8fd0cf20a74feef63b1864d438b3ae7a60151e51c8
+   ```
+2) **Probe relays for Binance REST/WS** (pick OK entries):
+   ```bash
+   python tools/binance_proxy_probe.py \
+     --list-url https://raw.githubusercontent.com/tommy-ca/mulvad-relay-list/refs/heads/proxy-artifacts/relays.txt \
+     --list-sha256 c0975acd3fe2d28a8f8e1c8fd0cf20a74feef63b1864d438b3ae7a60151e51c8 \
+     --regions eu ap --limit 3 --per-country
+   ```
+   Example OK pool used in tests: `socks5://al-tia-wg-socks5-003.relays.mullvad.net:1080`, `socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080`.
+3) **Set proxy + E2E envs** (pool example):
+   ```bash
+   export CRYPTOFEED_PROXY_ENABLED=true
+   export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL='{"proxies":[{"url":"socks5://al-tia-wg-socks5-003.relays.mullvad.net:1080"},{"url":"socks5://at-vie-wg-socks5-001.relays.mullvad.net:1080"}],"strategy":"round_robin"}'
+   export CRYPTOFEED_PROXY_EXCHANGES__BINANCE__WEBSOCKET__POOL=$CRYPTOFEED_PROXY_EXCHANGES__BINANCE__HTTP__POOL
+   export CRYPTODATA_RUN_BINANCE_KAFKA_E2E=true
+   # topic strategy: per_symbol (default) or consolidated
+   export KAFKA_E2E_TOPIC_STRATEGY=consolidated   # or per_symbol
+   ```
+4) **Start Redpanda** (topics auto-provisioned by tests):
+   ```bash
+   make redpanda-up
+   ```
+5) **Run E2E tests**:
+   - Per-symbol trade + orderbook: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -v -s`
+   - Orderbook only: `python -m pytest tests/integration/kafka/test_binance_kafka_protobuf_pipeline.py -k "orderbook_snapshot_roundtrip" -v -s`
+6) **Teardown**: `make redpanda-down`
+
+Notes:
+- REST `exchangeInfo` preflight now supports SOCKS via `aiohttp_socks`; failures skip early.
+- Consolidated strategy now produces L2 to `cryptofeed.l2_book` (TopicManager supports `l2_book`).
+- Topic provisioning is handled by the test helper; no manual `rpk topic create` needed.
+
 ## Requirements
 
 **Core Dependencies:**

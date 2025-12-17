@@ -1,10 +1,10 @@
 # Cryptocurrency Exchange Feed Handler
 [![License](https://img.shields.io/badge/license-XFree86-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.8+-green.svg)
+![Python](https://img.shields.io/badge/Python-3.9+-green.svg)
 [![PyPi](https://img.shields.io/badge/PyPi-cryptofeed-brightgreen.svg)](https://pypi.python.org/pypi/cryptofeed)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/efa4e0d6e10b41d0b51454d08f7b33b1)](https://www.codacy.com/app/bmoscon/cryptofeed?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bmoscon/cryptofeed&amp;utm_campaign=Badge_Grade)
 
-Handles multiple cryptocurrency exchange data feeds and returns normalized and standardized results to client registered callbacks for events like trades, book updates, ticker updates, etc. Utilizes websockets when possible, but can also poll data via REST endpoints if a websocket is not provided.
+Handles multiple cryptocurrency exchange data feeds and returns normalized and standardized results to client registered callbacks for events like trades, book updates, ticker updates, etc. Utilizes websockets when possible, but can also poll data via REST endpoints if a websocket is not provided. Cryptofeed is an ingestion-only layer: it normalizes market data, serializes (protobuf/json) and publishes to Kafka; downstream consumers own storage and analytics.
 
 ## Supported exchanges
 
@@ -56,21 +56,9 @@ deployments should prefer the actively maintained list above. Additional communi
 * Huobi Swap (Coin-M and USDT-M)
 * [Independent Reserve](https://www.independentreserve.com/)
 
-### Upcoming exchange integrations
-
-The roadmap prioritises modern derivatives venues with robust APIs:
-
-* Backpack – unified REST/WebSocket API (`api.backpack.exchange`) covering spot
-  and perpetual contracts, with account webhooks for order lifecycle events.
-* Hyperliquid – on-chain perpetual protocol with high-frequency book streams and
-  programmatic funding/vault data via `api.hyperliquid.xyz`.
-
-If you operate at one of these venues or would like to help with testing, please join the discussion in `docs/exchange.md`.
-
-
 ### Generic exchange adapters
 
-Cryptofeed will expose a `CcxtFeed` that wraps ccxt (REST) and ccxt.pro (WebSocket) as a fallback for long-tail venues. See docs/exchange.md for the design sketch.
+Cryptofeed exposes a `CcxtFeed` that wraps ccxt (REST) and ccxt.pro (WebSocket) as a fallback for long-tail venues. See docs/exchange.md for the design sketch.
 
 ## Basic Usage
 
@@ -114,34 +102,22 @@ See [`docs/README.md`](docs/README.md) for complete documentation navigation and
 
 ## E2E Testing
 
-Comprehensive end-to-end testing infrastructure with reproducible environments:
-
-**Quick Start**:
+Recommended quick start for the proxy + Kafka path:
 ```bash
-# Setup environment (uv-based, 10-100x faster than pip)
-./tests/e2e/setup_e2e_env.sh
-source .venv-e2e/bin/activate
-
-# Run tests
-pytest tests/unit/test_proxy_mvp.py -v                    # Smoke tests (52 tests)
-pytest tests/integration/test_live_*.py -v -m live_proxy  # Live tests (26 tests)
+python -m pytest tests/unit/test_proxy_mvp.py tests/integration/test_proxy_integration.py -v
 ```
 
-**Test Coverage**: 70/78 tests passing (89.7%)
-- Phase 1: Smoke tests (52/52 = 100%)
-- Phase 2: Live connectivity (7/8 = 87.5%)
-- Phase 2.5: Backpack enhanced (11/18 = 61%)
+Kafka / Redpanda local workflow:
+- `make redpanda-up` starts Redpanda via `docker/infra/base.yml` (default port 19092, overridable with `REDPANDA_HOST_PORT`)
+- `make test-kafka-unit` runs the Kafka unit suite (no broker required)
+- `make test-kafka-e2e` runs Kafka integration tests (requires broker)
+- Bootstrap env for tests: `KAFKA_BOOTSTRAP_SERVERS` (comma-separated). Defaults to `localhost:${REDPANDA_HOST_PORT:-19092}`; tests fall back automatically via `tests/helpers/kafka_env.py`.
 
-**Features**:
-- ⚡ Fast reproducible setup (~25 seconds)
-- 🔒 Locked dependencies for consistency
-- 🌍 Proxy routing validation (HTTP + WebSocket)
-- ✅ Live exchange testing (Binance, Hyperliquid, Backpack)
+Python versions:
+- Supported: 3.10, 3.11, 3.12, 3.13
+- Dropped: 3.9 (EOL)
 
-**Documentation**: See [docs/e2e/](docs/e2e/) for detailed guides
-
-
-For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
+Live exchange tests are available under `tests/integration/` and can be enabled with the appropriate credentials and `-m live_proxy`. See [docs/e2e/](docs/e2e/) for detailed guides. For an example of a containerized application using cryptofeed to store data to a backend, please see [Cryptostore](https://github.com/bmoscon/cryptostore).
 
 
 ## National Best Bid/Offer (NBBO)

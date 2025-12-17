@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package cryptofeed.normalized.v2beta1;
+
+option go_package = "github.com/cryptofeed/proto/gen/go/normalized/v2beta1";
+option java_package = "build.buf.cryptofeed.normalized.v2beta1";
+
+// Funding captures perpetual swap funding rate broadcasts.
+// Note: mark_price and rate are optional because some venues may not provide these values at all times.
+message Funding {
+  string exchange = 1; // normalized exchange identifier (Cryptofeed Funding.exchange)
+  string symbol = 2; // normalized perpetual contract (Funding.symbol)
+  optional string mark_price = 3; // decimal string, scale 1e-8 (Funding.mark_price) - optional, can be null in Python
+  optional string rate = 4; // decimal string, scale 1e-8 per funding period (Funding.rate) - optional, can be null in Python
+  optional string predicted_rate = 5; // decimal string, scale 1e-8 (Funding.predicted_rate)
+  optional int64 next_funding_time = 6; // microseconds since UNIX epoch (Funding.next_funding_time converted to µs)
+  int64 timestamp = 7; // event timestamp, microseconds (Funding.timestamp converted to µs)
+}

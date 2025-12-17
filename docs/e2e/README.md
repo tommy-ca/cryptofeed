@@ -1,11 +1,15 @@
 # E2E Testing Guide
 
-**Quick Start** | [Test Plan](TEST_PLAN.md) | [Reproducibility Guide](REPRODUCIBILITY.md) | [Results Archive](results/)
+```bash
+uv venv --python 3.12
+source .venv-e2e/bin/activate
+uv pip install -r tests/e2e/requirements-e2e-lock.txt
+# run tests normally (activation means no uv prefix needed)
+pytest tests/unit/test_proxy_mvp.py -v
+```
 
----
-
-## Overview
-
+- If uv is missing: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- If you prefer not to activate, you can use `uv run pytest …`, but activation keeps commands simple.
 Comprehensive end-to-end testing infrastructure for validating proxy system, CCXT exchange integrations, and native exchange implementations with reproducible environments.
 
 ### Key Features
@@ -98,7 +102,7 @@ pytest tests/integration/test_live_ccxt_backpack.py -v -m live_proxy
 
 Anyone can reproduce the exact environment:
 ```bash
-uv venv .venv-e2e --python 3.12
+uv venv --python 3.12
 source .venv-e2e/bin/activate
 uv pip install -r tests/e2e/requirements-e2e-lock.txt
 ```
@@ -170,6 +174,23 @@ pytest tests/integration/test_live_backpack.py -v -m live_proxy
 - See [BACKPACK_TEST_RESULTS.md](../../BACKPACK_TEST_RESULTS.md) for details
 
 **Recommendation**: Use CCXT implementation (87.5% success rate)
+
+### Phase 2.7: Kafka Protobuf E2E (Binance → Redpanda) (Optional)
+
+**Duration**: ~2–10 minutes (spot), ~5–20 minutes (futures)  
+**Purpose**: Validate the full ingestion pipeline from live Binance REST/WS through Cryptofeed normalization into **Kafka Protobuf** topics on a local Redpanda broker.
+
+**Quick Start (proxy pool, recommended)**:
+```bash
+make redpanda-up
+make test-kafka-binance-mullvad
+make test-kafka-binance-futures-mullvad
+make redpanda-down
+```
+
+**Notes**:
+- These tests are opt-in and will skip/fail fast if Docker, Redpanda, or Binance connectivity is missing.
+- See `docs/e2e/BINANCE_KAFKA_PROTOBUF_E2E.md` for full details (topic strategy, env vars, proxy configuration).
 
 ### Phase 3: Regional Validation (Optional)
 **Duration**: 30-45 minutes  
@@ -300,8 +321,9 @@ jobs:
 ## Documentation
 
 - **[Test Plan](TEST_PLAN.md)** - Comprehensive test scenarios and success criteria
+- **[Proxy Testing Guide](PROXY_TESTING.md)** - Binance Kafka E2E proxy configuration (FR7)
 - **[Reproducibility Guide](REPRODUCIBILITY.md)** - Technical deep-dive on uv and lock files
-- **[Results Archive](results/)** - Historical test execution reports
+- **[Results Archive](results/)** - Historical, run-specific execution reports; treated as a temporary scratchpad that can be pruned once key guidance has been folded back into this directory.
 - **[Scripts Reference](../../tests/e2e/)** - Test automation scripts
 
 ---

@@ -16,14 +16,25 @@ Test Strategy:
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
+import warnings
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List, Optional
 
 import pytest
+
+# Silence deprecation warnings from datetime.utcnow in legacy fixtures
+warnings.filterwarnings(
+    "ignore",
+    message=r".*utcnow\(\).*",
+    category=DeprecationWarning,
+)
+
+# Pytest-level filter for datetime.utcnow deprecation warnings from legacy fixtures
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*utcnow\\(\\) is deprecated.*:DeprecationWarning"
+)
 
 
 # ============================================================================
@@ -86,7 +97,7 @@ class ArchiveMetadata:
                 }
                 for m in self.backup_manifests
             ],
-            "retention_policy": f"30-day retention for incident investigation",
+            "retention_policy": "30-day retention for incident investigation",
             "audit_log": self.audit_trail,
         }
 

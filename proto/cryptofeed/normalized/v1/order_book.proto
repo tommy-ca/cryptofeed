@@ -15,7 +15,7 @@ message Level2Book {
   string symbol = 2; // normalized trading pair (Cryptofeed OrderBook.symbol)
   repeated PriceLevel bids = 3; // sorted descending by price
   repeated PriceLevel asks = 4; // sorted ascending by price
-  optional int64 timestamp = 5; // microseconds since UNIX epoch (OrderBook.timestamp converted to µs)
+  int64 timestamp = 5; // microseconds since UNIX epoch (OrderBook.timestamp converted to µs)
   optional int64 sequence = 6; // exchange sequence number when available (OrderBook.sequence_number)
   optional string checksum = 7; // venue checksum for integrity validation (OrderBook.checksum)
 }

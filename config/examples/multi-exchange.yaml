@@ -1,0 +1,50 @@
+# Multi-Exchange Market Data Example
+# Subscribes to multiple exchanges simultaneously
+
+log:
+  filename: null
+  level: INFO
+
+uvloop: true
+ignore_invalid_instruments: true
+
+# Binance configuration
+binance:
+  channels:
+    - trades
+    - l2_book
+  symbols:
+    - BTC-USDT
+    - ETH-USDT
+
+# Coinbase configuration
+coinbase:
+  channels:
+    - trades
+    - l2_book
+  symbols:
+    - BTC-USD
+    - ETH-USD
+
+# Kraken configuration
+kraken:
+  channels:
+    - trades
+    - ticker
+  symbols:
+    - BTC-USD
+    - ETH-USD
+
+# Kafka backend configuration
+kafka:
+  bootstrap_servers: [kafka:29092]
+  acks: all
+  compression_type: snappy
+  enable_idempotence: true
+  topic_strategy: consolidated
+  partition_strategy: composite
+  request_timeout_ms: 30000
+  retries: 10
+  retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384

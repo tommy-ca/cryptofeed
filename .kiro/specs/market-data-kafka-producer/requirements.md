@@ -18,6 +18,29 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 
 ---
 
+## Scope Boundary (Per CLAUDE.md Architecture)
+
+**IN-SCOPE (Cryptofeed Producer):**
+- Kafka message production
+- Topic naming and partitioning
+- Protobuf serialization
+- Message headers
+- Producer monitoring (9 Prometheus metrics)
+- Producer error handling and delivery guarantees
+
+**OUT-OF-SCOPE (External Consumer Responsibility):**
+- Consumer implementations (Flink, DuckDB, QuixStreams, custom)
+- Storage backends (Iceberg, Parquet, DuckDB)
+- Analytics and aggregations
+- Retention policies and compaction
+- Query engines (Trino, Spark SQL)
+
+**Note:** Consumer documentation (Tasks 12, 13, 21, 23, 24) was created during
+Phase 5 execution to assist external consumers but is not a requirement
+for this producer specification.
+
+---
+
 ## Backend Separation
 
 ### Legacy Backend (DEPRECATED ⚠️)
@@ -120,6 +143,7 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 - Use `to_proto()` methods from Spec 1
 - Serialize all 20 data types (Trade, L2Book, Ticker, etc.)
 - Include schema version in message headers
+- Schema version MUST be sourced from `cryptofeed.backends.protobuf.bindings.SCHEMA_VERSION` (single authority; no hardcoded defaults in Kafka codepaths)
 - Support schema registry (Confluent or Buf)
 
 ### FR5: Delivery Guarantees
@@ -207,6 +231,8 @@ Provide high-performance Kafka producer integration for cryptofeed, serializing 
 - No message loss under normal operation (validation: ±0.1% tolerance)
 - Dead letter queue for failed messages (DLQHandler)
 - Exception boundaries: No silent failures
+- Internal asyncio queues used by the Kafka backend MUST preserve `asyncio.Queue` semantics: every `get()`/`get_nowait()` call is paired with a `task_done()` in a `finally` block so `queue.join()` can complete and queue state does not drift.
+- Violations of these queue contract semantics SHALL be treated as high-severity reliability defects and covered by regression tests (see `docs/solutions/runtime-errors/kafka-batch-drain-missing-task-done.md`).
 
 ### NFR3: Configuration
 - Pydantic-based configuration models (type-safe)
@@ -269,6 +295,28 @@ Consumer implements Spark Structured Streaming job aggregating trades into OHLCV
 - **Spec 1** (protobuf-callback-serialization): Provides `to_proto()` methods
 - **External**: Kafka cluster (3+ brokers recommended)
 - **External**: Schema registry (Confluent or Buf)
+
+## Compound Engineering Alignment
+
+- **Parallel Workstreams**:
+  - Normalized schemas (`normalized-data-schema-crypto`) define canonical message shapes.
+  - Protobuf serialization (`protobuf-callback-serialization`) produces binary payloads from normalized dataclasses.
+  - This spec owns the Kafka producer backend, topic/partition strategies, and operational tooling.
+  - E2E validation specs (e.g., `kafka-protobuf-binance-e2e`) exercise specific exchange→Kafka paths.
+- **Upstream Dependencies**:
+  - This spec SHALL treat schemas and serialization helpers as upstream contracts; any change to field semantics or serialization behavior must be implemented via the schema/serialization specs, not ad hoc in the Kafka backend.
+- **Downstream Consumers**:
+  - Downstream systems (Flink, QuixStreams, custom consumers) are separate workstreams that subscribe to Kafka topics and are responsible for storage and analytics; this spec only guarantees that topics and headers expose the information those streams need.
+
+## AI Agentic Implementation Constraints
+
+- AI agents working under this spec MUST:
+  - Restrict changes to Kafka backend code, configuration models, and tests scoped to this spec, and avoid modifying schemas or core serialization helpers unless the corresponding specs are explicitly updated.
+  - Prefer extending existing patterns (topic strategies, partitioners, header enrichers, metrics) rather than introducing parallel implementations or one-off code paths.
+  - Maintain the ingestion-layer-only boundary: no storage, query, or consumer business logic should be added to the Kafka backend.
+  - Use `KafkaProtobufCallback` for protobuf publishing; `KafkaCallback(serialization_format="protobuf")` is deprecated and will be removed after **January 31, 2026**.
+- When cross-stream behavior must change (e.g., schema fields, normalized types), agents SHALL:
+  - Propose or update the relevant upstream spec (`normalized-data-schema-crypto`, `protobuf-callback-serialization`) and reference it in design/tasks before changing Kafka producer behavior.
 
 ## Timeline (New Backend - Production Ready)
 

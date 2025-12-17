@@ -1,0 +1,34 @@
+# Binance SPOT Market Data Example
+# Subscribes to trades, L2 order book, and ticker data for BTC, ETH, and SOL
+
+log:
+  filename: null
+  level: INFO
+
+uvloop: true
+ignore_invalid_instruments: true
+
+# Binance exchange configuration
+binance:
+  channels:
+    - trades
+    - l2_book
+    - ticker
+  symbols:
+    - BTC-USDT
+    - ETH-USDT
+    - SOL-USDT
+
+# Kafka backend configuration
+kafka:
+  bootstrap_servers: [kafka:29092]
+  acks: all
+  compression_type: snappy
+  enable_idempotence: true
+  topic_strategy: consolidated
+  partition_strategy: composite
+  request_timeout_ms: 30000
+  retries: 10
+  retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384

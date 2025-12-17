@@ -7,6 +7,7 @@ associated with this software.
 import logging
 import time
 import asyncio
+import os
 from asyncio import Queue, CancelledError
 from contextlib import asynccontextmanager, suppress
 from typing import List, Union, AsyncIterable, Callable, Optional
@@ -16,7 +17,6 @@ import atexit
 from dataclasses import dataclass
 
 from aiohttp.client_reqrep import ClientResponse
-import requests
 from websockets.asyncio.client import connect, ClientConnection
 from websockets.protocol import State
 import aiohttp
@@ -42,6 +42,19 @@ class Connection:
 
 
 class HTTPSync(Connection):
+    """Synchronous HTTP client with proxy and timeout support.
+
+    DEPRECATED: HTTPSync is deprecated and will be removed in a future version.
+    Use HTTPAsyncConn for async HTTP calls, which provides better proxy integration
+    via ProxyInjector and non-blocking execution.
+
+    HTTPSync provides basic proxy and timeout support via environment variables:
+    - HTTP_PROXY / HTTPS_PROXY / CRYPTOFEED_HTTP_PROXY / CF_HTTP_PROXY: proxy URL
+    - CRYPTOFEED_HTTP_TIMEOUT / CF_HTTP_TIMEOUT: timeout in seconds (default 10)
+
+    SOCKS proxies are supported via aiohttp_socks when proxy URL starts with 'socks'.
+    """
+
     def process_response(self, r, address, json=False, text=False, uuid=None):
         if self.raw_data_callback:
             self.raw_data_callback.sync_callback(r.text, time.time(), str(uuid), endpoint=address)
@@ -54,18 +67,94 @@ class HTTPSync(Connection):
         return r
 
     def read(self, address: str, params=None, headers=None, json=False, text=True, uuid=None):
+        """Read from HTTP endpoint (GET request).
+
+        DEPRECATED: Use HTTPAsyncConn instead for better proxy integration.
+        """
+        import warnings
+        warnings.warn(
+            "HTTPSync is deprecated and will be removed in a future version. "
+            "Use HTTPAsyncConn for async HTTP calls with ProxyInjector integration.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         LOG.debug("HTTPSync: requesting data from %s", address)
-        r = requests.get(address, headers=headers, params=params)
-        return self.process_response(r, address, json=json, text=text, uuid=uuid)
+        timeout = float(os.getenv("CRYPTOFEED_HTTP_TIMEOUT", os.getenv("CF_HTTP_TIMEOUT", "10")))
+        proxy = os.getenv("CRYPTOFEED_HTTP_PROXY") or os.getenv("CF_HTTP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+        async def _do():
+            timeout_cfg = aiohttp.ClientTimeout(total=timeout)
+            connector = None
+            req_proxy = proxy
+            if proxy and proxy.startswith("socks"):
+                try:
+                    from aiohttp_socks import ProxyConnector  # type: ignore
+                except ModuleNotFoundError as exc:
+                    raise ImportError(
+                        "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                    ) from exc
+                connector = ProxyConnector.from_url(proxy)
+                req_proxy = None
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout_cfg) as session:
+                async with session.get(address, params=params, headers=headers, proxy=req_proxy) as resp:
+                    text_body = await resp.text()
+                    resp.raise_for_status()
+                    class _Resp:
+                        status_code = resp.status
+                        text = text_body
+                        def json(self_inner):
+                            return json_loads(text_body, parse_float=Decimal)
+                        def raise_for_status(self_inner):
+                            # No-op: already called on line 98
+                            pass
+                    return _Resp()
+        resp_obj = asyncio.run(_do())
+        return self.process_response(resp_obj, address, json=json, text=text, uuid=uuid)
 
     def write(self, address: str, data=None, json=False, text=True, uuid=None, is_data_json=False):
-        LOG.debug("HTTPSync: post to %s", address)
-        if (is_data_json):
-            r = requests.post(address, json=data)
-        else:
-            r = requests.post(address, data=data)
+        """Write to HTTP endpoint (POST request).
 
-        return self.process_response(r, address, json=json, text=text, uuid=uuid)
+        DEPRECATED: Use HTTPAsyncConn instead for better proxy integration.
+        """
+        import warnings
+        warnings.warn(
+            "HTTPSync is deprecated and will be removed in a future version. "
+            "Use HTTPAsyncConn for async HTTP calls with ProxyInjector integration.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
+        LOG.debug("HTTPSync: post to %s", address)
+        timeout = float(os.getenv("CRYPTOFEED_HTTP_TIMEOUT", os.getenv("CF_HTTP_TIMEOUT", "10")))
+        proxy = os.getenv("CRYPTOFEED_HTTP_PROXY") or os.getenv("CF_HTTP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+        async def _do():
+            timeout_cfg = aiohttp.ClientTimeout(total=timeout)
+            connector = None
+            req_proxy = proxy
+            if proxy and proxy.startswith("socks"):
+                try:
+                    from aiohttp_socks import ProxyConnector  # type: ignore
+                except ModuleNotFoundError as exc:
+                    raise ImportError(
+                        "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                    ) from exc
+                connector = ProxyConnector.from_url(proxy)
+                req_proxy = None
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout_cfg) as session:
+                async with session.post(address, json=data if is_data_json else None, data=None if is_data_json else data, proxy=req_proxy) as resp:
+                    text_body = await resp.text()
+                    resp.raise_for_status()
+                    class _Resp:
+                        status_code = resp.status
+                        text = text_body
+                        def json(self_inner):
+                            return json_loads(text_body, parse_float=Decimal)
+                        def raise_for_status(self_inner):
+                            # No-op: already called above
+                            pass
+                    return _Resp()
+        resp_obj = asyncio.run(_do())
+        return self.process_response(resp_obj, address, json=json, text=text, uuid=uuid)
 
 
 class AsyncConnection(Connection):
@@ -311,8 +400,23 @@ class HTTPAsyncConn(AsyncConnection):
 
 
 class HTTPPoll(HTTPAsyncConn):
-    def __init__(self, address: Union[List, str], conn_id: str, delay: float = 60, sleep: float = 1, proxy: StrOrURL = None):
-        super().__init__(f'{conn_id}.http.{self.conn_count}', proxy)
+    def __init__(
+        self,
+        address: Union[List, str],
+        conn_id: str,
+        delay: float = 60,
+        sleep: float = 1,
+        proxy: StrOrURL = None,
+        exchange_id: str | None = None,
+    ):
+        """HTTP polling connection.
+
+        exchange_id defaults to ``conn_id`` so that proxy settings keyed by
+        the exchange identifier (for example ``BINANCE_FUTURES``) apply
+        consistently to both WebSocket and HTTP polling connections.
+        """
+
+        super().__init__(f"{conn_id}.http.{self.conn_count}", proxy, exchange_id=exchange_id or conn_id)
         if isinstance(address, str):
             address = [address]
         self.address = address

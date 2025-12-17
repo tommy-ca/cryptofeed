@@ -9,6 +9,7 @@ import asyncio
 from decimal import Decimal
 import logging
 from datetime import datetime as dt, timezone
+from urllib.parse import urlparse
 from typing import AsyncGenerator, Dict, List, Optional, Tuple, Union, ClassVar, Any
 
 from cryptofeed.defines import (
@@ -33,9 +34,99 @@ from cryptofeed.exceptions import (
     UnsupportedTradingOption,
 )
 from cryptofeed.config import Config
+from cryptofeed.json_utils import loads as json_loads
+from cryptofeed.proxy import get_proxy_injector
+from pydantic import Field, AliasChoices
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LOG = logging.getLogger("feedhandler")
+
+
+async def _fetch_json_via_proxy(url: str, proxy_url: str | None, timeout: int, headers=None):
+    """
+    Fetch JSON using aiohttp with optional proxy. Supports HTTP/HTTPS/SOCKS via ProxyInjector.
+    """
+    from aiohttp import ClientSession, ClientTimeout
+
+    connector = None
+    request_proxy = proxy_url
+    if proxy_url:
+        scheme = urlparse(proxy_url).scheme.lower()
+        if scheme.startswith("socks"):
+            try:
+                from aiohttp_socks import ProxyConnector  # type: ignore
+            except ModuleNotFoundError as exc:
+                raise ImportError(
+                    "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                ) from exc
+            connector = ProxyConnector.from_url(proxy_url)
+            request_proxy = None  # handled by connector
+
+    timeout_cfg = ClientTimeout(total=timeout)
+    async with ClientSession(connector=connector, timeout=timeout_cfg) as session:
+        async with session.get(url, proxy=request_proxy, headers=headers) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            return json_loads(text, parse_float=Decimal)
+
+
+async def _fetch_all_symbol_urls(urls: List[str], proxy_url: str | None, headers: dict | None, timeout: int):
+    data = []
+    for url in urls:
+        LOG.debug("symbol mapping: fetching %s", url)
+        data.append(await _fetch_json_via_proxy(url, proxy_url, timeout, headers=headers))
+    return data
+
+
+def _run_async_fetch(coro):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    if loop.is_running():
+        import threading
+
+        result = {"value": None, "exc": None}
+
+        def _runner():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                result["value"] = new_loop.run_until_complete(coro)
+            except Exception as exc:  # pragma: no cover - propagated back
+                result["exc"] = exc
+            finally:
+                new_loop.close()
+
+        t = threading.Thread(target=_runner, daemon=True)
+        t.start()
+        t.join()
+        if result["exc"]:
+            raise result["exc"]
+        return result["value"]
+    return loop.run_until_complete(coro)
+
+
+class ExchangeRuntimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_nested_delimiter="__", extra="ignore")
+
+    symbol_fetch_timeout: float = Field(
+        default=10.0,
+        validation_alias=AliasChoices(
+            "CRYPTOFEED_SYMBOL_FETCH_TIMEOUT", "CF_SYMBOL_FETCH_TIMEOUT"
+        ),
+    )
+    listen_key_timeout: float = Field(
+        default=10.0,
+        validation_alias=AliasChoices(
+            "CRYPTOFEED_LISTEN_KEY_TIMEOUT", "CF_LISTEN_KEY_TIMEOUT"
+        ),
+    )
+
+
+def _symbol_timeout_seconds() -> float:
+    return float(ExchangeRuntimeSettings().symbol_fetch_timeout)
 
 
 class Exchange:
@@ -160,25 +251,23 @@ class Exchange:
     def symbol_mapping(cls, refresh=False, headers: dict = None) -> Dict:
         if Symbols.populated(cls.id) and not refresh:
             return Symbols.get(cls.id)[0]
+        injector = get_proxy_injector()
+        proxy_url = None
+        def release():
+            pass
+        if injector:
+            proxy_url, release = injector.lease_proxy(cls.id.lower(), "http")
         try:
-            data = []
+            urls: List[str] = []
             for ep in cls.rest_endpoints:
                 addr = cls._symbol_endpoint_prepare(ep)
-                if isinstance(addr, list):
-                    for ep in addr:
-                        LOG.debug("%s: reading symbol information from %s", cls.id, ep)
-                        data.append(
-                            cls.http_sync.read(
-                                ep, json=True, headers=headers, uuid=cls.id
-                            )
-                        )
-                else:
-                    LOG.debug("%s: reading symbol information from %s", cls.id, addr)
-                    data.append(
-                        cls.http_sync.read(
-                            addr, json=True, headers=headers, uuid=cls.id
-                        )
-                    )
+                urls.extend(addr if isinstance(addr, list) else [addr])
+
+            if not urls:
+                raise ValueError(f"{cls.id}: no symbol endpoints configured")
+
+            timeout_seconds = _symbol_timeout_seconds()
+            data = _run_async_fetch(_fetch_all_symbol_urls(urls, proxy_url, headers, timeout_seconds))
 
             syms, info = cls._parse_symbol_data(data if len(data) > 1 else data[0])
             Symbols.set(cls.id, syms, info)
@@ -191,6 +280,8 @@ class Exchange:
                 exc_info=True,
             )
             raise
+        finally:
+            release()
 
     @classmethod
     def std_channel_to_exchange(cls, channel: str) -> str:

@@ -126,6 +126,23 @@ graph TD
 - **Decimal Precision**: Document recommended fixed-point scaling and highlight
   potential overflow scenarios in DBN alignment notes.
 
+## Compound Workstreams & Boundaries
+
+- **Workstream Decomposition**:
+  - Schema inventory and Buf generation are owned by this spec.
+  - Serialization, Kafka production, and E2E validation are separate specs that consume the generated modules.
+  - External parity (tardis/DBN) and regression tooling are follow-on streams that align their sources to this canonical contract.
+- **Interfaces & Contracts**:
+  - Input: Cryptofeed dataclasses and any approved external metadata.
+  - Output: versioned Buf modules published to the BSR that downstream specs MUST treat as the single schema source.
+
+## AI Agent Design Guidance
+
+- AI agents extending this design MUST:
+  - Keep schema evolution centralized in this spec, avoiding ad hoc `.proto` changes in downstream codebases.
+  - Use the documented inventory and generation pipeline when adding or changing fields, and update parity/serialization specs accordingly.
+  - Ensure any automated tools they introduce (generators, linters, CI steps) respect the governance and breaking-change rules defined here.
+
 ## Implementation Roadmap
 1. **Phase 0 – Inventory Bootstrap**: Harvest fields, populate comparison
    matrix, resolve conflicts for critical events (trades, L2 book).

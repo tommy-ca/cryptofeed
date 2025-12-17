@@ -13,12 +13,6 @@ Key Features:
 import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional, List
-from pydantic import ValidationError
-
-
-class ValidationError(Exception):
-    """Validation error raised during config validation."""
-    pass
 
 
 class ValidationResult:
@@ -301,10 +295,10 @@ class ConfigValidator:
             ValueError: If configuration is invalid
         """
         try:
-            from cryptofeed.kafka_callback import KafkaConfig
+            from cryptofeed.backends.kafka.callback import KafkaConfig
             return KafkaConfig.from_dict(config_dict)
         except ImportError:
-            # If kafka_callback not available, use simplified validation
+            # If kafka backend not available, use simplified validation
             return None
         except Exception as e:
             raise ValueError(f"Failed to create KafkaConfig: {e}")

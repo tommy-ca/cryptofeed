@@ -16,3 +16,25 @@ repos:
         types: [python]
         files: >-
           ^(cryptofeed/(connection\.py|proxy\.py|exchanges/native/ws\.py|exchanges/backpack/feed\.py))$
+      - id: format-changed
+        name: format changed files only
+        entry: python tools/format-changed.py --staged
+        language: system
+        files: \.py$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: lint-changed
+        name: lint changed files only
+        entry: bash -c 'git diff --cached --name-only -- "*.py" | xargs ruff check --fix'
+        language: system
+        files: \.py$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: check-legacy-kafka
+        name: check legacy kafka.py modifications
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^cryptofeed/backends/kafka\.py$"; then echo "⚠️  WARNING: Modifying legacy backend (cryptofeed/backends/kafka.py)"; echo "This backend is FROZEN except for critical fixes."; echo "New features must go to cryptofeed/backends/kafka/* modules."; echo "See: .kiro/specs/kafka-backend-maintenance/requirements.md"; echo ""; echo "If this is a critical fix, proceed with caution."; echo "If this is a feature, please implement in modern backend."; fi'
+        language: system
+        files: ^cryptofeed/backends/kafka\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true

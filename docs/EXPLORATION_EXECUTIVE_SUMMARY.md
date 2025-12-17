@@ -16,7 +16,7 @@ The protobuf serialization implementation is split across 4 core modules with **
 |--------|-------|-----|--------|-----------------|
 | **serializers/** | 5 | 258 | Excellent design | KEEP AS-IS |
 | **proto_wrappers/** | 16 | 820 | Repetitive (14 similar files) | CONSOLIDATE |
-| **proto_bindings/** | 1 | 80 | Minimal wrapper | KEEP AS-IS |
+| **proto_bindings/** | removed | — | Legacy shim removed; use `cryptofeed/backends/protobuf/bindings.py` | N/A |
 | **backends/** | 4 | 236 | Clean integration | KEEP AS-IS |
 
 ### Critical Metrics
@@ -45,7 +45,7 @@ backend.py → serializers.formats (env/explicit/default resolution)
 |---|---|---|
 | `serializers/` | All 3 backends lose serialization abstraction | **HIGH** |
 | `proto_wrappers/` | All protobuf serialization fails, no converters | **CRITICAL** |
-| `proto_bindings/` | All wrapper modules fail to import proto messages | **CRITICAL** |
+| `proto_bindings/` | Legacy shim removed; bindings now live under `cryptofeed/backends/protobuf/` | N/A |
 | `backends/` | No callback mechanism, core feature broken | **CRITICAL** |
 
 **Conclusion**: All modules are essential. No module can be safely removed without breaking functionality.
@@ -79,7 +79,7 @@ registry.py (116 LOC) - Dispatcher (unchanged logic)
 ### Phase 2-4: Keep Everything Else (MANDATORY)
 
 - ✓ **serializers/** - Already modular and extensible
-- ✓ **proto_bindings/** - Already minimal (1 file)
+- ✗ **proto_bindings/** - Legacy shim removed; rely on `cryptofeed/backends/protobuf/bindings.py`
 - ✓ **backends/** - Already clean integration layer
 
 ---

@@ -10,6 +10,7 @@ from socket import error as socket_error
 import time
 from typing import Awaitable
 import zlib
+import contextlib
 
 from websockets import ConnectionClosed
 
@@ -34,6 +35,7 @@ class ConnectionHandler:
         self.timeout_interval = timeout_interval
         self.running = True
         self.start_delay = start_delay
+        self._watcher_task: asyncio.Task | None = None
 
     def start(self, loop: asyncio.AbstractEventLoop):
         loop.create_task(self._create_connection())
@@ -82,8 +84,16 @@ class ConnectionHandler:
             await self.subscribe(connection)
             if self.timeout != -1:
                 loop = asyncio.get_running_loop()
-                loop.create_task(self._watcher())
+                self._watcher_task = loop.create_task(self._watcher())
             await self._handler(connection, self.handler)
+        await self._cancel_watcher()
+
+    async def _cancel_watcher(self) -> None:
+        if self._watcher_task and not self._watcher_task.done():
+            self._watcher_task.cancel()
+            with contextlib.suppress(Exception):
+                await self._watcher_task
+        self._watcher_task = None
 
     async def _handle_retry(self, exc: Exception, delay: float, log_method, *, include_exc_message: bool) -> None:
         if self._should_raise(exc):

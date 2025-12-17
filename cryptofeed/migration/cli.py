@@ -16,7 +16,6 @@ Usage:
 """
 
 import sys
-from pathlib import Path
 from typing import Any, Dict, Optional, List
 from dataclasses import dataclass
 import argparse

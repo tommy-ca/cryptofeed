@@ -5,13 +5,13 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import logging
+import asyncio
 from asyncio import create_task, sleep
 from collections import defaultdict
 from decimal import Decimal
-import requests
 import time
 from typing import Dict, Union, Tuple
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from cryptofeed.json_utils import json
 
@@ -21,10 +21,52 @@ from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol
 from cryptofeed.exchanges.mixins.binance_rest import BinanceRestMixin
 from cryptofeed.types import Trade, Ticker, Candle, Liquidation, Funding, OrderBook, OrderInfo, Balance
+from cryptofeed.proxy import get_proxy_injector
+from cryptofeed.exchange import ExchangeRuntimeSettings
 
 REFRESH_SNAPSHOT_MIN_INTERVAL_SECONDS = 60
 
 LOG = logging.getLogger('feedhandler')
+
+
+async def _http_request_with_proxy(method: str, url: str, headers: dict, proxy_url: str | None, timeout: int, data=None):
+    from aiohttp import ClientSession, ClientTimeout
+
+    connector = None
+    request_proxy = proxy_url
+    if proxy_url:
+        scheme = urlparse(proxy_url).scheme.lower()
+        if scheme.startswith("socks"):
+            try:
+                from aiohttp_socks import ProxyConnector  # type: ignore
+            except ModuleNotFoundError as exc:
+                raise ImportError(
+                    "aiohttp-socks is required for SOCKS proxy support. Install with: pip install aiohttp-socks"
+                ) from exc
+            connector = ProxyConnector.from_url(proxy_url)
+            request_proxy = None
+
+    timeout_cfg = ClientTimeout(total=timeout)
+    async with ClientSession(connector=connector, timeout=timeout_cfg) as session:
+        async with session.request(method, url, headers=headers, data=data, proxy=request_proxy) as resp:
+            resp.raise_for_status()
+            if resp.content_type == "application/json":
+                return await resp.json()
+            return await resp.text()
+
+
+def _run_listenkey_request_sync(coro):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    if loop.is_running():
+        raise RuntimeError("listen-key request cannot run inside running event loop")
+    return loop.run_until_complete(coro)
+
+
+def _listen_key_timeout_seconds() -> float:
+    return float(ExchangeRuntimeSettings().listen_key_timeout)
 
 
 class Binance(Feed, BinanceRestMixin):
@@ -155,19 +197,48 @@ class Binance(Feed, BinanceRestMixin):
             if self._auth_token is None:
                 raise ValueError('There is no token to refresh')
             payload = {'listenKey': self._auth_token}
-            r = requests.put(f'{self.rest_endpoints[0].route("authentication", sandbox=self.sandbox)}?{urlencode(payload)}', headers={'X-MBX-APIKEY': self.key_id})
-            r.raise_for_status()
+            injector = get_proxy_injector()
+            proxy_url = None
+            def release():
+                pass
+            if injector:
+                proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
+            try:
+                await _http_request_with_proxy(
+                    "PUT",
+                    f'{self.rest_endpoints[0].route("authentication", sandbox=self.sandbox)}?{urlencode(payload)}',
+                    headers={'X-MBX-APIKEY': self.key_id},
+                    proxy_url=proxy_url,
+                    timeout=_listen_key_timeout_seconds(),
+                )
+            finally:
+                release()
 
     def _generate_token(self) -> str:
         url = self.rest_endpoints[0].route('authentication', sandbox=self.sandbox)
-        r = requests.post(url, headers={'X-MBX-APIKEY': self.key_id})
-        r.raise_for_status()
-        response = r.json()
-        if 'listenKey' in response:
+        injector = get_proxy_injector()
+        proxy_url = None
+        def release():
+            pass
+        if injector:
+            proxy_url, release = injector.lease_proxy(self.id.lower(), "http")
+        try:
+            response = _run_listenkey_request_sync(
+                _http_request_with_proxy(
+                    "POST",
+                    url,
+                    headers={'X-MBX-APIKEY': self.key_id},
+                    proxy_url=proxy_url,
+                    timeout=_listen_key_timeout_seconds(),
+                )
+            )
+        finally:
+            release()
+
+        if isinstance(response, dict) and 'listenKey' in response:
             self._auth_token = response['listenKey']
             return self._auth_token
-        else:
-            raise ValueError(f'Unable to retrieve listenKey token from {url}')
+        raise ValueError(f'Unable to retrieve listenKey token from {url}')
 
     async def _trade(self, msg: dict, timestamp: float):
         """
@@ -185,14 +256,33 @@ class Binance(Feed, BinanceRestMixin):
             "M": true         // Ignore
         }
         """
+        # Extract new protobuf v2beta1 fields (REQ-1: Task 7.1)
+        maker = msg.get('m')  # boolean: True if buyer is maker
+        event_time = msg.get('E')
+        if event_time is not None:
+            event_time = event_time / 1000  # Convert milliseconds to seconds
+
+        # Extract trade ID and match_id from 'a' field (aggregate trade ID)
+        trade_id = msg.get('a')
+        match_id = None
+        if trade_id is not None:
+            trade_id = str(trade_id)
+            match_id = trade_id  # match_id is same as trade ID
+
+        # Determine side (use .get() for graceful handling of missing 'm' field)
+        side = SELL if msg.get('m', False) else BUY
+
         t = Trade(self.id,
                   self.exchange_symbol_to_std_symbol(msg['s']),
-                  SELL if msg['m'] else BUY,
+                  side,
                   Decimal(msg['q']),
                   Decimal(msg['p']),
                   self.timestamp_normalize(msg['T']),
-                  id=str(msg['a']),
-                  raw=msg)
+                  id=trade_id,
+                  raw=msg,
+                  maker=maker,
+                  event_time=event_time,
+                  match_id=match_id)
         await self.callback(TRADES, t, timestamp)
 
     async def _ticker(self, msg: dict, timestamp: float):
@@ -335,7 +425,18 @@ class Binance(Feed, BinanceRestMixin):
                 else:
                     self._l2_book[pair].book[side][price] = amount
 
-        await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, timestamp=self.timestamp_normalize(msg['E']), raw=msg, delta=delta, sequence_number=self.last_update_id[pair])
+        # Extract new protobuf v2beta1 fields (REQ-1: Task 7.2)
+        event_time = msg.get('E')
+        if event_time is not None:
+            event_time = event_time / 1000  # Convert milliseconds to seconds
+            self._l2_book[pair].event_time = event_time
+
+        last_update_id = msg.get('u')  # Final update ID in event
+        if last_update_id is not None:
+            self._l2_book[pair].last_update_id = last_update_id
+
+        book_timestamp = self.timestamp_normalize(msg['E']) if 'E' in msg else None
+        await self.book_callback(L2_BOOK, self._l2_book[pair], timestamp, timestamp=book_timestamp, raw=msg, delta=delta, sequence_number=self.last_update_id[pair])
 
     async def _funding(self, msg: dict, timestamp: float):
         """
@@ -498,6 +599,15 @@ class Binance(Feed, BinanceRestMixin):
 
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
+
+        # REST polling connections (e.g., Binance USDⓈ-M futures open interest) send
+        # bare JSON payloads without the combined-stream wrapper.
+        if isinstance(conn, (HTTPPoll, HTTPConcurrentPoll)):
+            if "openInterest" in msg and "symbol" in msg and hasattr(self, "_open_interest"):
+                await self._open_interest(msg, timestamp)
+            else:
+                LOG.warning("%s: Unexpected REST message received: %s", self.id, msg)
+            return
 
         # Handle account updates from User Data Stream
         if self.requires_authentication:

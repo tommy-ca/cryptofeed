@@ -11,6 +11,7 @@ from redis import asyncio as aioredis
 from cryptofeed.json_utils import json
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendCallback, BackendQueue
+from cryptofeed.backends.protobuf.helpers import serialize_to_protobuf
 
 
 class RedisCallback(BackendQueue):
@@ -47,7 +48,6 @@ class RedisCallback(BackendQueue):
     async def __call__(self, dtype, receipt_timestamp: float):
         # Handle protobuf format explicitly to wrap payload in dict
         if self.serialization_format == 'protobuf':
-            from cryptofeed.backends.protobuf_helpers import serialize_to_protobuf
 
             payload = serialize_to_protobuf(dtype)
             metadata = {

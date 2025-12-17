@@ -1,0 +1,182 @@
+# Docker Compose Development Orchestration for Cryptofeed
+# =============================================================================
+# This file defines a complete development environment with:
+# - Cryptofeed market data ingestion service
+# - Kafka broker in KRaft mode (no Zookeeper required)
+# - Health checks and resource limits
+# - Volume mounts for configuration files
+#
+# Requirements:
+#   - Docker Engine 20.10+ (released Dec 2020)
+#   - Docker Compose V2 (docker compose, not docker-compose)
+#   - Note: 'version' field is deprecated in Compose V2 and has been removed
+#
+# Quick Start:
+#   1. Copy .env.example to .env and configure API keys
+#   2. Ensure config/config.yaml and config/proxy.yaml exist
+#   3. Run: docker compose up  (or docker-compose up for legacy CLI)
+#   4. Access health check: http://localhost:8080/health
+#   5. Access metrics: http://localhost:9090/metrics
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Kafka Broker (KRaft mode - no Zookeeper)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka-native:latest
+    container_name: cryptofeed-kafka
+    hostname: kafka
+
+    ports:
+      - "9092:9092"  # Kafka broker port (external access)
+      - "9093:9093"  # Controller port (KRaft)
+
+    environment:
+      # KRaft mode configuration (Kafka Raft - no Zookeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Listener configuration
+      # PLAINTEXT: Internal container-to-container communication
+      # PLAINTEXT_HOST: External access from host machine
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Cluster configuration
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # Log configuration
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk  # Fixed cluster ID for development
+
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+    networks:
+      - cryptofeed-network
+
+  # ---------------------------------------------------------------------------
+  # Cryptofeed Market Data Ingestion Service
+  # ---------------------------------------------------------------------------
+  cryptofeed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-}
+        GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-}
+        GIT_BRANCH: ${GIT_BRANCH:-main}
+
+    container_name: cryptofeed-service
+    hostname: cryptofeed
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    ports:
+      - "8080:8080"  # Health check endpoint
+      - "9090:9090"  # Prometheus metrics endpoint
+
+    environment:
+      # Kafka Configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_ACKS: all
+      KAFKA_COMPRESSION_TYPE: snappy
+      KAFKA_PARTITION_STRATEGY: ${KAFKA_PARTITION_STRATEGY:-composite}
+
+      # Exchange API Keys (loaded from .env file)
+      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
+      COINBASE_API_KEY: ${COINBASE_API_KEY:-}
+      COINBASE_API_SECRET: ${COINBASE_API_SECRET:-}
+      COINBASE_API_PASSPHRASE: ${COINBASE_API_PASSPHRASE:-}
+      KRAKEN_API_KEY: ${KRAKEN_API_KEY:-}
+      KRAKEN_API_SECRET: ${KRAKEN_API_SECRET:-}
+      BYBIT_API_KEY: ${BYBIT_API_KEY:-}
+      BYBIT_API_SECRET: ${BYBIT_API_SECRET:-}
+      OKX_API_KEY: ${OKX_API_KEY:-}
+      OKX_API_SECRET: ${OKX_API_SECRET:-}
+      OKX_API_PASSPHRASE: ${OKX_API_PASSPHRASE:-}
+
+      # Proxy Configuration
+      PROXY_HTTP: ${PROXY_HTTP:-}
+      PROXY_SOCKS5: ${PROXY_SOCKS5:-}
+      PROXY_CONFIG_PATH: /config/proxy.yaml
+
+      # Health Check Configuration
+      HEALTH_PORT: 8080
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+
+      # Prometheus Metrics
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
+
+    volumes:
+      # Configuration files (read-only)
+      - ./config/config.yaml:/config/config.yaml:ro
+      - ./config/proxy.yaml:/config/proxy.yaml:ro
+
+      # Temporary directories (writable)
+      - /tmp
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    networks:
+      - cryptofeed-network
+
+    restart: unless-stopped
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  cryptofeed-network:
+    driver: bridge
+    name: cryptofeed-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  kafka-data:
+    driver: local
+    name: cryptofeed-kafka-data

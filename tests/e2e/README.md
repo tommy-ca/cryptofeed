@@ -6,6 +6,18 @@ This directory contains scripts and configuration for reproducible E2E testing u
 
 ## Quick Start
 
+### Standard uv workflow (tests)
+
+```bash
+uv venv --python 3.12
+source .venv-e2e/bin/activate
+uv pip install -r tests/e2e/requirements-e2e-lock.txt
+pytest tests/unit/test_proxy_mvp.py -v
+```
+
+- If uv is missing: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- You can also use `uv run pytest …` without activation, but activation keeps commands simple.
+
 ### 1. Setup Environment (First Time)
 
 ```bash

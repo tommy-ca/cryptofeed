@@ -1,0 +1,40 @@
+# Cryptofeed Configuration
+# See config/examples/ for working examples
+
+log:
+  filename: null
+  level: INFO
+
+uvloop: true
+ignore_invalid_instruments: true
+backend_multiprocessing: false
+
+# Exchange subscriptions
+# Uncomment and configure exchanges you want to use
+# See config/examples/ for complete examples
+
+# binance:
+#   channels: [trades, l2_book, ticker]
+#   symbols: [BTC-USDT, ETH-USDT]
+
+# coinbase:
+#   channels: [trades, l2_book]
+#   symbols: [BTC-USD, ETH-USD]
+
+# Kafka backend configuration
+kafka:
+  bootstrap_servers: [kafka:29092]
+  acks: all
+  compression_type: snappy
+  enable_idempotence: true
+  topic_strategy: consolidated
+  partition_strategy: composite
+  request_timeout_ms: 30000
+  retries: 10
+  retry_backoff_ms: 100
+  linger_ms: 10
+  batch_size: 16384
+
+# API credentials are loaded from environment variables
+# Set BINANCE_API_KEY, COINBASE_API_KEY, etc. in docker-compose.yml
+# See .env.example for all supported exchanges

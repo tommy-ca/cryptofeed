@@ -86,6 +86,8 @@ This specification establishes the foundation for protobuf-native data serializa
 5. **WHEN** a callback receives a data object and the serialization format is protobuf **THEN** the callback SHALL call `.SerializeToString()` on the protobuf message to obtain binary bytes
 6. **WHEN** a callback receives a data object and the serialization format is JSON **THEN** the callback SHALL invoke existing `to_dict()` or dictionary conversion to obtain JSON-serializable structure
 7. **WHEN** both JSON and Protobuf formats are available **THEN** both serialization paths SHALL operate independently without interference or state coupling
+8. **WHEN** protobuf serialization occurs **THEN** the schema version used for headers and validation SHALL be read from the single authority `cryptofeed.backends.protobuf.bindings.SCHEMA_VERSION` (no duplicated defaults)
+9. **WHEN** protobuf serialization is requested via `KafkaCallback(serialization_format="protobuf")` **THEN** the system SHALL emit a deprecation warning directing operators to `KafkaProtobufCallback`, with removal scheduled after **January 31, 2026**
 
 ---
 
@@ -299,6 +301,28 @@ This specification establishes the foundation for protobuf-native data serializa
 **Downstream (Depends on this spec)**:
 - `quixstreams-integration` (Spec 2) — requires Kafka topics with protobuf-serialized messages
 - `lakehouse-backend-adapter` (Spec 3) — requires protobuf-serialized Kafka streams for ingestion
+
+---
+
+## Compound Engineering Alignment
+
+- **Parallel Workstreams**:
+  - Schema definition (`normalized-data-schema-crypto`) provides canonical message shapes.
+  - This spec owns protobuf serialization helpers and converter registry.
+  - Kafka producer specs (`market-data-kafka-producer`, E2E specs) consume these helpers as upstream contracts.
+- **Upstream/Downstream Contracts**:
+  - Upstream: any change to normalized schemas must be reflected here via converter updates and tests.
+  - Downstream: Kafka backends and E2E specs MUST treat this module as the single source of truth for serialization behavior and error semantics (e.g., `ProtobufEncodeError`).
+
+## AI Agentic Implementation Constraints
+
+- AI agents working under this spec MUST:
+  - Keep all serialization logic consolidated in the backend helpers module (and its successors), avoiding the re-introduction of distributed wrapper/serializer hierarchies.
+  - Update converters and registry entries in lockstep with schema changes, and extend or add tests to cover new paths instead of forking logic.
+  - Avoid embedding transport-specific behavior (Kafka, Redis, etc.) into converter functions; transport handling belongs in downstream specs/backends.
+- Cross-spec work (e.g., adding new normalized fields) SHALL:
+  - Start from `normalized-data-schema-crypto`, then propagate into this spec via converter updates and tests.
+  - Be referenced explicitly when AI agents modify converters, so downstream specs can rely on consistent semantics.
 
 ---
 

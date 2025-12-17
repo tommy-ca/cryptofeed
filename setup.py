@@ -20,9 +20,11 @@ _BASE_REQUIREMENTS = [
     "cython",
     "order_book>=0.6.1",
     "pyyaml",
-    "requests>=2.18.4",
+    # requests no longer required at runtime; aiohttp used for HTTP paths
     "websockets>=14.1",
     "orjson>=3.10.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
 ]
 
 
@@ -95,15 +97,15 @@ setup(
     url="https://github.com/bmoscon/cryptofeed",
     packages=find_packages(exclude=['tests*']),
     cmdclass={'test': Test},
-    python_requires='>=3.9',
+    python_requires='>=3.10',
     classifiers=[
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Framework :: AsyncIO",
     ],
     tests_require=["pytest"],

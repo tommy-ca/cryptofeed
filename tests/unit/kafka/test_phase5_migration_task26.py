@@ -14,16 +14,25 @@ Test Strategy:
 
 from __future__ import annotations
 
-import asyncio
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from decimal import Decimal
+import warnings
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List, Optional
 
 import pytest
+
+# Silence deprecation warnings from datetime.utcnow in legacy fixtures
+warnings.filterwarnings(
+    "ignore",
+    message=r".*utcnow\(\).*",
+    category=DeprecationWarning,
+)
+
+# Pytest-level filter for datetime.utcnow deprecation warnings from legacy fixtures
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*utcnow\\(\\) is deprecated.*:DeprecationWarning"
+)
 
 
 # ============================================================================

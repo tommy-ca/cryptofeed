@@ -10,18 +10,11 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import time
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
 
 import pytest
-
-from cryptofeed.types import Trade, Ticker
 
 
 LOG = logging.getLogger("feedhandler")
@@ -349,7 +342,7 @@ class TestDLQHandler:
 
     def test_dlq_error_classification(self):
         """Test classification of permanent vs transient errors."""
-        from cryptofeed.backends.kafka_dlq import DLQHandler, ErrorClassifier
+        from cryptofeed.backends.kafka_dlq import ErrorClassifier
 
         classifier = ErrorClassifier()
 

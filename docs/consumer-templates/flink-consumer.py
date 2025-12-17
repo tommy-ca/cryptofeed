@@ -19,11 +19,8 @@ from pyflink.datastream import StreamExecutionEnvironment, RuntimeExecutionMode
 from pyflink.datastream.functions import MapFunction
 from pyflink.datastream.connectors.kafka import (
     FlinkKafkaConsumer,
-    KafkaSource,
-    KafkaOffsetsInitializer,
 )
 from pyflink.datastream.formats.protobuf import ProtobufDeserializationSchema
-from pyflink.common.serialization import SimpleStringSchema
 import logging
 
 
@@ -210,7 +207,7 @@ def example_flink_job():
     env = consumer.create_environment()
 
     # Step 3: Create source
-    kafka_source = consumer.create_kafka_source(env)
+    consumer.create_kafka_source(env)
 
     # Step 4: Add transformations
     # - Map to extract headers
