@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, Optional
@@ -488,7 +489,8 @@ class KafkaCallback(KafkaBackendBase):
         enable_batch_drain: bool = True,
         batch_drain_size: int = 50,
         enable_partition_key_cache: bool = True,
-        partition_key_cache_size: int = 1000,
+        partition_key_cache_size: int = 10000,  # Increased from 1000 for TODO #011
+        poll_batch_size: int = 100,  # TODO #010: Batch polling optimization
         enable_header_precomputation: bool = True,
         drain_frequency_ms: int = 10,
         metrics_exporter=None,  # DEPRECATED: kept for backward compatibility
@@ -585,12 +587,17 @@ class KafkaCallback(KafkaBackendBase):
         self._topic_manager = TopicManager()
 
         # Add partition key cache if enabled (Task 17.1 - secondary optimization)
+        # TODO #011: Use OrderedDict for proper LRU eviction
         if self._enable_partition_key_cache:
-            self._partition_key_cache: Dict[tuple, Optional[bytes]] = {}
+            self._partition_key_cache: OrderedDict[tuple, Optional[bytes]] = OrderedDict()
             self._partition_cache_hits = 0
             self._partition_cache_misses = 0
         else:
             self._partition_key_cache = None
+
+        # TODO #010: Batch polling optimization
+        self._poll_counter = 0
+        self._poll_batch_size = poll_batch_size
 
         # Store header configuration (inlined from HeaderEnricher)
         self._header_content_type = (
@@ -736,8 +743,10 @@ class KafkaCallback(KafkaBackendBase):
             cache_key = (exchange, symbol)
 
             # Check cache first
+            # TODO #011: Mark as recently used for proper LRU
             if cache_key in self._partition_key_cache:
                 self._partition_cache_hits += 1
+                self._partition_key_cache.move_to_end(cache_key)  # Mark as recently used
                 return self._partition_key_cache[cache_key]
 
             # Cache miss: compute and store
@@ -748,11 +757,13 @@ class KafkaCallback(KafkaBackendBase):
             key = _get_partition_key(obj, self._partition_strategy)
 
             # Store in cache if enabled
+            # TODO #011: Proper LRU eviction with OrderedDict
             if self._enable_partition_key_cache:
-                # Simple LRU: clear cache if it gets too large
-                if len(self._partition_key_cache) >= self._partition_key_cache_size:
-                    self._partition_key_cache.clear()
+                # Add to cache
                 self._partition_key_cache[cache_key] = key
+                # Evict oldest entry if over capacity (proper LRU)
+                if len(self._partition_key_cache) > self._partition_key_cache_size:
+                    self._partition_key_cache.popitem(last=False)  # Remove oldest (FIFO)
 
             return key
         except Exception:
@@ -928,7 +939,13 @@ class KafkaCallback(KafkaBackendBase):
 
                 produce_start = time.perf_counter() if metrics else None
                 self._producer.produce(topic, payload, key=key, headers=normalized_headers)
-                self._producer.poll(0.0)
+
+                # TODO #010: Batch polling optimization - only poll every N messages
+                self._poll_counter += 1
+                if self._poll_counter >= self._poll_batch_size:
+                    self._producer.poll(0.0)
+                    self._poll_counter = 0
+
                 if metrics and produce_start is not None:
                     _record_produce_latency(
                         metrics,
