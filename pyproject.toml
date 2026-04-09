@@ -46,6 +46,8 @@ dependencies = [
     "order_book>=0.6.1",
     "aiodns>=1.1",
     "PyNaCl>=1.5",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
 ]
 
 [project.optional-dependencies]
