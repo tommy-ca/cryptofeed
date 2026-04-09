@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import inspect
+import logging
+import sys
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse
-import sys
-
-from loguru import logger
 
 from cryptofeed.defines import (
     BALANCES,
@@ -25,6 +24,8 @@ from .exchanges import get_symbol_normalizer
 
 if TYPE_CHECKING:  # pragma: no cover - import for type checking only
     from .transport import CcxtRestTransport, CcxtWsTransport
+
+LOG = logging.getLogger('feedhandler')
 
 
 @dataclass(slots=True)
@@ -290,10 +291,10 @@ class CcxtGenericFeed:
             if self._ws_transport is not None:
                 await self._ws_transport.close()
                 self._ws_transport = None
-            logger.warning(
-                "ccxt feed falling back to REST",
-                exchange=self.exchange_id,
-                reason=str(exc),
+            LOG.warning(
+                "ccxt feed falling back to REST (exchange=%s reason=%s)",
+                self.exchange_id,
+                exc,
             )
 
     async def close(self) -> None:
@@ -360,6 +361,6 @@ def get_supported_ccxt_exchanges() -> List[str]:
         ccxt = _dynamic_import('ccxt')
         exchanges = list(getattr(ccxt, 'exchanges', []))
     except ImportError:
-        logger.warning("CCXT not available - returning empty exchange list")
+        LOG.warning("CCXT not available - returning empty exchange list")
         return []
     return sorted(exchanges)

@@ -16,4 +16,6 @@ PRs, bug reports, feature requests, documentation, and other enhancements and im
 * Has it been tested? How?
 * Does the code style match the overall code style of the project? Long lines are preferred, so please do not use formatters that turn 1 line into 4 lines.
 * Please use type annotations.
-* Please run flake8 and fix any formatting issues it uncovers.
+* Use **uv** for installs (canonical): pin matches [`.python-version`](.python-version), then `uv sync` with any extras you need (`--extra socks`, `--extra ccxt`, `--extra kafka`, etc.), and `uv run pytest`.
+* After changing dependencies in [`pyproject.toml`](pyproject.toml): run `uv lock`, then `uv export --frozen --no-dev --no-editable --format requirements-txt -o requirements.txt` (or rely on the `uv-export` pre-commit hook). **Do not hand-edit** [`requirements.txt`](requirements.txt); it is generated for `pip install -r` compatibility only.
+* Please run **ruff** (`uv run ruff check .`) and fix any issues it uncovers.

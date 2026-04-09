@@ -28,10 +28,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: AsyncIO",
 ]
 requires-python = ">=3.12"
@@ -41,7 +40,6 @@ dependencies = [
     "pyyaml",
     "aiohttp>=3.9.4",
     "aiofile>=2.0.0",
-    "yapic.json>=1.6.3",
     "uvloop ; platform_system!='Windows'",
     "order_book>=0.6.1",
     "aiodns>=1.1",
@@ -50,12 +48,21 @@ dependencies = [
     "pydantic-settings>=2.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8.0",
+    "pyscn>=0.6.0",
+]
+
 [project.optional-dependencies]
-dev = ["pyscn>=0.6.0"]
-socks = ["python-socks>=2.4.3"]
+fastjson = ["orjson>=3.10.0"]
+ccxt = ["ccxt>=4.5.9"]
+socks = ["python-socks>=2.4.3", "aiohttp-socks>=0.10.0"]
 arctic = ["arctic", "pandas"]
 gcp_pubsub = ["google_cloud_pubsub>=2.4.1", "gcloud_aio_pubsub"]
-kafka = ["aiokafka>=0.7.0"]
+kafka = ["aiokafka>=0.7.0", "confluent-kafka>=2.0.0", "protobuf>=5.0.0"]
 mongo = ["motor"]
 postgres = ["asyncpg"]
 quasardb = ["quasardb", "numpy"]
@@ -67,6 +74,8 @@ all = [
     "google_cloud_pubsub>=2.4.1",
     "gcloud_aio_pubsub",
     "aiokafka>=0.7.0",
+    "confluent-kafka>=2.0.0",
+    "protobuf>=5.0.0",
     "motor",
     "asyncpg",
     "aio_pika",
@@ -74,6 +83,10 @@ all = [
     "hiredis",
     "redis>=4.5.1",
     "pyzmq",
+    "ccxt>=4.5.9",
+    "orjson>=3.10.0",
+    "python-socks>=2.4.3",
+    "aiohttp-socks>=0.10.0",
 ]
 
 [project.urls]

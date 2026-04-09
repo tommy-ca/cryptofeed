@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+      BUF_V2BETA1_AGAINST: ${{ vars.BUF_V2BETA1_AGAINST }}
     strategy:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
@@ -22,9 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          uv sync --extra socks
-          uv pip install pytest pytest-asyncio
-          uv pip install -e .
+          uv sync --frozen --python ${{ matrix.python-version }} --extra socks --extra ccxt --extra kafka
       - name: Set up Buf CLI
         run: |
           mkdir -p /usr/local/bin
@@ -41,15 +40,13 @@ jobs:
           buf breaking proto --against 'buf.build/tommyk/crypto-market-data:main'
       - name: Check for breaking changes (v2beta1)
         if: env.BUF_TOKEN != '' && env.BUF_V2BETA1_AGAINST != ''
-        env:
-          BUF_V2BETA1_AGAINST: ${{ env.BUF_V2BETA1_AGAINST }}
         run: |
           echo "Using against ref: ${BUF_V2BETA1_AGAINST}"
           buf breaking proto/cryptofeed/normalized/v2beta1 --against "${BUF_V2BETA1_AGAINST}"
       - name: Skip v2beta1 breaking (no target set)
         if: env.BUF_TOKEN != '' && env.BUF_V2BETA1_AGAINST == ''
         run: |
-          echo "Skipping v2beta1 breaking check (set BUF_V2BETA1_AGAINST to enable)"
+          echo "Skipping v2beta1 breaking check (set repository variable BUF_V2BETA1_AGAINST to enable)"
       - name: Generate Protobuf bindings
         run: |
           buf generate --template buf.gen.yaml proto
@@ -73,4 +70,3 @@ jobs:
       - name: Test with pytest
         run: |
           uv run pytest tests -v --tb=short
-          uv run pytest tests/unit/kafka/test_import_guards.py -q

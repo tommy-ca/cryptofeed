@@ -10,12 +10,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Sync dev tools
+        run: |
+          uv sync --frozen
 
       - name: Run ruff lint
         run: |
-          uvx ruff check .
+          uv run ruff check .
 
       - name: Run pyscn quality check
         run: |
-          uvx pyscn check --max-complexity 15 cryptofeed
+          uv run pyscn check --max-complexity 15 cryptofeed
